@@ -72,6 +72,18 @@ Down/Enter events select the non-first B row, launch through a fake adapter,
 rerender recents as B/A/C and press Enter again. Both calls target B, whose selected
 row stays visible in the no-tray path. Native desktop access remains untested.
 
+## Clipboard usability phase
+
+Local tests, integrity verification, vet and Windows build passed. Deterministic
+clock tests verify expiry, duplicate refresh, exact deletion, shortened retention
+and session defaults. Headless 100%/150% tests render full synthetic multiline/
+Chinese/emoji text, scroll to a dedicated end marker, copy its exact complete
+value through a mock writer, delete/clear preview references and restore focus.
+New entries retain highlighted identity; an Enter after removal does not copy a
+replacement. No existing user clipboard content was read, restored or recorded.
+The synthetic preview images were visually inspected. Native collection, expiry
+tick scheduling, copy/verified-target paste and real IME remain **not tested**.
+
 ## Minimal manual Windows pass
 
 Use a standard account and a temporary text window with dedicated test text.

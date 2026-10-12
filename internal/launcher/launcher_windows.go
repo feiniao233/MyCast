@@ -23,6 +23,11 @@ import (
 )
 
 type launcher struct {
+	previewScroll                                  ui.ScrollState
+	clipPreview, clipSelection                     string
+	previewOpen                                    bool
+	retention                                      time.Duration
+	copyText                                       func(string) error
 	persistPreferences                             func(settings.Settings) (settings.Settings, error)
 	scanQueue                                      core.ScanQueue
 	scanCancel                                     context.CancelFunc
@@ -58,7 +63,7 @@ type launcher struct {
 }
 
 func Run() error {
-	s := &launcher{history: core.NewHistory(50, 64*1024), stop: make(chan struct{}), config: settings.Defaults(), launchApplication: platform.Launch}
+	s := &launcher{history: core.NewHistory(50, 64*1024), stop: make(chan struct{}), config: settings.Defaults(), launchApplication: platform.Launch, copyText: platform.WriteClipboardText}
 	mygo.App.SetName("MyCast")
 	if !mygo.App.RequestSingleInstanceLock() {
 		return nil
@@ -110,7 +115,7 @@ func (s *launcher) ready() {
 		menu := mygo.NewMenu([]*mygo.MenuItem{
 			{Label: "打开 MyCast", Click: func(*mygo.MenuItem, *mygo.Window) { s.show(false) }},
 			{Label: "重新扫描应用", Click: func(*mygo.MenuItem, *mygo.Window) { s.scan() }},
-			{Label: "清空剪贴板历史", Click: func(*mygo.MenuItem, *mygo.Window) { s.history.Clear(); s.win.Invalidate() }},
+			{Label: "清空剪贴板历史", Click: func(*mygo.MenuItem, *mygo.Window) { s.clearHistory(); s.win.Invalidate() }},
 			mygo.Separator(), {Label: "退出 MyCast", Click: func(*mygo.MenuItem, *mygo.Window) { mygo.App.Quit() }},
 		})
 		s.tray.OnRightClick(func() { s.hide(); s.tray.SetMenu(menu); defer s.tray.SetMenu(nil); s.tray.PopUpMenu() })
@@ -129,7 +134,7 @@ func (s *launcher) ready() {
 			s.scanCancel()
 		}
 		mygo.GlobalShortcut.UnregisterAll()
-		s.history.Clear()
+		s.clearHistory()
 		if s.tray != nil {
 			s.tray.Destroy()
 		}
@@ -143,6 +148,8 @@ func (s *launcher) ready() {
 func (s *launcher) hide() {
 	s.closeMenu()
 	s.settingsOpen = false
+	s.clipPreview, s.clipSelection = "", ""
+	s.previewOpen = false
 	if s.tray != nil {
 		s.win.Hide()
 	}
@@ -158,6 +165,8 @@ func (s *launcher) show(captureTarget bool) {
 	s.query, s.selected, s.lastScroll = "", 0, 0
 	s.menu, s.restoreSearch = menuClosed, true
 	s.settingsOpen = false
+	s.clipPreview, s.clipSelection = "", ""
+	s.previewOpen = false
 	s.scroll.X, s.scroll.Y = 0, 0
 	s.win.Center()
 	s.input.Focus()
@@ -263,6 +272,7 @@ func (s *launcher) pollClipboard() {
 			return
 		case <-ticker.C:
 			s.win.Update(func() {
+				s.expireHistory()
 				if s.quitting || !s.recording {
 					return
 				}
@@ -315,7 +325,11 @@ func (s *launcher) activate(apps []core.Application, clips []string, copyOnly bo
 		}
 		text := clips[s.selected]
 		if copyOnly || s.target == 0 || s.tray == nil {
-			if err := platform.WriteClipboardText(text); err != nil {
+			if s.copyText == nil {
+				s.status = "复制接口不可用。"
+				return
+			}
+			if err := s.copyText(text); err != nil {
 				s.status = "复制失败：" + err.Error()
 				return
 			}

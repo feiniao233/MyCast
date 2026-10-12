@@ -35,7 +35,11 @@ type paletteMenuItem struct {
 
 var searchGlyph = ui.MustParseSVG([]byte(`<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><circle cx="10" cy="10" r="6.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M15 15L21 21" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>`))
 
-func (s *launcher) resetResults() { s.selected, s.lastScroll = 0, 0; s.scroll.X, s.scroll.Y = 0, 0 }
+func (s *launcher) resetResults() {
+	s.selected, s.lastScroll = 0, 0
+	s.scroll.X, s.scroll.Y = 0, 0
+	s.clipSelection = ""
+}
 func (s *launcher) switchMode(clipboard bool) {
 	if s.clipboardMode != clipboard {
 		s.clipboardMode, s.query = clipboard, ""
@@ -135,6 +139,10 @@ func (s *launcher) menuItems(apps []core.Application, clips []string) []paletteM
 		items := []paletteMenuItem{{primary, "↵", count == 0, func() { s.activate(apps, clips, false) }}}
 		if s.clipboardMode {
 			items = append(items, paletteMenuItem{"仅复制", "▤", count == 0, func() { s.activate(apps, clips, true) }})
+			if s.selected >= 0 && s.selected < len(clips) {
+				text := clips[s.selected]
+				items = append(items, paletteMenuItem{"预览全文", "▤", false, func() { s.openClipPreview(text) }}, paletteMenuItem{"删除此条", "×", false, func() { s.deleteClip(text) }})
+			}
 		}
 		if !s.clipboardMode && s.selected >= 0 && s.selected < len(apps) {
 			app := apps[s.selected]
@@ -158,7 +166,8 @@ func (s *launcher) applicationMenuItems() []paletteMenuItem {
 		{"应用", "▦", false, func() { s.switchMode(false) }},
 		{"剪贴板", "▤", false, func() { s.switchMode(true) }},
 		{record, "○", false, func() { s.setRecording(!s.recording) }},
-		{"清空内存历史", "×", s.history.Len() == 0, func() { s.history.Clear(); s.resetResults() }},
+		{s.retentionLabel(), "◷", false, s.cycleRetention},
+		{"清空内存历史", "×", s.history.Len() == 0, s.clearHistory},
 		{"重新扫描应用", "↻", s.scanning, s.scan},
 		{"设置", "⚙", false, s.openSettings},
 		{"清空最近启动", "×", len(s.config.Recents) == 0, func() {
@@ -261,6 +270,26 @@ func (s *launcher) view(c *ui.Context) {
 		apps := core.SearchApplicationsRanked(s.apps, s.query, 100, s.config.Favorites, s.config.Recents)
 		clips := s.clipResults()
 		rows := s.rows(apps, clips)
+		selectionLost := false
+		if s.clipboardMode && s.clipSelection != "" {
+			found := false
+			for index, row := range rows {
+				if row.key == s.clipSelection {
+					if s.selected != index {
+						s.selected = index
+						s.reveal(rows, height)
+					}
+					s.selected = index
+					found = true
+					break
+				}
+			}
+			if !found {
+				s.resetResults()
+				selectionLost = true
+				s.status = "原选文本已移除，请重新选择。"
+			}
+		}
 		count := len(rows)
 		if count == 0 {
 			s.selected = 0
@@ -375,7 +404,7 @@ func (s *launcher) view(c *ui.Context) {
 				s.reveal(rows, height)
 				s.lastScroll = s.selected
 			}
-			if field.Submitted() || c.Shortcut(0, ui.KeyEnter) {
+			if !selectionLost && (field.Submitted() || c.Shortcut(0, ui.KeyEnter)) {
 				s.activate(apps, clips, false)
 			}
 		}
@@ -400,7 +429,7 @@ func (s *launcher) view(c *ui.Context) {
 			ui.Spacer(c)
 			ui.Row(c).Height(palette.MenuButton).Shrink(0).Padding(palette.ControlInset).Gap(palette.RowGap).Radius(palette.MenuButton/2).Background(palette.Control).Border(1, palette.Border).Children(func() {
 				label, _ := s.primaryLabels()
-				primary := barAction(c.Key("primary-action"), label, count == 0 || s.menu != menuClosed || s.settingsOpen)
+				primary := barAction(c.Key("primary-action"), label, count == 0 || s.menu != menuClosed || s.settingsOpen || selectionLost)
 				primary.Children(func() {
 					ui.Text(c, label).FontSize(palette.BodySize).Bold()
 					ui.Box(c).Size(palette.KeyCap, palette.KeyCap).Center().Radius(palette.KeyCapRadius).Background(palette.Control).Children(func() { ui.Text(c, "↵").FontSize(palette.BodySize).TextColor(palette.Secondary) })
@@ -423,6 +452,9 @@ func (s *launcher) view(c *ui.Context) {
 		}
 		if s.settingsOpen {
 			s.drawSettings(c)
+		}
+		if s.clipboardMode && s.selected >= 0 && s.selected < len(rows) {
+			s.clipSelection = rows[s.selected].key
 		}
 	})
 }

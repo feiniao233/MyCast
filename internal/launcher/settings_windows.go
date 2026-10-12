@@ -56,6 +56,8 @@ func (s *launcher) saveOrdinarySettings(candidate settings.Settings) (settings.S
 }
 
 func (s *launcher) openSettings() {
+	s.clipPreview = ""
+	s.previewOpen = false
 	s.aliasID = ""
 	s.closeMenu()
 	s.settingsDraft = s.config.Clone()
@@ -70,6 +72,8 @@ func (s *launcher) openSettings() {
 }
 
 func (s *launcher) closeSettings() {
+	s.clipPreview = ""
+	s.previewOpen = false
 	s.settingsOpen, s.settingsNeedsFocus = false, false
 	s.restoreSearch = true
 }
@@ -105,6 +109,10 @@ func (s *launcher) saveSettings() {
 }
 
 func (s *launcher) drawSettings(c *ui.Context) {
+	if s.previewOpen {
+		s.drawClipPreview(c)
+		return
+	}
 	if s.aliasID != "" {
 		s.drawAliases(c)
 		return
