@@ -9,7 +9,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
+	"github.com/feiniao233/MyCast/internal/core"
 )
 
 func TestFullClipboardPreviewCopyDeleteAndDPI(t *testing.T) {
@@ -64,6 +66,78 @@ func TestFullClipboardPreviewCopyDeleteAndDPI(t *testing.T) {
 	}
 }
 
+func TestClipboardMenuDoesNotRetargetRemovedOrExpiredText(t *testing.T) {
+	for _, remove := range []string{"delete", "expire"} {
+		for _, event := range []string{"enter", "copy", "delete"} {
+			for _, renderFirst := range []bool{false, true} {
+				for _, pasteMode := range []bool{false, true} {
+					t.Run(fmt.Sprintf("%s-%s-render-%v-paste-%v", remove, event, renderFirst, pasteMode), func(t *testing.T) {
+						now := time.Unix(1000, 0)
+						s := syntheticLauncher()
+						s.clipboardMode = true
+						s.history = core.NewHistoryWithClock(50, 64*1024, func() time.Time { return now })
+						s.history.SetRetention(10 * time.Minute)
+						s.history.Add("Dedicated A")
+						now = now.Add(9 * time.Minute)
+						s.history.Add("Dedicated B")
+						copies, pastes := 0, 0
+						s.copyText = func(string) error { copies++; return nil }
+						s.pasteText = func(uintptr, string) error { pastes++; return nil }
+						if pasteMode {
+							s.target = 123
+							s.tray = &mygo.Tray{}
+						}
+						tester := newPaletteTester(s, 1)
+						tester.Key(0, ui.KeyDown)
+						tester.Click("操作")
+						if s.menuTargetKey != clipKey("Dedicated A") {
+							t.Fatal("menu target was not bound on open")
+						}
+						label := "菜单项：仅复制"
+						if event == "delete" {
+							label = "菜单项：删除此条"
+						}
+						box, ok := tester.Find(label)
+						if !ok {
+							t.Fatal("missing original menu action")
+						}
+						if remove == "delete" {
+							s.history.Delete("Dedicated A")
+						} else {
+							now = now.Add(2 * time.Minute)
+						}
+						if renderFirst {
+							tester.Frame()
+							if s.menu != menuClosed {
+								t.Fatal("stale menu remained open after render")
+							}
+						}
+						if event == "enter" {
+							tester.Key(0, ui.KeyEnter)
+						} else {
+							tester.ClickAt(box.X+box.W/2, box.Y+box.H/2)
+						}
+						if copies != 0 || pastes != 0 || s.history.Len() != 1 || s.history.Entries()[0] != "Dedicated B" || s.menu != menuClosed {
+							t.Fatal("stale menu copied/pasted/deleted a replacement")
+						}
+						// A second stale Enter must not act until the user deliberately reselects.
+						tester.Key(0, ui.KeyEnter)
+						if copies != 0 || pastes != 0 {
+							t.Fatal("closed stale menu fell through to a replacement")
+						}
+						tester.Key(0, ui.KeyDown)
+						tester.Click("操作")
+						tester.Click("菜单项：仅复制")
+						if copies != 1 {
+							t.Fatal("explicit reselection did not recover actions")
+						}
+					})
+				}
+			}
+		}
+	}
+}
+
 func TestClipboardNewEntryKeepsHighlightedIdentityAndClearReleasesPreview(t *testing.T) {
 	s := syntheticLauncher()
 	s.clipboardMode = true
@@ -106,5 +180,17 @@ func TestRemovedHighlightedTextDoesNotCopyReplacementOnSameEnter(t *testing.T) {
 	tester.Key(0, ui.KeyEnter)
 	if calls != 0 {
 		t.Fatal("removing selected text copied a replacement on the same Enter")
+	}
+}
+
+func TestClipboardFilteringDoesNotReportSelectionDeletion(t *testing.T) {
+	s := syntheticLauncher()
+	s.clipboardMode = true
+	s.history.Add("Dedicated A")
+	s.history.Add("Dedicated B")
+	tester := newPaletteTester(s, 1)
+	tester.Type("Dedicated A")
+	if s.status != "" || s.clipNeedsSelection || s.clipResults()[s.selected] != "Dedicated A" {
+		t.Fatal("ordinary query change treated as deletion")
 	}
 }

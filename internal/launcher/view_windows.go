@@ -39,6 +39,7 @@ func (s *launcher) resetResults() {
 	s.selected, s.lastScroll = 0, 0
 	s.scroll.X, s.scroll.Y = 0, 0
 	s.clipSelection = ""
+	s.clipNeedsSelection = false
 }
 func (s *launcher) switchMode(clipboard bool) {
 	if s.clipboardMode != clipboard {
@@ -47,13 +48,79 @@ func (s *launcher) switchMode(clipboard bool) {
 	}
 	s.restoreSearch = true
 }
-func (s *launcher) closeMenu() { s.menu = menuClosed; s.restoreSearch = true; s.menuNeedsFocus = false }
+func (s *launcher) closeMenu() {
+	s.menu = menuClosed
+	s.restoreSearch = true
+	s.menuNeedsFocus = false
+	s.menuTargetKey = ""
+}
 func (s *launcher) openMenu(menu paletteMenu) {
 	if s.menu == menu {
 		s.closeMenu()
 	} else {
 		s.menu, s.menuSelected = menu, 0
 		s.menuNeedsFocus = true
+		s.menuTargetKey = ""
+		s.menuTargetClipboard = s.clipboardMode
+		if menu == menuActions {
+			if s.clipboardMode {
+				clips := s.clipResults()
+				if s.selected >= 0 && s.selected < len(clips) {
+					s.menuTargetKey = clipKey(clips[s.selected])
+				}
+			} else {
+				s.menuTargetKey = s.selectedApplicationID()
+			}
+		}
+	}
+}
+
+func clipKey(text string) string { return fmt.Sprintf("clip-%x", sha256.Sum256([]byte(text))) }
+
+// Resolve the original menu identity again immediately before each effect.
+func (s *launcher) resolveMenuTarget(key string, clipboard bool) ([]core.Application, []string, int, bool) {
+	if clipboard != s.clipboardMode {
+		return nil, nil, 0, false
+	}
+	if clipboard {
+		clips := s.clipResults()
+		for index, text := range clips {
+			if clipKey(text) == key {
+				return nil, clips, index, true
+			}
+		}
+		return nil, nil, 0, false
+	}
+	apps := core.SearchApplicationsRanked(s.apps, s.query, 100, s.config.Favorites, s.config.Recents)
+	for index, app := range apps {
+		if app.ItemID() == key {
+			return apps, nil, index, true
+		}
+	}
+	return nil, nil, 0, false
+}
+func (s *launcher) runMenuTarget(key string, clipboard bool, action string) {
+	apps, clips, index, ok := s.resolveMenuTarget(key, clipboard)
+	if !ok {
+		s.closeMenu()
+		s.clipNeedsSelection = clipboard
+		s.status = "操作目标已移除，请重新选择。"
+		return
+	}
+	s.selected = index
+	switch action {
+	case "primary":
+		s.activate(apps, clips, false)
+	case "copy":
+		s.activate(apps, clips, true)
+	case "preview":
+		s.openClipPreview(clips[index])
+	case "delete":
+		s.deleteClip(clips[index])
+	case "favorite":
+		s.toggleFavorite(apps[index].ItemID())
+	case "alias":
+		s.openAliases(apps[index])
 	}
 }
 
@@ -130,27 +197,24 @@ func (s *launcher) primaryLabels() (string, string) {
 }
 
 func (s *launcher) menuItems(apps []core.Application, clips []string) []paletteMenuItem {
-	count := len(apps)
-	if s.clipboardMode {
-		count = len(clips)
-	}
 	_, primary := s.primaryLabels()
 	if s.menu == menuActions {
-		items := []paletteMenuItem{{primary, "↵", count == 0, func() { s.activate(apps, clips, false) }}}
+		key, clipboard := s.menuTargetKey, s.menuTargetClipboard
+		boundApps, boundClips, index, valid := s.resolveMenuTarget(key, clipboard)
+		items := []paletteMenuItem{{primary, "↵", !valid, func() { s.runMenuTarget(key, clipboard, "primary") }}}
 		if s.clipboardMode {
-			items = append(items, paletteMenuItem{"仅复制", "▤", count == 0, func() { s.activate(apps, clips, true) }})
-			if s.selected >= 0 && s.selected < len(clips) {
-				text := clips[s.selected]
-				items = append(items, paletteMenuItem{"预览全文", "▤", false, func() { s.openClipPreview(text) }}, paletteMenuItem{"删除此条", "×", false, func() { s.deleteClip(text) }})
+			items = append(items, paletteMenuItem{"仅复制", "▤", !valid, func() { s.runMenuTarget(key, clipboard, "copy") }})
+			if valid && len(boundClips) > 0 {
+				items = append(items, paletteMenuItem{"预览全文", "▤", false, func() { s.runMenuTarget(key, clipboard, "preview") }}, paletteMenuItem{"删除此条", "×", false, func() { s.runMenuTarget(key, clipboard, "delete") }})
 			}
 		}
-		if !s.clipboardMode && s.selected >= 0 && s.selected < len(apps) {
-			app := apps[s.selected]
+		if !s.clipboardMode && valid && len(boundApps) > 0 {
+			app := boundApps[index]
 			favorite := "收藏应用"
 			if slices.Contains(s.config.Favorites, app.ItemID()) {
 				favorite = "取消收藏"
 			}
-			items = append(items, paletteMenuItem{favorite, "★", false, func() { s.toggleFavorite(app.ItemID()) }}, paletteMenuItem{"编辑搜索别名", "✎", false, func() { s.openAliases(app) }})
+			items = append(items, paletteMenuItem{favorite, "★", false, func() { s.runMenuTarget(key, clipboard, "favorite") }}, paletteMenuItem{"编辑搜索别名", "✎", false, func() { s.runMenuTarget(key, clipboard, "alias") }})
 		}
 		return items
 	}
@@ -267,11 +331,25 @@ func (s *launcher) view(c *ui.Context) {
 		background = palette.Scrim
 	}
 	ui.Box(c.Key("palette-root")).Fill().Background(background).Radius(palette.PanelRadius).Clip().Children(func() {
+		queryAtRows := s.query
 		apps := core.SearchApplicationsRanked(s.apps, s.query, 100, s.config.Favorites, s.config.Recents)
 		clips := s.clipResults()
 		rows := s.rows(apps, clips)
 		selectionLost := false
-		if s.clipboardMode && s.clipSelection != "" {
+		menuLost := false
+		if s.menu == menuActions && s.menuTargetKey != "" {
+			if _, _, _, ok := s.resolveMenuTarget(s.menuTargetKey, s.menuTargetClipboard); !ok {
+				menuLost = true
+				selectionLost = true
+				s.closeMenu()
+				s.clipNeedsSelection = s.clipboardMode
+				s.status = "操作目标已移除，请重新选择。"
+				for _, key := range []ui.Key{ui.KeyEnter, ui.KeyEscape, ui.KeyUp, ui.KeyDown} {
+					c.Shortcut(0, key)
+				}
+			}
+		}
+		if s.clipboardMode && s.clipSelection != "" && s.clipQuery == s.query {
 			found := false
 			for index, row := range rows {
 				if row.key == s.clipSelection {
@@ -287,6 +365,7 @@ func (s *launcher) view(c *ui.Context) {
 			if !found {
 				s.resetResults()
 				selectionLost = true
+				s.clipNeedsSelection = true
 				s.status = "原选文本已移除，请重新选择。"
 			}
 		}
@@ -326,7 +405,7 @@ func (s *launcher) view(c *ui.Context) {
 				}
 				for i, row := range rows {
 					index, item := i, row
-					button := ui.ButtonBase(c.Key(item.key)).FillWidth().Height(item.height).Shrink(0).Padding(palette.RowPaddingY, palette.RowInset).Gap(palette.Gap).Justify(ui.Start).AlignItems(ui.Center).Radius(palette.RowRadius).Label("结果：" + item.title).Disabled(s.menu != menuClosed || s.settingsOpen)
+					button := ui.ButtonBase(c.Key(item.key)).FillWidth().Height(item.height).Shrink(0).Padding(palette.RowPaddingY, palette.RowInset).Gap(palette.Gap).Justify(ui.Start).AlignItems(ui.Center).Radius(palette.RowRadius).Label("结果：" + item.title).Disabled(s.menu != menuClosed || s.settingsOpen || menuLost)
 					if !c.Preferences().HighContrast {
 						button.Opacity(rowOpacity(item.top-s.scroll.Y, item.height, height, s.scroll.Y, s.scroll.MaxY-s.scroll.Y))
 					}
@@ -355,8 +434,12 @@ func (s *launcher) view(c *ui.Context) {
 						ui.Text(c, item.kind).FontSize(palette.CaptionSize).TextColor(palette.Tertiary).Shrink(0)
 					})
 					if button.Clicked() {
+						needsSelection := s.clipboardMode && s.clipNeedsSelection
+						s.clipNeedsSelection = false
 						s.selected = index
-						s.activate(apps, clips, false)
+						if !needsSelection {
+							s.activate(apps, clips, false)
+						}
 					}
 				}
 			})
@@ -375,19 +458,19 @@ func (s *launcher) view(c *ui.Context) {
 					ui.Icon(c, searchGlyph).Size(palette.Icon, palette.Icon).TextColor(palette.Secondary)
 				}
 			})
-			field = ui.TextInputBase(c.Key("search"), &s.query).Grow(1).MinWidth(0).Height(palette.Header).Padding(0).FontSize(palette.SearchSize).Background(ui.Transparent).FocusRing(false).Placeholder("搜索应用或剪贴板…").Label("搜索").Bind(&s.input).AutoFocus().Disabled(s.menu != menuClosed || s.settingsOpen)
+			field = ui.TextInputBase(c.Key("search"), &s.query).Grow(1).MinWidth(0).Height(palette.Header).Padding(0).FontSize(palette.SearchSize).Background(ui.Transparent).FocusRing(false).Placeholder("搜索应用或剪贴板…").Label("搜索").Bind(&s.input).AutoFocus().Disabled(s.menu != menuClosed || s.settingsOpen || menuLost)
 		})
 		if header.Clicked() && s.menu == menuClosed && !s.settingsOpen {
 			s.restoreSearch = true
 		}
-		if s.restoreSearch && s.menu == menuClosed && !s.settingsOpen {
+		if s.restoreSearch && s.menu == menuClosed && !s.settingsOpen && !menuLost {
 			field.Focus()
 			s.restoreSearch = false
 		}
 		if field.Changed() {
 			s.resetResults()
 		}
-		if !field.Composing() && s.menu == menuClosed && !s.settingsOpen {
+		if !field.Composing() && s.menu == menuClosed && !s.settingsOpen && !menuLost {
 			if c.Shortcut(0, ui.KeyEscape) {
 				s.hide()
 			}
@@ -401,10 +484,11 @@ func (s *launcher) view(c *ui.Context) {
 				changed = true
 			}
 			if changed {
+				s.clipNeedsSelection = false
 				s.reveal(rows, height)
 				s.lastScroll = s.selected
 			}
-			if !selectionLost && (field.Submitted() || c.Shortcut(0, ui.KeyEnter)) {
+			if !selectionLost && !s.clipNeedsSelection && (field.Submitted() || c.Shortcut(0, ui.KeyEnter)) {
 				s.activate(apps, clips, false)
 			}
 		}
@@ -429,7 +513,7 @@ func (s *launcher) view(c *ui.Context) {
 			ui.Spacer(c)
 			ui.Row(c).Height(palette.MenuButton).Shrink(0).Padding(palette.ControlInset).Gap(palette.RowGap).Radius(palette.MenuButton/2).Background(palette.Control).Border(1, palette.Border).Children(func() {
 				label, _ := s.primaryLabels()
-				primary := barAction(c.Key("primary-action"), label, count == 0 || s.menu != menuClosed || s.settingsOpen || selectionLost)
+				primary := barAction(c.Key("primary-action"), label, count == 0 || s.menu != menuClosed || s.settingsOpen || selectionLost || s.clipNeedsSelection)
 				primary.Children(func() {
 					ui.Text(c, label).FontSize(palette.BodySize).Bold()
 					ui.Box(c).Size(palette.KeyCap, palette.KeyCap).Center().Radius(palette.KeyCapRadius).Background(palette.Control).Children(func() { ui.Text(c, "↵").FontSize(palette.BodySize).TextColor(palette.Secondary) })
@@ -437,7 +521,7 @@ func (s *launcher) view(c *ui.Context) {
 				if primary.Clicked() {
 					s.activate(apps, clips, false)
 				}
-				action := barAction(c.Key("actions-toggle"), "操作", s.settingsOpen)
+				action := barAction(c.Key("actions-toggle"), "操作", s.settingsOpen || selectionLost || s.clipNeedsSelection)
 				action.Children(func() { ui.Text(c, "操作").FontSize(palette.BodySize).TextColor(palette.Secondary) })
 				if action.Clicked() {
 					s.openMenu(menuActions)
@@ -453,8 +537,12 @@ func (s *launcher) view(c *ui.Context) {
 		if s.settingsOpen {
 			s.drawSettings(c)
 		}
-		if s.clipboardMode && s.selected >= 0 && s.selected < len(rows) {
+		if menuLost {
+			ui.ButtonBase(c.Key("menu-target-lost-catcher")).Absolute().Top(0).Left(0).Right(0).Bottom(0).Label("失效操作已关闭")
+		}
+		if s.clipboardMode && s.query == queryAtRows && s.selected >= 0 && s.selected < len(rows) && strings.HasPrefix(rows[s.selected].key, "clip-") {
 			s.clipSelection = rows[s.selected].key
+			s.clipQuery = queryAtRows
 		}
 	})
 }

@@ -86,6 +86,14 @@ tick scheduling, copy/verified-target paste and real IME remain **not tested**.
 
 ## Minimal manual Windows pass
 
+The clipboard menu review regression covers 24 combinations of deletion/expiry,
+Enter/copy/delete, an optional render before input, and copy/paste modes. The menu
+captures its target identity on open and resolves it again before effects. Tests
+use dedicated A/B text, a deterministic clock and mocked copy/paste adapters:
+no adapter is called and B remains unchanged after A disappears. A stale follow-up
+Enter remains blocked; explicit reselection restores actions. Mode and query
+changes retain ordinary focus/filter behavior.
+
 Use a standard account and a temporary text window with dedicated test text.
 Do not copy or expose an existing clipboard value. Leave startup integration off.
 

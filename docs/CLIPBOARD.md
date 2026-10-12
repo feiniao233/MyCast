@@ -18,6 +18,10 @@ clipboard; Enter on opening the sheet does not copy or paste. Close/Escape resto
 search focus. **删除此条** removes one exact entry; **清空内存历史** clears all entries
 and releases an open preview. New entries preserve the highlighted text identity.
 If that text disappears, the same Enter does not copy a replacement automatically.
+An open actions menu is bound to the identity selected when it opened. If that
+entry is deleted or expires, the menu closes and its pending input is consumed;
+it cannot copy, paste, preview or delete a replacement. Actions remain blocked
+until an arrow/query change or an explicit selection confirms a new target.
 
 **菜单 → 保留** cycles among until exit, ten minutes and one hour. This affects only
 the current session and applies to existing entries too. Shortening the policy

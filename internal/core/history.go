@@ -34,6 +34,12 @@ func NewHistory(maxEntries, maxEntryBytes int) *History {
 	return &History{maxEntries: maxEntries, maxEntryBytes: maxEntryBytes, now: time.Now}
 }
 
+// NewHistoryWithClock provides deterministic clocks for isolated domain/UI
+// tests; a nil clock uses time.Now. No global clock or session state is changed.
+func NewHistoryWithClock(maxEntries, maxEntryBytes int, now func() time.Time) *History {
+	return &History{maxEntries: maxEntries, maxEntryBytes: maxEntryBytes, now: now}
+}
+
 // Add stores valid UTF-8 text, moving an exact duplicate to the newest position.
 // It reports whether the history changed. Empty text, oversized values, invalid
 // UTF-8 and disabled storage leave it unchanged. A newest duplicate refreshes

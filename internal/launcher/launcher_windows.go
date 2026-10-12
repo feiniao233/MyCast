@@ -23,6 +23,10 @@ import (
 )
 
 type launcher struct {
+	clipQuery                                      string
+	pasteText                                      func(uintptr, string) error
+	menuTargetKey                                  string
+	menuTargetClipboard, clipNeedsSelection        bool
 	previewScroll                                  ui.ScrollState
 	clipPreview, clipSelection                     string
 	previewOpen                                    bool
@@ -89,6 +93,7 @@ func Run() error {
 }
 
 func (s *launcher) ready() {
+	s.pasteText = platform.PasteToWindow
 	s.win = mygo.NewWindow(mygo.WindowOptions{
 		Title: "MyCast", Width: int(palette.Width), Height: int(palette.Height), Hidden: true, Frameless: true,
 		Transparent: true, BackgroundColor: "#00000000", Vibrancy: mygo.VibrancyAcrylic,
@@ -149,8 +154,9 @@ func (s *launcher) hide() {
 	s.closeMenu()
 	s.settingsOpen = false
 	s.clipPreview, s.clipSelection = "", ""
+	s.clipNeedsSelection = false
 	s.previewOpen = false
-	if s.tray != nil {
+	if s.tray != nil && s.win != nil {
 		s.win.Hide()
 	}
 }
@@ -166,6 +172,7 @@ func (s *launcher) show(captureTarget bool) {
 	s.menu, s.restoreSearch = menuClosed, true
 	s.settingsOpen = false
 	s.clipPreview, s.clipSelection = "", ""
+	s.clipNeedsSelection = false
 	s.previewOpen = false
 	s.scroll.X, s.scroll.Y = 0, 0
 	s.win.Center()
@@ -337,10 +344,14 @@ func (s *launcher) activate(apps []core.Application, clips []string, copyOnly bo
 			s.status = "已复制。切换到目标应用后按 Ctrl+V。"
 			return
 		}
+		if s.pasteText == nil {
+			s.status = "回填接口不可用。"
+			return
+		}
 		target := s.target
 		s.target = 0
 		s.hide()
-		if err := platform.PasteToWindow(target, text); err != nil {
+		if err := s.pasteText(target, text); err != nil {
 			s.status = "回填未确认：" + err.Error() + "。请先检查目标以免重复粘贴；必要时用“仅复制”手动粘贴。"
 			s.show(false)
 		}
