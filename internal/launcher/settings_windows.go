@@ -32,6 +32,7 @@ func (s *launcher) applySettings(candidate settings.Settings) (settings.Settings
 }
 
 func (s *launcher) openSettings() {
+	s.aliasID = ""
 	s.closeMenu()
 	s.settingsDraft = s.config.Clone()
 	if s.settingsDraft.Version == 0 {
@@ -82,6 +83,10 @@ func (s *launcher) saveSettings() {
 }
 
 func (s *launcher) drawSettings(c *ui.Context) {
+	if s.aliasID != "" {
+		s.drawAliases(c)
+		return
+	}
 	p := paletteFor(c.Theme().Dark, c.Preferences().HighContrast)
 	// Modal catcher consumes covered results, including clicks outside the sheet.
 	ui.ButtonBase(c.Key("settings-backdrop")).Absolute().Top(0).Left(0).Right(0).Bottom(0).Background(ui.RGBA(0, 0, 0, .30)).Label("设置背景")

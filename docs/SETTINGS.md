@@ -3,8 +3,9 @@
 Open **菜单 → 设置**. Save explicitly; Cancel or Escape discards the draft.
 IME candidate Escape/Enter is handled by the editor before launcher actions.
 
-The version-1 JSON file is `%APPDATA%\MyCast\settings.json`, created only when
-settings are saved. It contains the hotkey, appearance and application roots.
+The version-1 JSON file is `%APPDATA%\MyCast\settings.json`, created when
+ordinary settings or application preferences are saved. It contains the hotkey,
+appearance, application roots and bounded [application metadata](APPLICATIONS.md).
 Clipboard recording state and text are absent. Recording starts disabled every
 session, regardless of ordinary settings; existing clipboard text is not imported.
 

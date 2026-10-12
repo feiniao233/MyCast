@@ -6,6 +6,7 @@ package launcher
 import (
 	"crypto/sha256"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/egoist/mygo"
@@ -65,6 +66,11 @@ func (s *launcher) rows(apps []core.Application, clips []string) []paletteRow {
 	} else {
 		for _, app := range apps {
 			row := paletteRow{title: app.Name, kind: "应用", key: app.ItemID(), bitmap: s.icons[app.ItemID()], height: palette.RowHeight}
+			if slices.Contains(s.config.Favorites, app.ItemID()) {
+				row.kind = "★ 收藏"
+			} else if slices.Contains(s.config.Recents, app.ItemID()) {
+				row.kind = "最近"
+			}
 			if names[strings.ToLower(app.Name)] > 1 {
 				row.subtitle = app.Subtitle()
 				row.height = palette.DetailRowHeight
@@ -130,8 +136,20 @@ func (s *launcher) menuItems(apps []core.Application, clips []string) []paletteM
 		if s.clipboardMode {
 			items = append(items, paletteMenuItem{"仅复制", "▤", count == 0, func() { s.activate(apps, clips, true) }})
 		}
+		if !s.clipboardMode && s.selected >= 0 && s.selected < len(apps) {
+			app := apps[s.selected]
+			favorite := "收藏应用"
+			if slices.Contains(s.config.Favorites, app.ItemID()) {
+				favorite = "取消收藏"
+			}
+			items = append(items, paletteMenuItem{favorite, "★", false, func() { s.toggleFavorite(app.ItemID()) }}, paletteMenuItem{"编辑搜索别名", "✎", false, func() { s.openAliases(app) }})
+		}
 		return items
 	}
+	return s.applicationMenuItems()
+}
+
+func (s *launcher) applicationMenuItems() []paletteMenuItem {
 	record := "开启文本历史"
 	if s.recording {
 		record = "暂停文本历史"
@@ -143,6 +161,14 @@ func (s *launcher) menuItems(apps []core.Application, clips []string) []paletteM
 		{"清空内存历史", "×", s.history.Len() == 0, func() { s.history.Clear(); s.resetResults() }},
 		{"重新扫描应用", "↻", s.scanning, s.scan},
 		{"设置", "⚙", false, s.openSettings},
+		{"清空最近启动", "×", len(s.config.Recents) == 0, func() {
+			value := s.config.Clone()
+			value.Recents = nil
+			if s.saveCatalog(value) {
+				s.status = "最近启动已清空。"
+				s.resetResults()
+			}
+		}},
 		{"隐藏", "−", false, s.hide},
 		{"退出 MyCast", "⏻", false, mygo.App.Quit},
 	}
@@ -229,7 +255,7 @@ func (s *launcher) view(c *ui.Context) {
 		background = palette.Scrim
 	}
 	ui.Box(c.Key("palette-root")).Fill().Background(background).Radius(palette.PanelRadius).Clip().Children(func() {
-		apps := core.SearchApplications(s.apps, s.query, 100)
+		apps := core.SearchApplicationsRanked(s.apps, s.query, 100, s.config.Favorites, s.config.Recents)
 		clips := s.clipResults()
 		rows := s.rows(apps, clips)
 		count := len(rows)

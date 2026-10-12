@@ -16,16 +16,31 @@ const MaxFileBytes = 128 * 1024
 const DefaultHotkey = "Ctrl+Alt+Space"
 
 type Settings struct {
-	Version    int      `json:"version"`
-	Hotkey     string   `json:"hotkey"`
-	Theme      string   `json:"theme"`
-	IndexRoots []string `json:"index_roots,omitempty"`
+	Version    int                 `json:"version"`
+	Hotkey     string              `json:"hotkey"`
+	Theme      string              `json:"theme"`
+	IndexRoots []string            `json:"index_roots,omitempty"`
+	Favorites  []string            `json:"favorites,omitempty"`
+	Recents    []string            `json:"recents,omitempty"`
+	Aliases    map[string][]string `json:"aliases,omitempty"`
 }
 
 func Defaults() Settings {
 	return Settings{Version: SchemaVersion, Hotkey: DefaultHotkey, Theme: "dark"}
 }
-func (s Settings) Clone() Settings { s.IndexRoots = append([]string(nil), s.IndexRoots...); return s }
+func (s Settings) Clone() Settings {
+	s.IndexRoots = append([]string(nil), s.IndexRoots...)
+	s.Favorites = append([]string(nil), s.Favorites...)
+	s.Recents = append([]string(nil), s.Recents...)
+	if s.Aliases != nil {
+		copied := make(map[string][]string, len(s.Aliases))
+		for id, aliases := range s.Aliases {
+			copied[id] = append([]string(nil), aliases...)
+		}
+		s.Aliases = copied
+	}
+	return s
+}
 
 func NormalizeHotkey(value string) (string, error) {
 	if len(value) > 80 || !utf8.ValidString(value) {
@@ -107,5 +122,67 @@ func (s Settings) Validated() (Settings, error) {
 		}
 	}
 	s.IndexRoots = roots
+	if s.Favorites, err = validateIDs(s.Favorites, 200); err != nil {
+		return Settings{}, err
+	}
+	if s.Recents, err = validateIDs(s.Recents, 50); err != nil {
+		return Settings{}, err
+	}
+	if len(s.Aliases) > 200 {
+		return Settings{}, fmt.Errorf("too many application aliases")
+	}
+	if s.Aliases != nil {
+		aliases := make(map[string][]string, len(s.Aliases))
+		for id, values := range s.Aliases {
+			if !validID(id) || len(values) > 8 {
+				return Settings{}, fmt.Errorf("invalid application alias entry")
+			}
+			seen := map[string]bool{}
+			for _, alias := range values {
+				alias = strings.TrimSpace(alias)
+				if alias == "" {
+					continue
+				}
+				if len(alias) > 512 || utf8.RuneCountInString(alias) > 80 || !utf8.ValidString(alias) || strings.ContainsAny(alias, "\x00\r\n") {
+					return Settings{}, fmt.Errorf("aliases require at most 80 characters each")
+				}
+				key := strings.ToLower(alias)
+				if !seen[key] {
+					seen[key] = true
+					aliases[id] = append(aliases[id], alias)
+				}
+			}
+		}
+		s.Aliases = aliases
+	}
 	return s, nil
+}
+
+func validID(id string) bool {
+	if len(id) != 68 || !strings.HasPrefix(id, "app-") {
+		return false
+	}
+	for _, r := range id[4:] {
+		if !(r >= 'a' && r <= 'f' || r >= '0' && r <= '9') {
+			return false
+		}
+	}
+	return true
+}
+func validateIDs(ids []string, limit int) ([]string, error) {
+	if len(ids) > limit {
+		return nil, fmt.Errorf("too many application preferences")
+	}
+	var result []string
+	seen := map[string]bool{}
+	for _, id := range ids {
+		if !validID(id) {
+			return nil, fmt.Errorf("invalid application identity")
+		}
+		if !seen[id] {
+			seen[id] = true
+			result = append(result, id)
+		}
+	}
+	return result, nil
 }

@@ -38,6 +38,15 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
+## go-pinyin and pinyin data
+
+- Source: https://github.com/mozillazg/go-pinyin
+- Version: v0.21.0 (commit db7796a07e7b9ac1284efe5dd657851d41ac2242)
+- License: MIT; Copyright (c) 2016 mozillazg
+- Bundled offline name transliteration only. Upstream uses pinyin-data
+  (https://github.com/mozillazg/pinyin-data), also MIT, Copyright (c) 2016 mozillazg.
+  Original license is retained in `licenses/go-pinyin-MIT.txt`.
+
 ## Transitive dependencies
 
 Pinned versions and integrity hashes are recorded in go.mod and go.sum. They retain their original licenses; the MIT/BSD/Apache dependency licenses do not change MyCast's AGPL license.

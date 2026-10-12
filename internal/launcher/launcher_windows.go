@@ -21,6 +21,8 @@ import (
 )
 
 type launcher struct {
+	aliasID, aliasText, aliasName                  string
+	launchApplication                              func(string) error
 	win                                            *mygo.Window
 	tray                                           *mygo.Tray
 	input                                          ui.Handle
@@ -50,7 +52,7 @@ type launcher struct {
 }
 
 func Run() error {
-	s := &launcher{history: core.NewHistory(50, 64*1024), stop: make(chan struct{}), config: settings.Defaults()}
+	s := &launcher{history: core.NewHistory(50, 64*1024), stop: make(chan struct{}), config: settings.Defaults(), launchApplication: platform.Launch}
 	mygo.App.SetName("MyCast")
 	if !mygo.App.RequestSingleInstanceLock() {
 		return nil
@@ -164,6 +166,7 @@ func (s *launcher) scan() {
 	}
 	go func() {
 		apps, errs := core.IndexApplicationsWithResolver(roots, platform.ShortcutIdentity)
+		apps = core.PrepareSearch(apps)
 		icons := make(map[string]*ui.Bitmap, len(apps))
 		for _, app := range apps {
 			if im := platform.ApplicationIcon(app.Launch.Target); im != nil {
@@ -174,7 +177,7 @@ func (s *launcher) scan() {
 			if generation != s.scanGeneration || s.quitting {
 				return
 			}
-			s.apps, s.scanning = apps, false
+			s.apps, s.scanning = core.WithUserAliases(apps, s.config.Aliases), false
 			s.icons = icons
 			s.scroll.X, s.scroll.Y, s.lastScroll = 0, 0, 0
 			if len(errs) > 0 {
@@ -276,10 +279,15 @@ func (s *launcher) activate(apps []core.Application, clips []string, copyOnly bo
 		if s.selected < 0 || s.selected >= len(apps) {
 			return
 		}
-		if err := platform.Launch(apps[s.selected].Path); err != nil {
+		if s.launchApplication == nil {
+			s.status = "启动接口不可用。"
+			return
+		}
+		if err := s.launchApplication(apps[s.selected].Path); err != nil {
 			s.status = "启动失败：" + err.Error()
 			return
 		}
+		s.recordRecent(apps[s.selected].ItemID())
 		s.hide()
 	}
 }

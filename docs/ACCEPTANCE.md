@@ -39,6 +39,19 @@ theme changes and separation from session clipboard state. The synthetic preview
 in [settings](SETTINGS.md) were visually inspected. Actual native shortcut conflict,
 Microsoft Pinyin and theme/material changes remain **not tested**.
 
+## Finding applications phase
+
+Local unit/native/UI tests, module integrity, vet and Windows build passed with
+pinned go-pinyin v0.21.0. Tests cover full pinyin/initials and mixed Latin names,
+bounded polyphonic expansion, alias removal without accumulation, unchanged launch
+identity, separate namesakes, match-class ranking, bounded metadata persistence,
+clone isolation, successful/failed launch adapters and save failure. Alias editor
+100%/150% previews were inspected and controls remain within the sheet.
+
+Native app startup, actual disk permissions in the user's application-data
+directory and real keyboard/IME interaction remain **not tested**. No user
+application inventory, document or clipboard data was used in shared fixtures.
+
 ## Minimal manual Windows pass
 
 Use a standard account and a temporary text window with dedicated test text.

@@ -17,10 +17,12 @@ import (
 
 // Application is an indexed, local application or Windows shortcut.
 type Application struct {
-	Name    string
-	Path    string
-	Launch  LaunchIdentity
-	Aliases []string
+	Name        string
+	Path        string
+	Launch      LaunchIdentity
+	Aliases     []string
+	SearchTerms []string
+	UserAliases []string
 }
 
 // LaunchIdentity is shortcut metadata, never a command to execute. Arguments
@@ -168,8 +170,23 @@ func IndexApplicationsWithResolver(roots []string, resolve func(string) (LaunchI
 // Repeated applications with the same nonempty path are returned once; the
 // highest-ranked matching entry is used if their names differ.
 func SearchApplications(applications []Application, query string, limit int) []Application {
+	return SearchApplicationsRanked(applications, query, limit, nil, nil)
+}
+
+// Ranking keeps better match classes ahead of preference boosts. Empty-query
+// results put favorites first, then successful-launch recents, then name/path.
+func SearchApplicationsRanked(applications []Application, query string, limit int, favorites, recents []string) []Application {
+	favorite := map[string]bool{}
+	for _, id := range favorites {
+		favorite[id] = true
+	}
+	recent := map[string]int{}
+	for i, id := range recents {
+		recent[id] = len(recents) - i
+	}
 	queryRunes := foldedRunes(strings.TrimSpace(query))
 	type result struct {
+		id    string
 		app   Application
 		score matchScore
 	}
@@ -182,12 +199,29 @@ func SearchApplications(applications []Application, query string, limit int) []A
 				score, ok = candidate, true
 			}
 		}
+		for _, terms := range [][]string{application.SearchTerms, application.UserAliases} {
+			for _, term := range terms {
+				if candidate, matched := scoreMatch(foldedRunes(term), queryRunes); matched && (!ok || candidate.less(score)) {
+					score, ok = candidate, true
+				}
+			}
+		}
 		if ok {
-			matches = append(matches, result{app: application, score: score})
+			matches = append(matches, result{app: application, score: score, id: application.ItemID()})
 		}
 	}
 	sort.Slice(matches, func(i, j int) bool {
 		a, b := matches[i], matches[j]
+		if len(queryRunes) != 0 && a.score.class != b.score.class {
+			return a.score.class < b.score.class
+		}
+		ai, bi := a.id, b.id
+		if favorite[ai] != favorite[bi] {
+			return favorite[ai]
+		}
+		if recent[ai] != recent[bi] {
+			return recent[ai] > recent[bi]
+		}
 		if len(queryRunes) != 0 && a.score != b.score {
 			return a.score.less(b.score)
 		}
