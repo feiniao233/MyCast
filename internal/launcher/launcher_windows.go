@@ -27,6 +27,9 @@ type launcher struct {
 	input                                        ui.Handle
 	scroll                                       ui.ScrollState
 	icons                                        map[string]*ui.Bitmap
+	menu                                         paletteMenu
+	menuSelected                                 int
+	restoreSearch                                bool
 	apps                                         []core.Application
 	history                                      *core.History
 	query, status                                string
@@ -56,7 +59,8 @@ func Run() error {
 
 func (s *launcher) ready() {
 	s.win = mygo.NewWindow(mygo.WindowOptions{
-		Title: "MyCast", Width: 680, Height: 490, Hidden: true, Frameless: true,
+		Title: "MyCast", Width: int(palette.Width), Height: int(palette.Height), Hidden: true, Frameless: true,
+		Transparent: true, BackgroundColor: "#00000000", Vibrancy: mygo.VibrancyAcrylic,
 		DisableResize: true, DisableMaximize: true, DisableMinimize: true,
 		SkipTaskbar: true, AlwaysOnTop: true, Content: ui.View(s.view),
 	})
@@ -107,6 +111,7 @@ func (s *launcher) ready() {
 
 // With no tray, keep the fallback window reachable even if the hotkey failed.
 func (s *launcher) hide() {
+	s.closeMenu()
 	if s.tray != nil {
 		s.win.Hide()
 	}
@@ -120,6 +125,7 @@ func (s *launcher) show(captureTarget bool) {
 		s.target = 0
 	}
 	s.query, s.selected, s.lastScroll = "", 0, 0
+	s.menu, s.restoreSearch = menuClosed, true
 	s.scroll.X, s.scroll.Y = 0, 0
 	s.win.Center()
 	s.input.Focus()

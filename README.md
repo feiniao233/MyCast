@@ -8,9 +8,15 @@
 
 以下图片由 MyGo 离屏渲染器生成，分别对应 100% 和 150% DPI。应用名称、路径与图标均为合成测试数据，不含用户真实应用清单；它们不是实机截图，也不代表真实桌面的热键、IME、托盘、焦点或回填已验收。
 
+本轮标准面板为 750×475 DIP，页头 44、页脚 52；圆角、图标、间距、字号与色阶统一在 `internal/launcher/palette_tokens_windows.go`。搜索与结果名称列对齐，页头/页脚浮在完整滚动列表上，不使用硬分隔条。左侧圆菜单和右侧操作胶囊使用 MyGo 内置 glass，仅采样同窗口内的绘制内容；主面板请求 Windows Acrylic，并通过 `c.Vibrancy()` 决定透明 scrim 或纯色降级。
+
+渐隐采用 MyGo 已支持的逐行透明度近似，不是 Tinycast 的逐像素渐变遮罩；键盘选择会避开浮动栏，滚轮滚动不会被自动拉回。同窗口菜单关闭后恢复搜索焦点，并消费点击外部的整次点击。真实 Windows 的 Acrylic 显示、原生窗口圆角裁剪和透明边角仍未实机验证，不能由离屏图推断。compact/expanded 窗口状态留待后续迭代。
+
 ![100% DPI 合成数据离屏预览](docs/previews/launcher-100.png)
 
 ![150% DPI 合成数据离屏预览](docs/previews/launcher-150.png)
+
+[空态（150%）](docs/previews/clipboard-empty-150.png) · [合成剪贴板（150%）](docs/previews/clipboard-150.png) · [菜单（150%）](docs/previews/menu-150.png) · [末项选中（150%）](docs/previews/last-selected-150.png)
 
 ## 首版功能
 

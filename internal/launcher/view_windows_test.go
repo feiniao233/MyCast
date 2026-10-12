@@ -51,68 +51,175 @@ func savePreview(t *testing.T, tester *ui.Tester, name string) {
 	}
 }
 
-func TestLauncherLayoutAndScrollReset(t *testing.T) {
+func newPaletteTester(s *launcher, scale float32) *ui.Tester {
+	tester := ui.NewTester(s.view, int(palette.Width), int(palette.Height))
+	tester.SetScale(scale)
+	return tester
+}
+
+func TestPaletteLayoutScrollAndModes(t *testing.T) {
 	for _, scale := range []float32{1, 1.5} {
-		t.Run(fmt.Sprintf("scale-%.1f", scale), func(t *testing.T) {
+		t.Run(fmt.Sprintf("dpi-%03d", int(scale*100)), func(t *testing.T) {
 			s := syntheticLauncher()
-			tester := ui.NewTester(s.view, 680, 490)
-			tester.SetScale(scale)
+			tester := newPaletteTester(s, scale)
 			search, ok := tester.Find("搜索")
 			if !ok {
-				t.Fatal("search field not found")
+				t.Fatal("missing search")
 			}
 			first, ok := tester.Find("Synthetic App 00")
 			if !ok {
-				t.Fatal("first row not found")
+				t.Fatal("missing first title")
 			}
-			footer, ok := tester.Find("设置 ···")
+			circle, ok := tester.Find("菜单")
 			if !ok {
-				t.Fatal("footer not found")
+				t.Fatal("missing menu circle")
 			}
-			if search.Y < 0 || search.Y+search.H > 64 || first.Y < 96 || first.Y+first.H > 144 || footer.Y < 448 || footer.Y+footer.H > 490 {
-				t.Fatalf("clipped layout: search=%+v first=%+v footer=%+v", search, first, footer)
+			if search.Y != 0 || search.H != palette.Header || first.X != search.X || first.Y < palette.Header || first.Y+first.H > palette.Height-palette.Footer || circle.W != palette.MenuButton || circle.H != palette.MenuButton || circle.Y != palette.Height-palette.Footer+palette.Inset {
+				t.Fatalf("bad geometry/alignment: search=%+v first=%+v circle=%+v", search, first, circle)
 			}
 			savePreview(t, tester, fmt.Sprintf("launcher-%03d", int(scale*100)))
-			tester.Scroll(400, 250, 0, 450)
+			tester.Scroll(450, 200, 0, 400)
 			if s.scroll.Y == 0 {
 				t.Fatal("list did not scroll")
 			}
-			s.resetResults()
+			manual := s.scroll.Y
 			tester.Frame()
-			first, ok = tester.Find("Synthetic App 00")
-			if !ok || first.Y < 96 || first.Y+first.H > 144 || s.scroll.Y != 0 {
-				t.Fatalf("first row clipped after reset: rect=%+v scroll=%v", first, s.scroll.Y)
+			if s.scroll.Y != manual {
+				t.Fatal("wheel scroll was pulled back")
+			}
+			// Up wraps to the last result. It must be completely selectable above
+			// the footer; Down then restores the origin including the section label.
+			tester.Key(0, ui.KeyUp)
+			last, ok := tester.Find("Synthetic App 29")
+			if !ok || s.selected != 29 || last.Y < palette.Header || last.Y+last.H > palette.Height-palette.Footer-palette.Inset {
+				t.Fatalf("last row is obscured: %+v, selected=%d scroll=%v", last, s.selected, s.scroll.Y)
+			}
+			savePreview(t, tester, fmt.Sprintf("last-selected-%03d", int(scale*100)))
+			tester.Key(0, ui.KeyDown)
+			if s.selected != 0 || s.scroll.Y != 0 {
+				t.Fatal("first row did not return to origin")
 			}
 			s.query = "App 29"
 			s.resetResults()
 			tester.Frame()
-			last, ok := tester.Find("Synthetic App 29")
-			if !ok || last.Y < 96 || last.Y+last.H > 144 {
-				t.Fatalf("filtered first row clipped: %+v", last)
+			last, ok = tester.Find("Synthetic App 29")
+			if !ok || last.Y < palette.Header || s.scroll.Y != 0 {
+				t.Fatal("filter reset clipped first result")
 			}
 			s.switchMode(true)
 			tester.Frame()
-			if s.scroll.Y != 0 || !tester.HasText("暂无文本历史") {
-				t.Fatal("mode switch did not reset view")
+			if !tester.HasText("暂无文本历史") || s.scroll.Y != 0 || !tester.Focused("搜索") {
+				t.Fatal("mode switch did not restore empty view and focus")
 			}
 			savePreview(t, tester, fmt.Sprintf("clipboard-empty-%03d", int(scale*100)))
+			s.history.Add("Synthetic clipboard sample A")
+			s.history.Add("Synthetic clipboard sample B")
+			tester.Frame()
+			clip, ok := tester.Find("Synthetic clipboard sample B")
+			search, _ = tester.Find("搜索")
+			if !ok || clip.X != search.X {
+				t.Fatalf("clipboard title column moved: clip=%+v search=%+v", clip, search)
+			}
+			savePreview(t, tester, fmt.Sprintf("clipboard-%03d", int(scale*100)))
 		})
 	}
 }
 
-func TestNamesakeSubtitleAndSelectedRow(t *testing.T) {
+func TestPaletteMenusConsumeClickAndRestoreFocus(t *testing.T) {
 	s := syntheticLauncher()
-	s.apps = []core.Application{
-		{Name: "Synthetic Editor", Path: `C:\Synthetic\A\Editor.exe`},
-		{Name: "Synthetic Editor", Path: `C:\Synthetic\B\Editor.exe`},
+	s.query = "Synthetic"
+	tester := newPaletteTester(s, 1)
+	if err := tester.Click("菜单"); err != nil {
+		t.Fatal(err)
 	}
-	tester := ui.NewTester(s.view, 680, 490)
+	if s.menu != menuApplication || !tester.HasText("开启文本历史") || !tester.HasText("退出 MyCast") {
+		t.Fatal("real app menu entries missing")
+	}
+	tester.Type("unwanted")
+	if s.query != "Synthetic" {
+		t.Fatal("palette query changed while menu owns input")
+	}
+	savePreview(t, tester, "menu-100")
+	tester.SetScale(1.5)
+	savePreview(t, tester, "menu-150")
+	tester.ClickAt(450, 180)
+	if s.menu != menuClosed || s.query != "Synthetic" || !tester.Focused("搜索") || s.status != "" {
+		t.Fatal("click-away leaked to a result or did not restore focus")
+	}
+	if err := tester.Click("菜单"); err != nil {
+		t.Fatal(err)
+	}
+	tester.Key(0, ui.KeyEscape)
+	if s.menu != menuClosed || !tester.Focused("搜索") {
+		t.Fatal("Escape did not close menu and restore focus")
+	}
+	if err := tester.Click("菜单"); err != nil {
+		t.Fatal(err)
+	}
+	if err := tester.Click("菜单项：剪贴板"); err != nil {
+		t.Fatal(err)
+	}
+	if !s.clipboardMode || s.menu != menuClosed || !tester.Focused("搜索") {
+		t.Fatal("menu mode action/focus failed")
+	}
+	if err := tester.Click("操作"); err != nil {
+		t.Fatal(err)
+	}
+	if s.menu != menuActions || !tester.HasText("仅复制") {
+		t.Fatal("clipboard copy-only action missing")
+	}
+	tester.Key(0, ui.KeyEscape)
+	if !tester.Focused("搜索") {
+		t.Fatal("action menu close lost focus")
+	}
+}
+
+func TestPaletteMaterialFallbackAndCornerPixels(t *testing.T) {
+	s := syntheticLauncher()
+	s.apps = nil
+	tester := newPaletteTester(s, 1)
+	_, _, _, corner := tester.Image().At(0, 0).RGBA()
+	_, _, _, center := tester.Image().At(700, 250).RGBA()
+	if corner != 0 || center != 65535 {
+		t.Fatalf("fallback/corner alpha wrong: corner=%d body=%d", corner, center)
+	}
+	tester.SetVibrancy(true)
+	_, _, _, center = tester.Image().At(700, 250).RGBA()
+	if center == 0 || center >= 65535 {
+		t.Fatalf("opaque root masks material: alpha=%d", center)
+	}
+	savePreview(t, tester, "material-layer-simulated-100")
+}
+
+func TestRowDissolveKeepsRestingEdgesOpaque(t *testing.T) {
+	if rowOpacity(0, 38, 475, 0, 0) != 1 {
+		t.Fatal("non-scrolling list was faded")
+	}
+	if rowOpacity(76, 38, 475, 0, 100) != 1 {
+		t.Fatal("resting first row was faded")
+	}
+	if rowOpacity(385, 38, 475, 100, 0) != 1 {
+		t.Fatal("resting last row was faded")
+	}
+	if top := rowOpacity(0, 38, 475, 100, 100); top < palette.TopFloor-.001 || top >= 1 {
+		t.Fatal("top dissolve missing")
+	}
+	if bottom := rowOpacity(437, 38, 475, 100, 100); bottom < palette.BottomFloor-.001 || bottom >= 1 {
+		t.Fatal("bottom dissolve missing")
+	}
+}
+
+func TestNamesakeSubtitleAndIMESelection(t *testing.T) {
+	s := syntheticLauncher()
+	s.apps = []core.Application{{Name: "Synthetic Editor", Path: `C:\Synthetic\A\Editor.exe`}, {Name: "Synthetic Editor", Path: `C:\Synthetic\B\Editor.exe`}}
+	tester := newPaletteTester(s, 1)
 	if !tester.HasText(s.apps[0].Subtitle()) || !tester.HasText(s.apps[1].Subtitle()) {
-		t.Fatal("namesakes do not show distinct subtitles")
+		t.Fatal("namesakes need distinct subtitles")
 	}
+	tester.Compose("合成", 2)
 	tester.Key(0, ui.KeyDown)
-	if s.selected != 1 {
-		t.Fatal("keyboard selection did not change")
+	if s.selected != 0 {
+		t.Fatal("IME candidate navigation reached launcher")
 	}
-	savePreview(t, tester, "namesakes")
+	savePreview(t, tester, "namesakes-ime")
 }
