@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/egoist/mygo"
-	"github.com/egoist/mygo/plugins/glass"
 	"github.com/egoist/mygo/ui"
 	"github.com/feiniao233/MyCast/internal/core"
 )
@@ -43,12 +42,13 @@ func (s *launcher) switchMode(clipboard bool) {
 	}
 	s.restoreSearch = true
 }
-func (s *launcher) closeMenu() { s.menu = menuClosed; s.restoreSearch = true }
+func (s *launcher) closeMenu() { s.menu = menuClosed; s.restoreSearch = true; s.menuNeedsFocus = false }
 func (s *launcher) openMenu(menu paletteMenu) {
 	if s.menu == menu {
 		s.closeMenu()
 	} else {
 		s.menu, s.menuSelected = menu, 0
+		s.menuNeedsFocus = true
 	}
 }
 
@@ -177,7 +177,13 @@ func (s *launcher) drawMenu(c *ui.Context, apps []core.Application, clips []stri
 		s.closeMenu()
 		return
 	}
-	panel := ui.Column(c.Key("menu-panel")).Absolute().Bottom(palette.Footer).Width(palette.MenuWidth).Height(float32(len(items))*(palette.MenuRow+palette.RowGap) - palette.RowGap + 2*palette.MenuInset).Padding(palette.MenuInset).Gap(palette.RowGap).Radius(palette.MenuRadius).Material(glass.Glass{}).Label("菜单面板")
+	panel := ui.Column(c.Key("menu-panel")).Absolute().Bottom(palette.Footer).Width(palette.MenuWidth).Height(float32(len(items))*(palette.MenuRow+palette.RowGap)-palette.RowGap+2*palette.MenuInset).Padding(palette.MenuInset).Gap(palette.RowGap).Radius(palette.MenuRadius).Background(palette.MenuSurface).Border(1, palette.Border).Label("菜单面板").Role(ui.RolePopup).Focusable()
+	// A non-clickable focus owner prevents Enter from activating the footer
+	// ButtonBase before the menu's registered shortcuts can handle it.
+	if s.menuNeedsFocus {
+		panel.Focus()
+		s.menuNeedsFocus = false
+	}
 	if s.menu == menuApplication {
 		panel.Left(palette.Inset)
 	} else {
@@ -333,7 +339,7 @@ func (s *launcher) view(c *ui.Context) {
 		}
 		footer := ui.ButtonBase(c.Key("footer")).Absolute().Bottom(0).Left(0).Right(0).Height(palette.Footer).Padding(palette.Inset).Gap(palette.Inset).Label("底栏")
 		footer.Children(func() {
-			circle := ui.ButtonBase(c.Key("menu-toggle")).Size(palette.MenuButton, palette.MenuButton).Shrink(0).Radius(palette.MenuButton / 2).Material(glass.Glass{Interactive: true}).Label("菜单").Tooltip(s.status)
+			circle := ui.ButtonBase(c.Key("menu-toggle")).Size(palette.MenuButton, palette.MenuButton).Shrink(0).Radius(palette.MenuButton/2).Background(palette.Control).Border(1, palette.Border).Label("菜单").Tooltip(s.status)
 			circle.Children(func() { ui.Text(c, "≡").FontSize(palette.SearchSize).TextColor(palette.Secondary) })
 			if circle.Clicked() {
 				s.openMenu(menuApplication)
@@ -350,7 +356,7 @@ func (s *launcher) view(c *ui.Context) {
 			}
 			ui.Text(c, mode).FontSize(palette.CaptionSize).TextColor(palette.Secondary).MaxWidth(palette.StatusWidth).NoWrap().Ellipsis("…").Tooltip(s.status)
 			ui.Spacer(c)
-			ui.Row(c).Height(palette.MenuButton).Shrink(0).Padding(palette.ControlInset).Gap(palette.RowGap).Radius(palette.MenuButton / 2).Material(glass.Glass{Interactive: true}).Children(func() {
+			ui.Row(c).Height(palette.MenuButton).Shrink(0).Padding(palette.ControlInset).Gap(palette.RowGap).Radius(palette.MenuButton/2).Background(palette.Control).Border(1, palette.Border).Children(func() {
 				label, _ := s.primaryLabels()
 				primary := barAction(c.Key("primary-action"), label, count == 0 || s.menu != menuClosed)
 				primary.Children(func() {

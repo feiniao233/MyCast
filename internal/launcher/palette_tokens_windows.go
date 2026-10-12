@@ -14,6 +14,7 @@ var palette = struct {
 	RowPaddingY, ControlInset, DetailGap, DetailSize, KeyCap, KeyCapRadius, StatusWidth float32
 	TopFade, BottomFade, TopFloor, BottomFloor                                          float32
 	Fallback, Scrim, Text, Secondary, Tertiary, Selection, Hover, Control, Border       ui.Color
+	MenuSurface                                                                         ui.Color
 }{
 	Width: 750, Height: 475, Header: 44, Footer: 52, PanelRadius: 26, RowRadius: 10,
 	Inset: 8, RowInset: 8, Gap: 10, RowGap: 2, RowHeight: 38, DetailRowHeight: 46,
@@ -25,6 +26,7 @@ var palette = struct {
 	Secondary: ui.RGBA(255, 255, 255, .60), Tertiary: ui.RGBA(255, 255, 255, .40),
 	Selection: ui.RGBA(255, 255, 255, .10), Hover: ui.RGBA(255, 255, 255, .05),
 	Control: ui.RGBA(255, 255, 255, .10), Border: ui.RGBA(255, 255, 255, .20),
+	MenuSurface: ui.RGB(38, 38, 38),
 }
 
 func launcherTheme() *ui.Theme {

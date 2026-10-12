@@ -29,6 +29,7 @@ type launcher struct {
 	icons                                        map[string]*ui.Bitmap
 	menu                                         paletteMenu
 	menuSelected                                 int
+	menuNeedsFocus                               bool
 	restoreSearch                                bool
 	apps                                         []core.Application
 	history                                      *core.History

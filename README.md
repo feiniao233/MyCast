@@ -4,11 +4,13 @@
 
 > 当前为可审查的早期版本。Windows 原生交互、中文输入法、托盘及回填仍需在实际 Windows 10/11 桌面验证；编译通过不等于实机验收。
 
+Windows 0.1.0 alpha 按阶段推进，当前尚未宣称达到公开发布质量。参见 [roadmap](docs/ROADMAP.md)、[验收状态与最少人工步骤](docs/ACCEPTANCE.md)、[发布检查](docs/RELEASE_CHECKLIST.md) 和 [贡献约定](AGENTS.md)。
+
 ## 界面预览
 
 以下图片由 MyGo 离屏渲染器生成，分别对应 100% 和 150% DPI。应用名称、路径与图标均为合成测试数据，不含用户真实应用清单；它们不是实机截图，也不代表真实桌面的热键、IME、托盘、焦点或回填已验收。
 
-本轮标准面板为 750×475 DIP，页头 44、页脚 52；圆角、图标、间距、字号与色阶统一在 `internal/launcher/palette_tokens_windows.go`。搜索与结果名称列对齐，页头/页脚浮在完整滚动列表上，不使用硬分隔条。左侧圆菜单和右侧操作胶囊使用 MyGo 内置 glass，仅采样同窗口内的绘制内容；主面板请求 Windows Acrylic，并通过 `c.Vibrancy()` 决定透明 scrim 或纯色降级。
+本轮标准面板为 750×475 DIP，页头 44、页脚 52；圆角、图标、间距、字号与色阶统一在 `internal/launcher/palette_tokens_windows.go`。搜索与结果名称列对齐，页头/页脚浮在完整滚动列表上，不使用硬分隔条。左侧圆菜单和右侧操作胶囊使用轻量半透明填充与细描边，优先 Windows 原生材质，不模拟 Apple Liquid Glass 折射；主面板请求 Windows Acrylic，并通过 `c.Vibrancy()` 决定透明 scrim 或纯色降级。
 
 渐隐采用 MyGo 已支持的逐行透明度近似，不是 Tinycast 的逐像素渐变遮罩；键盘选择会避开浮动栏，滚轮滚动不会被自动拉回。同窗口菜单关闭后恢复搜索焦点，并消费点击外部的整次点击。真实 Windows 的 Acrylic 显示、原生窗口圆角裁剪和透明边角仍未实机验证，不能由离屏图推断。compact/expanded 窗口状态留待后续迭代。
 

@@ -191,6 +191,53 @@ func TestPaletteMaterialFallbackAndCornerPixels(t *testing.T) {
 	savePreview(t, tester, "material-layer-simulated-100")
 }
 
+func TestPaletteMenuKeyboardExecutesHighlightedItem(t *testing.T) {
+	s := syntheticLauncher()
+	tester := newPaletteTester(s, 1)
+	if err := tester.Click("菜单"); err != nil {
+		t.Fatal(err)
+	}
+	if !tester.Focused("菜单面板") {
+		t.Fatal("menu panel does not own keyboard focus")
+	}
+	tester.Key(0, ui.KeyDown)
+	if s.menu != menuApplication || s.menuSelected != 1 {
+		t.Fatal("Down did not highlight clipboard menu entry")
+	}
+	tester.Key(0, ui.KeyEnter)
+	if !s.clipboardMode || s.menu != menuClosed || !tester.Focused("搜索") {
+		t.Fatalf("Enter did not execute highlighted entry: clipboard=%v menu=%d searchFocus=%v", s.clipboardMode, s.menu, tester.Focused("搜索"))
+	}
+	if err := tester.Click("操作"); err != nil {
+		t.Fatal(err)
+	}
+	tester.Key(0, ui.KeyDown)
+	if s.menu != menuActions || s.menuSelected != 1 {
+		t.Fatal("action menu navigation failed")
+	}
+	tester.Key(0, ui.KeyEscape)
+	if s.menu != menuClosed || !tester.Focused("搜索") {
+		t.Fatal("keyboard close did not restore search focus")
+	}
+	if err := tester.Click("菜单"); err != nil {
+		t.Fatal(err)
+	}
+	// Disabled rows must not dismiss through the click-away catcher or move
+	// keyboard focus back to a clickable footer control.
+	if err := tester.Click("菜单项：清空内存历史"); err != nil {
+		t.Fatal(err)
+	}
+	if s.menu != menuApplication || !tester.Focused("菜单面板") {
+		t.Fatal("disabled menu row lost the menu/focus owner")
+	}
+	tester.Key(0, ui.KeyDown)
+	tester.Key(0, ui.KeyUp)
+	tester.Key(0, ui.KeyEnter)
+	if s.clipboardMode || s.menu != menuClosed || !tester.Focused("搜索") {
+		t.Fatal("Up/Enter did not return to application mode")
+	}
+}
+
 func TestRowDissolveKeepsRestingEdgesOpaque(t *testing.T) {
 	if rowOpacity(0, 38, 475, 0, 0) != 1 {
 		t.Fatal("non-scrolling list was faded")
