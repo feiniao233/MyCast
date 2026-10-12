@@ -5,6 +5,7 @@
 package core
 
 import (
+	"crypto/sha256"
 	"fmt"
 	"io/fs"
 	"path/filepath"
@@ -16,8 +17,44 @@ import (
 
 // Application is an indexed, local application or Windows shortcut.
 type Application struct {
-	Name string
-	Path string
+	Name    string
+	Path    string
+	Launch  LaunchIdentity
+	Aliases []string
+}
+
+// LaunchIdentity is shortcut metadata, never a command to execute. Arguments
+// remain byte-for-byte intact: changing whitespace or case can change a launch.
+type LaunchIdentity struct {
+	Target           string
+	Arguments        string
+	WorkingDirectory string
+}
+
+func (a Application) Identity() string {
+	if a.Launch.Target == "" {
+		return pathKey(a.Path)
+	}
+	return fmt.Sprintf("%q|%q|%q", pathKey(a.Launch.Target), a.Launch.Arguments, pathKey(a.Launch.WorkingDirectory))
+}
+
+func (a Application) ItemID() string {
+	return fmt.Sprintf("app-%x", sha256.Sum256([]byte(a.Identity())))
+}
+
+// Subtitle distinguishes namesakes without changing how the original link runs.
+func (a Application) Subtitle() string {
+	target := a.Launch.Target
+	if target == "" {
+		target = a.Path
+	}
+	if a.Launch.Arguments != "" {
+		target += " · " + a.Launch.Arguments
+	}
+	if a.Launch.WorkingDirectory != "" {
+		target += " · " + a.Launch.WorkingDirectory
+	}
+	return target
 }
 
 // IndexApplications recursively indexes .lnk and .exe files in the supplied
@@ -30,6 +67,13 @@ type Application struct {
 // results from accessible paths. An empty root is ignored. No file is executed,
 // and shortcut targets are not resolved or inspected.
 func IndexApplications(roots []string) (applications []Application, problems []error) {
+	return IndexApplicationsWithResolver(roots, nil)
+}
+
+// IndexApplicationsWithResolver additionally merges readable shortcuts that
+// have the same target, arguments and working directory. Unresolved links stay
+// distinct. The resolver must only read metadata, never resolve, repair or run.
+func IndexApplicationsWithResolver(roots []string, resolve func(string) (LaunchIdentity, error)) (applications []Application, problems []error) {
 	seen := make(map[string]bool)
 	for _, root := range roots {
 		if root == "" {
@@ -68,6 +112,38 @@ func IndexApplications(roots []string) (applications []Application, problems []e
 		}
 	}
 	sort.Slice(applications, func(i, j int) bool { return applicationLess(applications[i], applications[j]) })
+	if resolve != nil {
+		merged := make([]Application, 0, len(applications))
+		identities := make(map[string]int)
+		for _, app := range applications {
+			if strings.EqualFold(filepath.Ext(app.Path), ".lnk") {
+				launch, err := resolve(app.Path)
+				if err != nil {
+					problems = append(problems, fmt.Errorf("shortcut %q: %w", app.Path, err))
+				}
+				// Incomplete or relative identities cannot safely prove equivalence.
+				if err == nil && filepath.IsAbs(launch.Target) && (launch.WorkingDirectory == "" || filepath.IsAbs(launch.WorkingDirectory)) {
+					app.Launch = launch
+				}
+			} else {
+				app.Launch.Target = app.Path
+			}
+			key := app.Identity()
+			if index, found := identities[key]; found {
+				merged[index].Aliases = append(merged[index].Aliases, app.Name)
+				// Prefer a shortcut to a bare executable, retaining shell launch semantics.
+				if strings.EqualFold(filepath.Ext(app.Path), ".lnk") && !strings.EqualFold(filepath.Ext(merged[index].Path), ".lnk") {
+					app.Aliases = append(merged[index].Aliases, merged[index].Name)
+					merged[index] = app
+				}
+				continue
+			}
+			identities[key] = len(merged)
+			merged = append(merged, app)
+		}
+		applications = merged
+		sort.Slice(applications, func(i, j int) bool { return applicationLess(applications[i], applications[j]) })
+	}
 	return applications, problems
 }
 
@@ -92,6 +168,11 @@ func SearchApplications(applications []Application, query string, limit int) []A
 	for _, application := range applications {
 		name := foldedRunes(application.Name)
 		score, ok := scoreMatch(name, queryRunes)
+		for _, alias := range application.Aliases {
+			if candidate, matches := scoreMatch(foldedRunes(alias), queryRunes); matches && (!ok || candidate.less(score)) {
+				score, ok = candidate, true
+			}
+		}
 		if ok {
 			matches = append(matches, result{app: application, score: score})
 		}
@@ -109,7 +190,7 @@ func SearchApplications(applications []Application, query string, limit int) []A
 		// Empty paths are useful in callers' transient lists, and do not
 		// establish identity between otherwise distinct applications.
 		if match.app.Path != "" {
-			key := pathKey(match.app.Path)
+			key := match.app.Identity()
 			if seen[key] {
 				continue
 			}

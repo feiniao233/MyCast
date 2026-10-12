@@ -9,6 +9,8 @@
 - Ctrl+Alt+Space 全局热键呼出/隐藏，托盘常驻、右键菜单、单实例
 - 原生搜索框；Unicode 大小写不敏感搜索，支持中文字符匹配
 - 扫描用户/公共开始菜单及桌面的 `.lnk`、`.exe`，搜索后启动
+- 只读加载快捷方式的目标、原样参数与工作目录，按启动身份合并重复项；不同参数、目录或无法读取的快捷方式保持独立，启动仍使用原快捷方式
+- 搜索栏置顶、深色紧凑图标列表、整行选中；同名应用显示目标/参数/工作目录副标题；文本记录、暂停、清空及重新扫描集中在底部设置菜单
 - ↑/↓ 选择，Enter 打开，Esc、失焦或关闭按钮隐藏
 - 文本剪贴板历史：手动开启、去重、最多 50 条、单条最多 64 KiB UTF-8；Win32 读取另限制 64 KiB UTF-16 数据
 - 从热键呼出后选择历史，可尝试回填原窗口；从托盘打开只复制，使用 Ctrl+V 手动粘贴
@@ -32,6 +34,8 @@ $env:CGO_ENABLED = '0'
 go build -trimpath -tags mygo_noinspector -ldflags '-H windowsgui -s -w' -o dist/MyCast.exe ./cmd/mycast
 .\dist\MyCast.exe
 ```
+
+可设置 `MYCAST_PREVIEW_DIR` 为测试输出目录，再运行 `go test ./internal/launcher`，生成合成应用的 100%/150% DPI 离屏界面图。布局测试覆盖搜索框、首行完整边界、滚动/筛选/模式切换重置；它不替代真实桌面的 IME、焦点、热键或回填验收。
 
 Linux/macOS 交叉编译：
 

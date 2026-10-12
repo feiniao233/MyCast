@@ -25,6 +25,8 @@ type launcher struct {
 	win                                          *mygo.Window
 	tray                                         *mygo.Tray
 	input                                        ui.Handle
+	scroll                                       ui.ScrollState
+	icons                                        map[string]*ui.Bitmap
 	apps                                         []core.Application
 	history                                      *core.History
 	query, status                                string
@@ -37,7 +39,7 @@ type launcher struct {
 }
 
 func Run() error {
-	s := &launcher{history: core.NewHistory(50, 64*1024), stop: make(chan struct{}), lastScroll: -1}
+	s := &launcher{history: core.NewHistory(50, 64*1024), stop: make(chan struct{})}
 	mygo.App.SetName("MyCast")
 	if !mygo.App.RequestSingleInstanceLock() {
 		return nil
@@ -54,7 +56,7 @@ func Run() error {
 
 func (s *launcher) ready() {
 	s.win = mygo.NewWindow(mygo.WindowOptions{
-		Title: "MyCast", Width: 720, Height: 610, Hidden: true, Frameless: true,
+		Title: "MyCast", Width: 680, Height: 490, Hidden: true, Frameless: true,
 		DisableResize: true, DisableMaximize: true, DisableMinimize: true,
 		SkipTaskbar: true, AlwaysOnTop: true, Content: ui.View(s.view),
 	})
@@ -117,7 +119,8 @@ func (s *launcher) show(captureTarget bool) {
 	} else {
 		s.target = 0
 	}
-	s.query, s.selected, s.lastScroll = "", 0, -1
+	s.query, s.selected, s.lastScroll = "", 0, 0
+	s.scroll.X, s.scroll.Y = 0, 0
 	s.win.Center()
 	s.input.Focus()
 	s.win.Show()
@@ -130,9 +133,17 @@ func (s *launcher) scan() {
 	}
 	s.scanning = true
 	go func() {
-		apps, errs := core.IndexApplications(platform.DefaultAppRoots())
+		apps, errs := core.IndexApplicationsWithResolver(platform.DefaultAppRoots(), platform.ShortcutIdentity)
+		icons := make(map[string]*ui.Bitmap, len(apps))
+		for _, app := range apps {
+			if im := platform.ApplicationIcon(app.Launch.Target); im != nil {
+				icons[app.ItemID()] = ui.NewBitmap(im)
+			}
+		}
 		s.win.Update(func() {
 			s.apps, s.scanning = apps, false
+			s.icons = icons
+			s.scroll.X, s.scroll.Y, s.lastScroll = 0, 0, 0
 			if len(errs) > 0 {
 				s.status = fmt.Sprintf("已索引 %d 个应用；%d 个位置无法读取。", len(apps), len(errs))
 			}
@@ -238,129 +249,6 @@ func (s *launcher) activate(apps []core.Application, clips []string, copyOnly bo
 		}
 		s.hide()
 	}
-}
-
-func (s *launcher) view(c *ui.Context) {
-	theme := c.Theme()
-	ui.Column(c).Fill().Padding(22).Gap(12).Children(func() {
-		ui.Row(c).FillWidth().Gap(10).Children(func() {
-			ui.Text(c, "MyCast").FontSize(23).Bold().Grow(1)
-			if ui.Button(c, "应用").Clicked() {
-				s.clipboardMode = false
-				s.selected = 0
-				s.lastScroll = -1
-				s.query = ""
-				s.input.Focus()
-			}
-			if ui.Button(c, "剪贴板").Clicked() {
-				s.clipboardMode = true
-				s.selected = 0
-				s.lastScroll = -1
-				s.query = ""
-				s.input.Focus()
-			}
-			if ui.Button(c, "隐藏").Clicked() {
-				s.hide()
-			}
-		})
-		field := ui.TextInput(c.Key("search"), &s.query).FillWidth().FontSize(20).Placeholder("搜索应用或剪贴板…").Label("搜索").Bind(&s.input).AutoFocus()
-		if field.Changed() {
-			s.selected = 0
-			s.lastScroll = -1
-		}
-		apps := core.SearchApplications(s.apps, s.query, 100)
-		clips := s.clipResults()
-		count := len(apps)
-		if s.clipboardMode {
-			count = len(clips)
-		}
-		if count == 0 {
-			s.selected = 0
-		} else {
-			s.selected = max(0, min(s.selected, count-1))
-		}
-		// Do not treat an IME candidate confirmation/cancel as launcher action.
-		if !field.Composing() {
-			if c.Shortcut(0, ui.KeyEscape) {
-				s.hide()
-			}
-			if c.Shortcut(0, ui.KeyDown) && count > 0 {
-				s.selected = (s.selected + 1) % count
-			}
-			if c.Shortcut(0, ui.KeyUp) && count > 0 {
-				s.selected = (s.selected + count - 1) % count
-			}
-			if field.Submitted() || c.Shortcut(0, ui.KeyEnter) {
-				s.activate(apps, clips, false)
-			}
-		}
-		if s.clipboardMode {
-			ui.Row(c).Gap(8).Children(func() {
-				label := "开启文本历史（仅内存）"
-				if s.recording {
-					label = "暂停记录"
-				}
-				if ui.Button(c, label).Clicked() {
-					s.setRecording(!s.recording)
-				}
-				if ui.Button(c, "清空历史").Clicked() {
-					s.history.Clear()
-					s.selected = 0
-				}
-			})
-		}
-		ui.Scroll(c).Grow(1).FillWidth().Children(func() {
-			ui.Column(c).FillWidth().Gap(5).Children(func() {
-				if count == 0 {
-					label := "没有匹配的应用。可点击“重新扫描”。"
-					if s.scanning {
-						label = "正在扫描开始菜单和桌面…"
-					}
-					if s.clipboardMode {
-						label = "暂无历史。开启记录后，只收集之后复制的文本。"
-					}
-					ui.Text(c, label).TextColor(theme.TextMuted)
-				}
-				for i := 0; i < count; i++ {
-					title := ""
-					if s.clipboardMode {
-						title = preview(clips[i])
-					} else {
-						title = apps[i].Name
-					}
-					if i == s.selected {
-						title = "› " + title
-					}
-					item := ui.Button(c.Key(fmt.Sprintf("result-%t-%d", s.clipboardMode, i)), title).FillWidth().Height(38)
-					if i == s.selected && s.lastScroll != s.selected {
-						item.ScrollIntoView()
-						s.lastScroll = s.selected
-					}
-					if item.Clicked() {
-						s.selected = i
-						s.activate(apps, clips, false)
-					}
-				}
-			})
-		})
-		ui.Divider(c)
-		ui.Row(c).Gap(8).Children(func() {
-			if s.clipboardMode {
-				if ui.Button(c, "仅复制所选").Disabled(count == 0).Clicked() {
-					s.activate(apps, clips, true)
-				}
-			} else if ui.Button(c, "重新扫描").Disabled(s.scanning).Clicked() {
-				s.scan()
-			}
-			ui.Spacer(c)
-			ui.Text(c, "↑↓ 选择 · Enter 打开/回填 · Esc 隐藏").FontSize(11).TextColor(theme.TextMuted)
-		})
-		ui.Text(c, s.status).FontSize(11).TextColor(theme.TextMuted)
-		ui.Text(c, "Ctrl+Alt+Space 呼出 · 本地运行 · 无遥测").FontSize(11).TextColor(theme.TextMuted)
-		if s.tray == nil {
-			ui.Button(c, "退出 MyCast").OnClick(mygo.App.Quit)
-		}
-	})
 }
 
 func icon() []byte {
