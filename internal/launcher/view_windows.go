@@ -162,11 +162,14 @@ func (s *launcher) applicationMenuItems() []paletteMenuItem {
 		{"重新扫描应用", "↻", s.scanning, s.scan},
 		{"设置", "⚙", false, s.openSettings},
 		{"清空最近启动", "×", len(s.config.Recents) == 0, func() {
+			selectedID := s.selectedApplicationID()
 			value := s.config.Clone()
 			value.Recents = nil
 			if s.saveCatalog(value) {
 				s.status = "最近启动已清空。"
-				s.resetResults()
+				if !s.clipboardMode {
+					s.keepApplicationSelected(selectedID)
+				}
 			}
 		}},
 		{"隐藏", "−", false, s.hide},

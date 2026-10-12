@@ -13,11 +13,11 @@ import (
 )
 
 func (s *launcher) saveCatalog(candidate settings.Settings) bool {
-	if s.applyPreferences == nil {
+	if s.persistPreferences == nil {
 		s.status = "应用偏好暂时无法保存。"
 		return false
 	}
-	value, err := s.applyPreferences(candidate)
+	value, err := s.persistPreferences(candidate)
 	if err != nil {
 		s.status = "应用偏好未保存，原设置保留。" + err.Error()
 		return false
@@ -35,7 +35,7 @@ func (s *launcher) toggleFavorite(id string) {
 		candidate.Favorites = append(candidate.Favorites, id)
 	}
 	if s.saveCatalog(candidate) {
-		s.resetResults()
+		s.keepApplicationSelected(id)
 		s.status = "收藏已更新。"
 	}
 }
@@ -86,8 +86,29 @@ func (s *launcher) saveAliases() {
 		return
 	}
 	s.status = "搜索别名已保存。"
-	s.resetResults()
+	s.keepApplicationSelected(s.aliasID)
 	s.closeSettings()
+}
+
+func (s *launcher) selectedApplicationID() string {
+	apps := core.SearchApplicationsRanked(s.apps, s.query, 100, s.config.Favorites, s.config.Recents)
+	if s.selected >= 0 && s.selected < len(apps) {
+		return apps[s.selected].ItemID()
+	}
+	return ""
+}
+
+func (s *launcher) keepApplicationSelected(id string) {
+	apps := core.SearchApplicationsRanked(s.apps, s.query, 100, s.config.Favorites, s.config.Recents)
+	for index, app := range apps {
+		if app.ItemID() == id {
+			s.selected = index
+			s.lastScroll = index
+			s.reveal(s.rows(apps, nil), palette.Height)
+			return
+		}
+	}
+	s.resetResults()
 }
 
 func (s *launcher) drawAliases(c *ui.Context) {

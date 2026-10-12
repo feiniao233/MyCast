@@ -65,6 +65,13 @@ Native app startup, actual disk permissions in the user's application-data
 directory and real keyboard/IME interaction remain **not tested**. No user
 application inventory, document or clipboard data was used in shared fixtures.
 
+Review regressions additionally cover failed startup hotkey registration with
+successful favorites/aliases/recents and unrelated theme persistence; explicit
+hotkey changes still register and reject conflicts. At 100%/150%, actual headless
+Down/Enter events select the non-first B row, launch through a fake adapter,
+rerender recents as B/A/C and press Enter again. Both calls target B, whose selected
+row stays visible in the no-tray path. Native desktop access remains untested.
+
 ## Minimal manual Windows pass
 
 Use a standard account and a temporary text window with dedicated test text.

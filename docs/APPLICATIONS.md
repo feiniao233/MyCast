@@ -28,6 +28,13 @@ alias or launch action. A save failure preserves the prior saved state. Use
 **菜单 → 清空最近启动** to clear recents; remove favorites individually. Clipboard
 history and recording state remain separate, session-only and absent from disk.
 
+Ordinary metadata saving is independent of shortcut registration. A conflicted
+startup hotkey does not prevent tray access, favorites, aliases, recents or theme
+saving; only an explicit hotkey change attempts a new registration. Reordering
+keeps the selected application by its stable identity and reveals its row. In
+the no-tray fallback, the visible window therefore keeps the same selected app
+after a launch updates recents, so a second Enter cannot launch a displaced row.
+
 The version-1 pre-alpha schema accepts earlier ordinary settings without these
 optional fields. Earlier builds that do not understand the new fields preserve
 the file and use defaults instead of overwriting it. See [recovery](SETTINGS.md).

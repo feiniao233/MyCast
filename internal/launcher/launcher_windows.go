@@ -23,6 +23,7 @@ import (
 )
 
 type launcher struct {
+	persistPreferences                             func(settings.Settings) (settings.Settings, error)
 	scanQueue                                      core.ScanQueue
 	scanCancel                                     context.CancelFunc
 	scanWork                                       func(context.Context, []string) ([]core.Application, map[string]*ui.Bitmap, []error)
@@ -121,6 +122,7 @@ func (s *launcher) ready() {
 		s.shortcuts.Current = s.config.Hotkey
 	}
 	s.applyPreferences = s.applySettings
+	s.persistPreferences = s.saveOrdinarySettings
 	mygo.App.OnWillQuit(func(*mygo.QuitEvent) {
 		close(s.stop)
 		if s.scanCancel != nil {
@@ -197,9 +199,13 @@ func (s *launcher) scan() {
 			if !publish {
 				return
 			}
+			selectedID := s.selectedApplicationID()
 			s.apps, s.scanning = core.WithUserAliases(apps, s.config.Aliases), false
 			s.icons = icons
 			s.scroll.X, s.scroll.Y, s.lastScroll = 0, 0, 0
+			if !s.clipboardMode {
+				s.keepApplicationSelected(selectedID)
+			}
 			if len(errs) > 0 {
 				s.status = fmt.Sprintf("已索引 %d 个应用；%d 个位置无法读取。", len(apps), len(errs))
 				for _, err := range errs {
@@ -333,11 +339,13 @@ func (s *launcher) activate(apps []core.Application, clips []string, copyOnly bo
 			s.status = "启动接口不可用。"
 			return
 		}
-		if err := s.launchApplication(apps[s.selected].Path); err != nil {
+		app := apps[s.selected]
+		if err := s.launchApplication(app.Path); err != nil {
 			s.status = "启动失败：" + err.Error()
 			return
 		}
-		s.recordRecent(apps[s.selected].ItemID())
+		s.recordRecent(app.ItemID())
+		s.keepApplicationSelected(app.ItemID())
 		s.hide()
 	}
 }

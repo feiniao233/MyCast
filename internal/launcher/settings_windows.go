@@ -21,11 +21,35 @@ func (s *launcher) onHotkey() {
 }
 
 func (s *launcher) applySettings(candidate settings.Settings) (settings.Settings, error) {
+	value, err := candidate.Validated()
+	if err != nil {
+		return settings.Settings{}, err
+	}
+	if value.Hotkey == s.config.Hotkey {
+		return s.saveOrdinarySettings(value)
+	}
 	if s.store == nil || s.shortcuts == nil {
 		return settings.Settings{}, fmt.Errorf("settings storage is unavailable")
 	}
-	value, err := s.shortcuts.Apply(candidate, s.store.Save)
+	value, err = s.shortcuts.Apply(value, s.store.Save)
 	if err != nil {
+		return settings.Settings{}, err
+	}
+	return value, nil
+}
+
+func (s *launcher) saveOrdinarySettings(candidate settings.Settings) (settings.Settings, error) {
+	value, err := candidate.Validated()
+	if err != nil {
+		return settings.Settings{}, err
+	}
+	if s.store == nil {
+		return settings.Settings{}, fmt.Errorf("settings storage is unavailable")
+	}
+	if value.Hotkey != s.config.Hotkey {
+		return settings.Settings{}, fmt.Errorf("hotkey changes require an explicit settings transition")
+	}
+	if err := s.store.Save(value); err != nil {
 		return settings.Settings{}, err
 	}
 	return value, nil
