@@ -2,6 +2,7 @@
 package core
 
 import (
+	"context"
 	"strings"
 	"unicode"
 
@@ -77,11 +78,20 @@ func PinyinTerms(name string) []string {
 
 // PrepareSearch runs once per index refresh, never changing launch identity.
 func PrepareSearch(apps []Application) []Application {
+	return PrepareSearchContext(context.Background(), apps)
+}
+func PrepareSearchContext(ctx context.Context, apps []Application) []Application {
 	result := append([]Application(nil), apps...)
 	for i := range result {
+		if ctx.Err() != nil {
+			break
+		}
 		var terms []string
 		seen := map[string]bool{}
 		for _, name := range append([]string{result[i].Name}, result[i].Aliases...) {
+			if ctx.Err() != nil {
+				break
+			}
 			for _, term := range PinyinTerms(name) {
 				if !seen[term] {
 					seen[term] = true

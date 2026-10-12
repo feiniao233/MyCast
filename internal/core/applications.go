@@ -5,7 +5,9 @@
 package core
 
 import (
+	"context"
 	"crypto/sha256"
+	"errors"
 	"fmt"
 	"io/fs"
 	"path/filepath"
@@ -84,19 +86,42 @@ func IndexApplications(roots []string) (applications []Application, problems []e
 // have the same target, arguments and working directory. Unresolved links stay
 // distinct. The resolver must only read metadata, never resolve, repair or run.
 func IndexApplicationsWithResolver(roots []string, resolve func(string) (LaunchIdentity, error)) (applications []Application, problems []error) {
+	return IndexApplicationsWithOptions(context.Background(), roots, resolve, DefaultScanOptions())
+}
+
+func IndexApplicationsWithOptions(ctx context.Context, roots []string, resolve func(string) (LaunchIdentity, error), options ScanOptions) (applications []Application, problems []error) {
+	if options.MaxEntries <= 0 || options.MaxApplications <= 0 || options.MaxDepth <= 0 {
+		return nil, []error{ErrScanBudget}
+	}
+	visited := 0
+	addProblem := func(err error) {
+		if len(problems) < 128 {
+			problems = append(problems, err)
+		} else if errors.Is(err, ErrScanBudget) || errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			problems[len(problems)-1] = err
+		}
+	}
 	seen := make(map[string]bool)
-	for _, root := range roots {
+	for rootIndex, root := range roots {
+		if rootIndex >= 32 {
+			addProblem(ErrScanBudget)
+			break
+		}
+		if err := ctx.Err(); err != nil {
+			addProblem(err)
+			break
+		}
 		if root == "" {
 			continue
 		}
 		absolute, err := filepath.Abs(root)
 		if err != nil {
-			problems = append(problems, fmt.Errorf("index %q: %w", root, err))
+			addProblem(fmt.Errorf("index %q: %w", root, err))
 			continue
 		}
-		err = filepath.WalkDir(absolute, func(path string, entry fs.DirEntry, walkErr error) error {
+		err = boundedWalk(ctx, absolute, options, &visited, 0, func(path string, entry fs.DirEntry, walkErr error) error {
 			if walkErr != nil {
-				problems = append(problems, fmt.Errorf("index %q: %w", path, walkErr))
+				addProblem(fmt.Errorf("index %q: %w", path, walkErr))
 				return nil
 			}
 			if !entry.Type().IsRegular() {
@@ -112,13 +137,19 @@ func IndexApplicationsWithResolver(roots []string, resolve func(string) (LaunchI
 			}
 			key := pathKey(path)
 			if !seen[key] {
+				if len(applications) >= options.MaxApplications {
+					return ErrScanBudget
+				}
 				seen[key] = true
 				applications = append(applications, Application{Name: name, Path: path})
 			}
 			return nil
 		})
 		if err != nil {
-			problems = append(problems, fmt.Errorf("index %q: %w", absolute, err))
+			addProblem(fmt.Errorf("index %q: %w", absolute, err))
+			if errors.Is(err, ErrScanBudget) || ctx.Err() != nil {
+				break
+			}
 		}
 	}
 	sort.Slice(applications, func(i, j int) bool { return applicationLess(applications[i], applications[j]) })
@@ -126,10 +157,20 @@ func IndexApplicationsWithResolver(roots []string, resolve func(string) (LaunchI
 		merged := make([]Application, 0, len(applications))
 		identities := make(map[string]int)
 		for _, app := range applications {
+			if err := ctx.Err(); err != nil {
+				addProblem(err)
+				break
+			}
+			if options.AllowPath != nil {
+				if err := options.AllowPath(app.Path); err != nil {
+					addProblem(err)
+					continue
+				}
+			}
 			if strings.EqualFold(filepath.Ext(app.Path), ".lnk") {
 				launch, err := resolve(app.Path)
 				if err != nil {
-					problems = append(problems, fmt.Errorf("shortcut %q: %w", app.Path, err))
+					addProblem(fmt.Errorf("shortcut %q: %w", app.Path, err))
 				}
 				// Incomplete or relative identities cannot safely prove equivalence.
 				if err == nil && filepath.IsAbs(launch.Target) && (launch.WorkingDirectory == "" || filepath.IsAbs(launch.WorkingDirectory)) {

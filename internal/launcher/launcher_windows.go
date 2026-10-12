@@ -6,6 +6,8 @@ package launcher
 
 import (
 	"bytes"
+	"context"
+	"errors"
 	"fmt"
 	"image"
 	"image/color"
@@ -21,6 +23,10 @@ import (
 )
 
 type launcher struct {
+	scanQueue                                      core.ScanQueue
+	scanCancel                                     context.CancelFunc
+	scanWork                                       func(context.Context, []string) ([]core.Application, map[string]*ui.Bitmap, []error)
+	uiUpdate                                       func(func())
 	aliasID, aliasText, aliasName                  string
 	launchApplication                              func(string) error
 	win                                            *mygo.Window
@@ -39,7 +45,6 @@ type launcher struct {
 	settingsDraft                                  settings.Settings
 	hotkeyText, rootsText, themeText, settingsNote string
 	applyPreferences                               func(settings.Settings) (settings.Settings, error)
-	scanGeneration                                 uint64
 	apps                                           []core.Application
 	history                                        *core.History
 	query, status                                  string
@@ -85,6 +90,8 @@ func (s *launcher) ready() {
 		SkipTaskbar: true, AlwaysOnTop: true, Content: ui.View(s.view),
 	})
 	s.win.OnBlur(s.hide)
+	s.uiUpdate = s.win.Update
+	s.scanWork = s.readApps
 	s.win.OnClose(func(e *mygo.CloseEvent) {
 		if !s.quitting && s.tray != nil {
 			e.PreventDefault()
@@ -116,6 +123,9 @@ func (s *launcher) ready() {
 	s.applyPreferences = s.applySettings
 	mygo.App.OnWillQuit(func(*mygo.QuitEvent) {
 		close(s.stop)
+		if s.scanCancel != nil {
+			s.scanCancel()
+		}
 		mygo.GlobalShortcut.UnregisterAll()
 		s.history.Clear()
 		if s.tray != nil {
@@ -154,27 +164,37 @@ func (s *launcher) show(captureTarget bool) {
 }
 
 func (s *launcher) scan() {
-	if s.scanning {
+	if s.scanWork == nil || s.uiUpdate == nil {
+		return
+	}
+	generation, start := s.scanQueue.Request()
+	if !start {
+		if s.scanCancel != nil {
+			s.scanCancel()
+		}
 		return
 	}
 	s.scanning = true
-	s.scanGeneration++
-	generation := s.scanGeneration
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	s.scanCancel = cancel
 	roots := append([]string(nil), s.config.IndexRoots...)
 	if len(roots) == 0 {
 		roots = platform.DefaultAppRoots()
 	}
 	go func() {
-		apps, errs := core.IndexApplicationsWithResolver(roots, platform.ShortcutIdentity)
-		apps = core.PrepareSearch(apps)
-		icons := make(map[string]*ui.Bitmap, len(apps))
-		for _, app := range apps {
-			if im := platform.ApplicationIcon(app.Launch.Target); im != nil {
-				icons[app.ItemID()] = ui.NewBitmap(im)
+		apps, icons, errs := s.scanWork(ctx, roots)
+		cancel()
+		s.uiUpdate(func() {
+			publish, restart := s.scanQueue.Finish(generation)
+			s.scanning = false
+			if s.quitting {
+				return
 			}
-		}
-		s.win.Update(func() {
-			if generation != s.scanGeneration || s.quitting {
+			if restart {
+				s.scan()
+				return
+			}
+			if !publish {
 				return
 			}
 			s.apps, s.scanning = core.WithUserAliases(apps, s.config.Aliases), false
@@ -182,9 +202,39 @@ func (s *launcher) scan() {
 			s.scroll.X, s.scroll.Y, s.lastScroll = 0, 0, 0
 			if len(errs) > 0 {
 				s.status = fmt.Sprintf("已索引 %d 个应用；%d 个位置无法读取。", len(apps), len(errs))
+				for _, err := range errs {
+					if errors.Is(err, core.ErrScanBudget) || errors.Is(err, context.DeadlineExceeded) {
+						s.status = fmt.Sprintf("扫描达到数量或时限预算，显示 %d 个应用；可缩小索引目录。", len(apps))
+						break
+					}
+				}
 			}
 		})
 	}()
+}
+
+func (s *launcher) readApps(ctx context.Context, roots []string) ([]core.Application, map[string]*ui.Bitmap, []error) {
+	options := core.DefaultScanOptions()
+	options.AllowPath = platform.LocalAppPath
+	apps, errs := core.IndexApplicationsWithOptions(ctx, roots, platform.ShortcutIdentity, options)
+	apps = core.PrepareSearchContext(ctx, apps)
+	icons := map[string]*ui.Bitmap{}
+	for i, app := range apps {
+		if ctx.Err() != nil || i >= 256 {
+			break
+		}
+		if im := platform.ApplicationIcon(app.Launch.Target); im != nil {
+			icons[app.ItemID()] = ui.NewBitmap(im)
+		}
+	}
+	if err := ctx.Err(); err != nil {
+		if len(errs) < 128 {
+			errs = append(errs, err)
+		} else {
+			errs[len(errs)-1] = err
+		}
+	}
+	return apps, icons, errs
 }
 
 func (s *launcher) setRecording(enabled bool) {

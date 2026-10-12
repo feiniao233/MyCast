@@ -132,8 +132,9 @@ func (s *Store) Save(value Settings) error {
 	if err := s.checkUnchanged(); err != nil {
 		return err
 	}
-	if err = os.Rename(name, s.Path); err != nil {
-		return fmt.Errorf("settings replacement failed; existing settings preserved")
+	if err = replaceFile(name, s.Path, s.exists); err != nil {
+		s.readOnly = true
+		return fmt.Errorf("settings replacement failed; live preferences retained, inspect file before retrying")
 	}
 	s.exists, s.digest = true, sha256.Sum256(append(data, '\n'))
 	return nil

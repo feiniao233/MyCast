@@ -15,8 +15,12 @@ development branches. Keep each phase buildable and update `docs/ROADMAP.md` and
   Mutate UI state on its UI thread through `Window.Update`.
 - `internal/settings`: bounded ordinary preferences and safe storage/shortcut
   transitions; clipboard text and recording state must never enter this schema.
-- Settings storage should have a small validated schema, atomic writes, bounded
+- Settings storage should have a small validated schema, synchronized same-directory
+  replacement without copy/delete fallback, bounded
   input and injectable paths for tests. Do not mix it into rendering.
+  Do not promise atomicity or crash durability on arbitrary Windows filesystems.
+  Index workers must be bounded, cooperatively cancelled and serialized. Reject
+  network/unknown volumes and reparse ancestors before any indexing access.
 
 ## Build and verification
 

@@ -36,7 +36,7 @@ func TestSettingsDefaultsValidationAndPrivacy(t *testing.T) {
 	}
 }
 
-func TestStoreAtomicRoundTripAndExternalEditPreservation(t *testing.T) {
+func TestStoreRoundTripAndExternalEditPreservation(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "app-data", "settings.json")
 	store := &Store{Path: path}
 	value, err := store.Load()

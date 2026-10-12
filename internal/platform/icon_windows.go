@@ -49,6 +49,9 @@ func ApplicationIcon(path string) image.Image {
 	if !filepath.IsAbs(path) || !strings.EqualFold(filepath.Ext(path), ".exe") || strings.HasPrefix(path, `\\`) {
 		return nil
 	}
+	if err := LocalAppPath(path); err != nil {
+		return nil
+	}
 	volume, err := syscall.UTF16PtrFromString(filepath.VolumeName(path) + `\`)
 	if err != nil {
 		return nil

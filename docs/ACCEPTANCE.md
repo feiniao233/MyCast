@@ -39,6 +39,19 @@ theme changes and separation from session clipboard state. The synthetic preview
 in [settings](SETTINGS.md) were visually inspected. Actual native shortcut conflict,
 Microsoft Pinyin and theme/material changes remain **not tested**.
 
+## Settings review corrections
+
+Local tests exercise remote/unknown volume refusal before path attributes,
+reparse-ancestor refusal before child lookup, native metadata on a temporary local
+fixture, bounded traversal/resolution cancellation, and 50 rapid root changes
+with a blocked old worker. They confirm at most one active worker, latest-root
+coalescing and no stale result publication. No network share or mapped-drive
+resource was accessed or configured for these tests.
+
+First settings creation now refuses an appeared destination in the native move
+operation; existing settings round-trip replacement and cleanup are tested.
+Windows filesystem-wide atomicity/crash durability is explicitly not claimed.
+
 ## Finding applications phase
 
 Local unit/native/UI tests, module integrity, vet and Windows build passed with

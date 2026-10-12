@@ -74,10 +74,8 @@ func (s *launcher) saveSettings() {
 	}
 	s.status = "设置已保存。"
 	s.closeSettings()
-	if changedRoots && s.win != nil {
+	if changedRoots {
 		// Old scan completions are ignored; the new worker captures its own roots.
-		s.scanGeneration++
-		s.scanning = false
 		s.scan()
 	}
 }
