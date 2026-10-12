@@ -1,0 +1,38 @@
+name: Windows build and core tests
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.27.2'
+          cache: true
+      - name: Verify dependencies
+        run: go mod verify
+      - name: Test
+        run: go test ./...
+      - name: Vet
+        run: go vet ./...
+      - name: Build native Windows executable
+        env:
+          CGO_ENABLED: '0'
+          GOARCH: amd64
+        run: go build -trimpath -tags mygo_noinspector -ldflags '-H windowsgui -s -w' -o dist/MyCast.exe ./cmd/mycast
+      - name: Package source notices and executable
+        shell: pwsh
+        run: |
+          Copy-Item README.md, LICENSE, THIRD_PARTY_NOTICES.md -Destination dist
+          Copy-Item -Recurse licenses -Destination dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MyCast-windows-amd64
+          path: dist/
+          if-no-files-found: error
+          retention-days: 14

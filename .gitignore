@@ -1,0 +1,7 @@
+/dist/
+*.exe
+*.test
+*.zip
+.env
+.env.*
+!.env.example
