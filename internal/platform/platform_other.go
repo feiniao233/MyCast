@@ -11,3 +11,4 @@ func PasteToWindow(target uintptr, text string) error { return ErrUnsupported }
 func ReadClipboardText() (string, error)              { return "", ErrUnsupported }
 func WriteClipboardText(text string) error            { return ErrUnsupported }
 func Launch(path string) error                        { return ErrUnsupported }
+func OpenHTTPURL(value string) error                  { return ErrUnsupported }

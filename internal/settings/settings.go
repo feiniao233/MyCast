@@ -5,6 +5,7 @@ package settings
 
 import (
 	"fmt"
+	"github.com/feiniao233/MyCast/internal/core"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -23,6 +24,7 @@ type Settings struct {
 	Favorites  []string            `json:"favorites,omitempty"`
 	Recents    []string            `json:"recents,omitempty"`
 	Aliases    map[string][]string `json:"aliases,omitempty"`
+	QuickLinks []core.QuickLink    `json:"quick_links,omitempty"`
 }
 
 func Defaults() Settings {
@@ -32,6 +34,7 @@ func (s Settings) Clone() Settings {
 	s.IndexRoots = append([]string(nil), s.IndexRoots...)
 	s.Favorites = append([]string(nil), s.Favorites...)
 	s.Recents = append([]string(nil), s.Recents...)
+	s.QuickLinks = append([]core.QuickLink(nil), s.QuickLinks...)
 	if s.Aliases != nil {
 		copied := make(map[string][]string, len(s.Aliases))
 		for id, aliases := range s.Aliases {
@@ -154,6 +157,24 @@ func (s Settings) Validated() (Settings, error) {
 			}
 		}
 		s.Aliases = aliases
+	}
+	if len(s.QuickLinks) > 32 {
+		return Settings{}, fmt.Errorf("too many quick links")
+	}
+	if s.QuickLinks != nil {
+		links := make([]core.QuickLink, 0, len(s.QuickLinks))
+		seen := map[string]bool{}
+		for _, link := range s.QuickLinks {
+			value, err := link.Validated()
+			if err != nil {
+				return Settings{}, err
+			}
+			if !seen[value.ItemID()] {
+				seen[value.ItemID()] = true
+				links = append(links, value)
+			}
+		}
+		s.QuickLinks = links
 	}
 	return s, nil
 }

@@ -84,6 +84,21 @@ replacement. No existing user clipboard content was read, restored or recorded.
 The synthetic preview images were visually inspected. Native collection, expiry
 tick scheduling, copy/verified-target paste and real IME remain **not tested**.
 
+## Small utilities phase
+
+Integrity, tests, vet and Windows build passed with the pinned toolchain. Parser
+tests cover precedence, unary signs, decimals/exponents, glyph normalization,
+division by zero, nonfinite results and length/token/depth limits. URL tests reject
+unsupported protocols, embedded credentials, invalid ports/control data and raw
+unsafe characters/oversized canonical encodings. Settings tests cover bounded link
+validation, clone isolation and round-trip persistence. Headless 100%/150% tests
+verify explicit result copying, no effect on Enter/save, link editing/cancellation,
+invalid-draft preservation, explicit mocked opening and IME Escape protection.
+The four synthetic previews were visually inspected. No URL was opened or fetched
+and no existing clipboard was read during these tests.
+
+Native desktop input/material interactions remain unverified by the automated checks.
+
 ## Minimal manual Windows pass
 
 The clipboard menu review regression covers 24 combinations of deletion/expiry,

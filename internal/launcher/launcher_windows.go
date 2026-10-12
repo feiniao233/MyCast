@@ -27,6 +27,10 @@ type launcher struct {
 	pasteText                                      func(uintptr, string) error
 	menuTargetKey                                  string
 	menuTargetClipboard, clipNeedsSelection        bool
+	utilityOpen, linkEditor                        bool
+	calcText, linksText, utilityNote               string
+	utilityScroll                                  ui.ScrollState
+	openURL                                        func(string) error
 	previewScroll                                  ui.ScrollState
 	clipPreview, clipSelection                     string
 	previewOpen                                    bool
@@ -67,7 +71,7 @@ type launcher struct {
 }
 
 func Run() error {
-	s := &launcher{history: core.NewHistory(50, 64*1024), stop: make(chan struct{}), config: settings.Defaults(), launchApplication: platform.Launch, copyText: platform.WriteClipboardText}
+	s := &launcher{history: core.NewHistory(50, 64*1024), stop: make(chan struct{}), config: settings.Defaults(), launchApplication: platform.Launch, copyText: platform.WriteClipboardText, openURL: platform.OpenHTTPURL}
 	mygo.App.SetName("MyCast")
 	if !mygo.App.RequestSingleInstanceLock() {
 		return nil
@@ -153,6 +157,8 @@ func (s *launcher) ready() {
 func (s *launcher) hide() {
 	s.closeMenu()
 	s.settingsOpen = false
+	s.utilityOpen, s.linkEditor = false, false
+	s.calcText, s.linksText = "", ""
 	s.clipPreview, s.clipSelection = "", ""
 	s.clipNeedsSelection = false
 	s.previewOpen = false
@@ -171,6 +177,8 @@ func (s *launcher) show(captureTarget bool) {
 	s.query, s.selected, s.lastScroll = "", 0, 0
 	s.menu, s.restoreSearch = menuClosed, true
 	s.settingsOpen = false
+	s.utilityOpen, s.linkEditor = false, false
+	s.calcText, s.linksText = "", ""
 	s.clipPreview, s.clipSelection = "", ""
 	s.clipNeedsSelection = false
 	s.previewOpen = false

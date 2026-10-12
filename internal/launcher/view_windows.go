@@ -234,6 +234,7 @@ func (s *launcher) applicationMenuItems() []paletteMenuItem {
 		{"清空内存历史", "×", s.history.Len() == 0, s.clearHistory},
 		{"重新扫描应用", "↻", s.scanning, s.scan},
 		{"设置", "⚙", false, s.openSettings},
+		{"小工具", "＋", false, s.openUtilities},
 		{"清空最近启动", "×", len(s.config.Recents) == 0, func() {
 			selectedID := s.selectedApplicationID()
 			value := s.config.Clone()
