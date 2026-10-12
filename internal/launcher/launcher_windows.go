@@ -17,36 +17,53 @@ import (
 	"github.com/egoist/mygo/ui"
 	"github.com/feiniao233/MyCast/internal/core"
 	"github.com/feiniao233/MyCast/internal/platform"
+	"github.com/feiniao233/MyCast/internal/settings"
 )
 
-const shortcut = "Ctrl+Alt+Space"
-
 type launcher struct {
-	win                                          *mygo.Window
-	tray                                         *mygo.Tray
-	input                                        ui.Handle
-	scroll                                       ui.ScrollState
-	icons                                        map[string]*ui.Bitmap
-	menu                                         paletteMenu
-	menuSelected                                 int
-	menuNeedsFocus                               bool
-	restoreSearch                                bool
-	apps                                         []core.Application
-	history                                      *core.History
-	query, status                                string
-	selected                                     int
-	lastScroll                                   int
-	clipboardMode, recording, scanning, quitting bool
-	sequence                                     uint32
-	target                                       uintptr
-	stop                                         chan struct{}
+	win                                            *mygo.Window
+	tray                                           *mygo.Tray
+	input                                          ui.Handle
+	scroll                                         ui.ScrollState
+	icons                                          map[string]*ui.Bitmap
+	menu                                           paletteMenu
+	menuSelected                                   int
+	menuNeedsFocus                                 bool
+	restoreSearch                                  bool
+	config                                         settings.Settings
+	store                                          *settings.Store
+	shortcuts                                      *settings.Shortcuts
+	settingsOpen, settingsNeedsFocus               bool
+	settingsDraft                                  settings.Settings
+	hotkeyText, rootsText, themeText, settingsNote string
+	applyPreferences                               func(settings.Settings) (settings.Settings, error)
+	scanGeneration                                 uint64
+	apps                                           []core.Application
+	history                                        *core.History
+	query, status                                  string
+	selected                                       int
+	lastScroll                                     int
+	clipboardMode, recording, scanning, quitting   bool
+	sequence                                       uint32
+	target                                         uintptr
+	stop                                           chan struct{}
 }
 
 func Run() error {
-	s := &launcher{history: core.NewHistory(50, 64*1024), stop: make(chan struct{})}
+	s := &launcher{history: core.NewHistory(50, 64*1024), stop: make(chan struct{}), config: settings.Defaults()}
 	mygo.App.SetName("MyCast")
 	if !mygo.App.RequestSingleInstanceLock() {
 		return nil
+	}
+	if path, err := settings.DefaultPath(); err == nil {
+		s.store = &settings.Store{Path: path}
+		if value, err := s.store.Load(); err == nil {
+			s.config = value
+		} else {
+			s.status = "设置无效，暂按默认运行；原文件未覆盖。"
+		}
+	} else {
+		s.status = "无法定位应用设置目录，暂按默认运行。"
 	}
 	mygo.App.OnSecondInstance(func([]string, string) {
 		if s.win != nil {
@@ -73,7 +90,7 @@ func (s *launcher) ready() {
 		}
 	})
 	var err error
-	s.tray, err = mygo.NewTray(mygo.TrayOptions{Icon: icon(), ToolTip: "MyCast · Ctrl+Alt+Space"})
+	s.tray, err = mygo.NewTray(mygo.TrayOptions{Icon: icon(), ToolTip: "MyCast · " + s.config.Hotkey})
 	if err != nil {
 		// Keep a discoverable window if the tray cannot be created.
 		s.win.SetSkipTaskbar(false)
@@ -88,15 +105,13 @@ func (s *launcher) ready() {
 		})
 		s.tray.OnRightClick(func() { s.hide(); s.tray.SetMenu(menu); defer s.tray.SetMenu(nil); s.tray.PopUpMenu() })
 	}
-	if err := mygo.GlobalShortcut.Register(shortcut, func() {
-		if s.win.IsVisible() {
-			s.hide()
-		} else {
-			s.show(true)
-		}
-	}); err != nil {
+	s.shortcuts = &settings.Shortcuts{Register: func(key string) error { return mygo.GlobalShortcut.Register(key, s.onHotkey) }, Unregister: mygo.GlobalShortcut.Unregister}
+	if err := s.shortcuts.Register(s.config.Hotkey); err != nil {
 		s.status = "热键注册失败（可能已被占用）；请使用托盘打开。"
+	} else {
+		s.shortcuts.Current = s.config.Hotkey
 	}
+	s.applyPreferences = s.applySettings
 	mygo.App.OnWillQuit(func(*mygo.QuitEvent) {
 		close(s.stop)
 		mygo.GlobalShortcut.UnregisterAll()
@@ -113,6 +128,7 @@ func (s *launcher) ready() {
 // With no tray, keep the fallback window reachable even if the hotkey failed.
 func (s *launcher) hide() {
 	s.closeMenu()
+	s.settingsOpen = false
 	if s.tray != nil {
 		s.win.Hide()
 	}
@@ -127,6 +143,7 @@ func (s *launcher) show(captureTarget bool) {
 	}
 	s.query, s.selected, s.lastScroll = "", 0, 0
 	s.menu, s.restoreSearch = menuClosed, true
+	s.settingsOpen = false
 	s.scroll.X, s.scroll.Y = 0, 0
 	s.win.Center()
 	s.input.Focus()
@@ -139,8 +156,14 @@ func (s *launcher) scan() {
 		return
 	}
 	s.scanning = true
+	s.scanGeneration++
+	generation := s.scanGeneration
+	roots := append([]string(nil), s.config.IndexRoots...)
+	if len(roots) == 0 {
+		roots = platform.DefaultAppRoots()
+	}
 	go func() {
-		apps, errs := core.IndexApplicationsWithResolver(platform.DefaultAppRoots(), platform.ShortcutIdentity)
+		apps, errs := core.IndexApplicationsWithResolver(roots, platform.ShortcutIdentity)
 		icons := make(map[string]*ui.Bitmap, len(apps))
 		for _, app := range apps {
 			if im := platform.ApplicationIcon(app.Launch.Target); im != nil {
@@ -148,6 +171,9 @@ func (s *launcher) scan() {
 			}
 		}
 		s.win.Update(func() {
+			if generation != s.scanGeneration || s.quitting {
+				return
+			}
 			s.apps, s.scanning = apps, false
 			s.icons = icons
 			s.scroll.X, s.scroll.Y, s.lastScroll = 0, 0, 0

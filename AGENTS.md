@@ -13,6 +13,8 @@ development branches. Keep each phase buildable and update `docs/ROADMAP.md` and
   inputs and fail closed; isolate native resource ownership and cleanup.
 - `internal/launcher`: MyGo window, input, menus, state and background workers.
   Mutate UI state on its UI thread through `Window.Update`.
+- `internal/settings`: bounded ordinary preferences and safe storage/shortcut
+  transitions; clipboard text and recording state must never enter this schema.
 - Settings storage should have a small validated schema, atomic writes, bounded
   input and injectable paths for tests. Do not mix it into rendering.
 

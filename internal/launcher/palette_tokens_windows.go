@@ -6,7 +6,7 @@ package launcher
 import "github.com/egoist/mygo/ui"
 
 // Standard DIPs; the renderer handles DPI. Compact/expanded states are deferred.
-var palette = struct {
+type paletteTokens struct {
 	Width, Height, Header, Footer, PanelRadius, RowRadius                               float32
 	Inset, RowInset, Gap, RowGap, RowHeight, DetailRowHeight                            float32
 	Icon, IconSlot, MenuButton, ActionHeight, MenuWidth, MenuRadius                     float32
@@ -15,7 +15,9 @@ var palette = struct {
 	TopFade, BottomFade, TopFloor, BottomFloor                                          float32
 	Fallback, Scrim, Text, Secondary, Tertiary, Selection, Hover, Control, Border       ui.Color
 	MenuSurface                                                                         ui.Color
-}{
+}
+
+var palette = paletteTokens{
 	Width: 750, Height: 475, Header: 44, Footer: 52, PanelRadius: 26, RowRadius: 10,
 	Inset: 8, RowInset: 8, Gap: 10, RowGap: 2, RowHeight: 38, DetailRowHeight: 46,
 	Icon: 24, IconSlot: 26, MenuButton: 36, ActionHeight: 28, MenuWidth: 276, MenuRadius: 16,
@@ -29,8 +31,33 @@ var palette = struct {
 	MenuSurface: ui.RGB(38, 38, 38),
 }
 
-func launcherTheme() *ui.Theme {
+func paletteFor(dark, highContrast bool) paletteTokens {
+	p := palette
+	if !dark {
+		p.Fallback, p.MenuSurface = ui.RGB(245, 245, 245), ui.RGB(250, 250, 250)
+		p.Scrim = ui.RGBA(255, 255, 255, .55)
+		p.Text = ui.RGB(0, 0, 0)
+		p.Secondary, p.Tertiary = ui.RGBA(0, 0, 0, .60), ui.RGBA(0, 0, 0, .42)
+		p.Selection, p.Hover = ui.RGBA(0, 0, 0, .09), ui.RGBA(0, 0, 0, .045)
+		p.Control, p.Border = ui.RGBA(0, 0, 0, .08), ui.RGBA(0, 0, 0, .18)
+	}
+	if highContrast {
+		p.Secondary, p.Tertiary, p.Border = p.Text, p.Text, p.Text
+		p.Scrim = p.Fallback
+		if dark {
+			p.Selection, p.Hover, p.Control = ui.RGB(64, 64, 64), ui.RGB(48, 48, 48), ui.RGB(40, 40, 40)
+		} else {
+			p.Selection, p.Hover, p.Control = ui.RGB(220, 220, 220), ui.RGB(235, 235, 235), ui.RGB(240, 240, 240)
+		}
+	}
+	return p
+}
+
+func launcherTheme(palette paletteTokens, dark bool) *ui.Theme {
 	theme := *ui.DarkTheme()
+	if !dark {
+		theme = *ui.LightTheme()
+	}
 	// Do not let the renderer's clear color cover the OS backdrop.
 	theme.Background, theme.Surface = ui.Transparent, ui.Transparent
 	theme.SurfaceHover, theme.SurfacePressed = palette.Hover, palette.Selection

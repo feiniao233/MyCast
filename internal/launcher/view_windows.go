@@ -101,6 +101,7 @@ func (s *launcher) reveal(rows []paletteRow, viewport float32) {
 }
 
 func barAction(c *ui.Context, label string, disabled bool) ui.Element {
+	palette := paletteFor(c.Theme().Dark, c.Preferences().HighContrast)
 	item := ui.ButtonBase(c).Height(palette.ActionHeight).Shrink(0).Padding(palette.ControlInset, palette.Inset).Gap(palette.Inset).Radius(palette.ActionHeight / 2).Label(label).Disabled(disabled)
 	if item.Hovered() {
 		item.Background(palette.Hover)
@@ -141,12 +142,14 @@ func (s *launcher) menuItems(apps []core.Application, clips []string) []paletteM
 		{record, "○", false, func() { s.setRecording(!s.recording) }},
 		{"清空内存历史", "×", s.history.Len() == 0, func() { s.history.Clear(); s.resetResults() }},
 		{"重新扫描应用", "↻", s.scanning, s.scan},
+		{"设置", "⚙", false, s.openSettings},
 		{"隐藏", "−", false, s.hide},
 		{"退出 MyCast", "⏻", false, mygo.App.Quit},
 	}
 }
 
 func (s *launcher) drawMenu(c *ui.Context, apps []core.Application, clips []string, composing bool) {
+	palette := paletteFor(c.Theme().Dark, c.Preferences().HighContrast)
 	items := s.menuItems(apps, clips)
 	if len(items) == 0 {
 		return
@@ -211,7 +214,15 @@ func (s *launcher) drawMenu(c *ui.Context, apps []core.Application, clips []stri
 }
 
 func (s *launcher) view(c *ui.Context) {
-	c.SetTheme(launcherTheme())
+	dark := true
+	switch s.config.Theme {
+	case "light":
+		dark = false
+	case "system":
+		dark = c.Theme().Dark
+	}
+	palette := paletteFor(dark, c.Preferences().HighContrast)
+	c.SetTheme(launcherTheme(palette, dark))
 	_, height := c.Size()
 	background := palette.Fallback
 	if c.Vibrancy() {
@@ -257,8 +268,10 @@ func (s *launcher) view(c *ui.Context) {
 				}
 				for i, row := range rows {
 					index, item := i, row
-					button := ui.ButtonBase(c.Key(item.key)).FillWidth().Height(item.height).Shrink(0).Padding(palette.RowPaddingY, palette.RowInset).Gap(palette.Gap).Justify(ui.Start).AlignItems(ui.Center).Radius(palette.RowRadius).Label("结果：" + item.title).Disabled(s.menu != menuClosed)
-					button.Opacity(rowOpacity(item.top-s.scroll.Y, item.height, height, s.scroll.Y, s.scroll.MaxY-s.scroll.Y))
+					button := ui.ButtonBase(c.Key(item.key)).FillWidth().Height(item.height).Shrink(0).Padding(palette.RowPaddingY, palette.RowInset).Gap(palette.Gap).Justify(ui.Start).AlignItems(ui.Center).Radius(palette.RowRadius).Label("结果：" + item.title).Disabled(s.menu != menuClosed || s.settingsOpen)
+					if !c.Preferences().HighContrast {
+						button.Opacity(rowOpacity(item.top-s.scroll.Y, item.height, height, s.scroll.Y, s.scroll.MaxY-s.scroll.Y))
+					}
 					if index == s.selected {
 						button.Background(palette.Selection)
 					} else if button.Hovered() {
@@ -291,11 +304,11 @@ func (s *launcher) view(c *ui.Context) {
 			})
 		})
 		var field ui.Element
-		header := ui.ButtonBase(c.Key("header")).Absolute().Top(0).Left(0).Right(0).Height(palette.Header).Padding(0, 2*palette.Inset).Gap(palette.Gap).Justify(ui.Start).Label("搜索栏")
+		header := ui.ButtonBase(c.Key("header")).Absolute().Top(0).Left(0).Right(0).Height(palette.Header).Padding(0, 2*palette.Inset).Gap(palette.Gap).Justify(ui.Start).Label("搜索栏").Disabled(s.settingsOpen)
 		header.Children(func() {
 			ui.Box(c).Size(palette.IconSlot, palette.IconSlot).Shrink(0).Center().Children(func() {
 				if s.clipboardMode {
-					back := ui.ButtonBase(c.Key("back")).Size(palette.Icon, palette.Icon).Label("返回应用")
+					back := ui.ButtonBase(c.Key("back")).Size(palette.Icon, palette.Icon).Label("返回应用").Disabled(s.settingsOpen)
 					back.Children(func() { ui.Text(c, "‹").FontSize(palette.SearchSize).TextColor(palette.Secondary) })
 					if back.Clicked() {
 						s.switchMode(false)
@@ -304,19 +317,19 @@ func (s *launcher) view(c *ui.Context) {
 					ui.Icon(c, searchGlyph).Size(palette.Icon, palette.Icon).TextColor(palette.Secondary)
 				}
 			})
-			field = ui.TextInputBase(c.Key("search"), &s.query).Grow(1).MinWidth(0).Height(palette.Header).Padding(0).FontSize(palette.SearchSize).Background(ui.Transparent).FocusRing(false).Placeholder("搜索应用或剪贴板…").Label("搜索").Bind(&s.input).AutoFocus().Disabled(s.menu != menuClosed)
+			field = ui.TextInputBase(c.Key("search"), &s.query).Grow(1).MinWidth(0).Height(palette.Header).Padding(0).FontSize(palette.SearchSize).Background(ui.Transparent).FocusRing(false).Placeholder("搜索应用或剪贴板…").Label("搜索").Bind(&s.input).AutoFocus().Disabled(s.menu != menuClosed || s.settingsOpen)
 		})
-		if header.Clicked() && s.menu == menuClosed {
+		if header.Clicked() && s.menu == menuClosed && !s.settingsOpen {
 			s.restoreSearch = true
 		}
-		if s.restoreSearch && s.menu == menuClosed {
+		if s.restoreSearch && s.menu == menuClosed && !s.settingsOpen {
 			field.Focus()
 			s.restoreSearch = false
 		}
 		if field.Changed() {
 			s.resetResults()
 		}
-		if !field.Composing() && s.menu == menuClosed {
+		if !field.Composing() && s.menu == menuClosed && !s.settingsOpen {
 			if c.Shortcut(0, ui.KeyEscape) {
 				s.hide()
 			}
@@ -337,9 +350,9 @@ func (s *launcher) view(c *ui.Context) {
 				s.activate(apps, clips, false)
 			}
 		}
-		footer := ui.ButtonBase(c.Key("footer")).Absolute().Bottom(0).Left(0).Right(0).Height(palette.Footer).Padding(palette.Inset).Gap(palette.Inset).Label("底栏")
+		footer := ui.ButtonBase(c.Key("footer")).Absolute().Bottom(0).Left(0).Right(0).Height(palette.Footer).Padding(palette.Inset).Gap(palette.Inset).Label("底栏").Disabled(s.settingsOpen)
 		footer.Children(func() {
-			circle := ui.ButtonBase(c.Key("menu-toggle")).Size(palette.MenuButton, palette.MenuButton).Shrink(0).Radius(palette.MenuButton/2).Background(palette.Control).Border(1, palette.Border).Label("菜单").Tooltip(s.status)
+			circle := ui.ButtonBase(c.Key("menu-toggle")).Size(palette.MenuButton, palette.MenuButton).Shrink(0).Radius(palette.MenuButton/2).Background(palette.Control).Border(1, palette.Border).Label("菜单").Tooltip(s.status).Disabled(s.settingsOpen)
 			circle.Children(func() { ui.Text(c, "≡").FontSize(palette.SearchSize).TextColor(palette.Secondary) })
 			if circle.Clicked() {
 				s.openMenu(menuApplication)
@@ -358,7 +371,7 @@ func (s *launcher) view(c *ui.Context) {
 			ui.Spacer(c)
 			ui.Row(c).Height(palette.MenuButton).Shrink(0).Padding(palette.ControlInset).Gap(palette.RowGap).Radius(palette.MenuButton/2).Background(palette.Control).Border(1, palette.Border).Children(func() {
 				label, _ := s.primaryLabels()
-				primary := barAction(c.Key("primary-action"), label, count == 0 || s.menu != menuClosed)
+				primary := barAction(c.Key("primary-action"), label, count == 0 || s.menu != menuClosed || s.settingsOpen)
 				primary.Children(func() {
 					ui.Text(c, label).FontSize(palette.BodySize).Bold()
 					ui.Box(c).Size(palette.KeyCap, palette.KeyCap).Center().Radius(palette.KeyCapRadius).Background(palette.Control).Children(func() { ui.Text(c, "↵").FontSize(palette.BodySize).TextColor(palette.Secondary) })
@@ -366,18 +379,21 @@ func (s *launcher) view(c *ui.Context) {
 				if primary.Clicked() {
 					s.activate(apps, clips, false)
 				}
-				action := barAction(c.Key("actions-toggle"), "操作", false)
+				action := barAction(c.Key("actions-toggle"), "操作", s.settingsOpen)
 				action.Children(func() { ui.Text(c, "操作").FontSize(palette.BodySize).TextColor(palette.Secondary) })
 				if action.Clicked() {
 					s.openMenu(menuActions)
 				}
 			})
 		})
-		if footer.Clicked() && s.menu == menuClosed {
+		if footer.Clicked() && s.menu == menuClosed && !s.settingsOpen {
 			s.restoreSearch = true
 		}
 		if s.menu != menuClosed {
 			s.drawMenu(c, apps, clips, field.Composing())
+		}
+		if s.settingsOpen {
+			s.drawSettings(c)
 		}
 	})
 }

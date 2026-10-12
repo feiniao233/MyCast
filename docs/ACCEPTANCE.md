@@ -25,6 +25,20 @@ The current edge fade is a supported per-row alpha approximation rather than a
 pixel gradient mask. No desktop interaction should be described as passed from
 the headless tests, a process-only smoke check or a successful build.
 
+## Settings phase
+
+Go 1.27.2 / MyGo v0.4.6 local tests, vet and Windows build passed. Storage tests
+exercise missing-file defaults, first save and replacement, corrupt/unknown/newer/
+oversized fallback without overwrite, external-edit preservation and temporary
+file cleanup. Shortcut mocks verify candidate registration, rollback on save
+failure and removal of the old registration only after success.
+
+Headless 100%/150% tests exercise opening via the menu, field focus, covered-result
+protection, invalid/failed saves, Cancel focus restoration, IME Escape protection,
+theme changes and separation from session clipboard state. The synthetic previews
+in [settings](SETTINGS.md) were visually inspected. Actual native shortcut conflict,
+Microsoft Pinyin and theme/material changes remain **not tested**.
+
 ## Minimal manual Windows pass
 
 Use a standard account and a temporary text window with dedicated test text.
