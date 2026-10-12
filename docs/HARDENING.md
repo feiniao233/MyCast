@@ -12,6 +12,8 @@ inline allow suppression, full redaction and no upload. At the utilities checkpo
 14 commits were scanned and the exit code was 0 with zero findings. A pattern
 scanner is evidence of this scan, not proof that every possible secret is absent.
 The final packaging commit is rescanned before delivery.
+The first packaging checkpoint `af2a6d2056523cf8c32cc2228847dce9f9a7812a`
+adds the fifteenth commit; its complete-history scan also returned zero findings.
 
 The preserved license text for MyGo v0.4.6, purego v0.11.1, typesetting v0.3.5,
 go-pinyin v0.21.0 and x/image v0.46.0 is compared against the exact verified module
@@ -40,6 +42,9 @@ telemetry or online evaluation service is added.
 ## Package and remaining gate
 
 PACKAGING.md describes clean-commit metadata checks, checksums and vendored source.
+The initial package was extracted and all 46 checksum-listed files verified.
+Its separate source archive includes vendor/modules.txt and rebuilt successfully
+with GOPROXY/GOSUMDB disabled and `-mod=vendor`, using official Go 1.27.2.
 The manifest explicitly labels the output as a development preview and native
 desktop acceptance as not tested. The build is unsigned. Quit and delete the
 extracted app to uninstall; remove only its own ordinary settings file separately
