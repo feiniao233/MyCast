@@ -114,8 +114,8 @@ Do not copy or expose an existing clipboard value. Leave startup integration off
 
 1. Start once, check tray access, then start again and confirm one instance.
 2. Invoke/hide with the default hotkey; check arrows, Enter, Escape, close and
-   focus-loss behavior. Test hotkey conflict recovery after configurable hotkeys
-   are implemented. Both first and last results must be reachable at 100%/150%.
+   focus-loss behavior. Test configured hotkey conflict recovery and metadata
+   access. Both first and last results must be reachable at 100%/150%.
 3. With Microsoft Pinyin, compose a synthetic application query. Candidate Enter
    confirms composition without launching; candidate Escape cancels without
    hiding. Then test ordinary Enter/Escape after composition ends.
@@ -131,6 +131,12 @@ Do not copy or expose an existing clipboard value. Leave startup integration off
 7. Over a bright background, inspect Acrylic availability/fallback, true window
    corners and transparent edges. Test native menus, focus return and full-row
    visibility. Record visual limitations separately from functional failures.
+8. Save ordinary theme/roots/favorites/aliases and a dedicated test link, restart
+   and confirm those preferences round-trip while clipboard recording remains
+   off and history empty. With a deliberately occupied hotkey, tray/window access
+   and metadata saving must still work. In the no-tray path, launch a non-first
+   fixture and press Enter again; selection must stay on the same identity.
+   Check calculator explicit copy and open only the deliberately chosen test URL.
 
 Record OS version, DPI, executable checksum, tested commit and passed/failed/not
 tested results. Shared evidence must omit personal app inventories, documents

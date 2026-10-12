@@ -61,7 +61,7 @@ Linux/macOS 交叉编译：
 CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -trimpath -tags mygo_noinspector -ldflags '-H windowsgui -s -w' -o dist/MyCast.exe ./cmd/mycast
 ```
 
-GitHub Actions 的 `Windows build and core tests` 工作流在 Windows runner 执行测试、vet 和构建，产生 `MyCast-windows-amd64` artifact（下载即一个 zip，内含 exe 与许可文件，不嵌套压缩）；不会自动发布 Release。程序未代码签名，系统可能提示未知发布者。只从你信任的源码构建；不要关闭系统安全保护。
+GitHub Actions 的 `Windows build and core tests` 工作流在 Windows runner 执行测试、vet 和构建，产生 `MyCast-windows-amd64` artifact（下载的 zip 直接含 exe、许可、校验及独立源码包）；不会自动发布 Release。程序未代码签名，系统可能提示未知发布者。只从你信任的源码构建；不要关闭系统安全保护。手动生成开发预览包见 [打包说明](docs/PACKAGING.md)。
 
 ## 隐私与安全
 
