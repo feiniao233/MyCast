@@ -29,10 +29,15 @@ type LaunchIdentity struct {
 	Target           string
 	Arguments        string
 	WorkingDirectory string
+	// Independent preserves the original link's identity when launch flags
+	// or a non-default show mode have additional semantics we do not merge.
+	Independent bool
+	LinkFlags   uint32
+	ShowCommand int32
 }
 
 func (a Application) Identity() string {
-	if a.Launch.Target == "" {
+	if a.Launch.Target == "" || a.Launch.Independent {
 		return pathKey(a.Path)
 	}
 	return fmt.Sprintf("%q|%q|%q", pathKey(a.Launch.Target), a.Launch.Arguments, pathKey(a.Launch.WorkingDirectory))
@@ -53,6 +58,9 @@ func (a Application) Subtitle() string {
 	}
 	if a.Launch.WorkingDirectory != "" {
 		target += " · " + a.Launch.WorkingDirectory
+	}
+	if a.Launch.Independent {
+		target += " · " + a.Path
 	}
 	return target
 }
@@ -127,6 +135,7 @@ func IndexApplicationsWithResolver(roots []string, resolve func(string) (LaunchI
 				}
 			} else {
 				app.Launch.Target = app.Path
+				app.Launch.ShowCommand = 1 // ShellExecute uses SW_SHOWNORMAL.
 			}
 			key := app.Identity()
 			if index, found := identities[key]; found {

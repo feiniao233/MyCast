@@ -90,3 +90,37 @@ func TestIdentityDistinguishesNamesakesAndExactArguments(t *testing.T) {
 		t.Fatal("same-name applications were merged or not distinguishable")
 	}
 }
+
+func TestIndependentShortcutLaunchSemanticsAreNotMerged(t *testing.T) {
+	root := t.TempDir()
+	normal := Application{Name: "Editor", Path: filepath.Join(root, "normal.lnk"), Launch: LaunchIdentity{Target: filepath.Join(root, "Editor.exe"), ShowCommand: 1}}
+	admin := normal
+	admin.Path = filepath.Join(root, "admin.lnk")
+	admin.Launch.Independent = true
+	admin.Launch.LinkFlags = 0x2000
+	minimized := normal
+	minimized.Path = filepath.Join(root, "minimized.lnk")
+	minimized.Launch.Independent = true
+	minimized.Launch.ShowCommand = 7
+	unknown := normal
+	unknown.Path = filepath.Join(root, "unknown.lnk")
+	unknown.Launch.Independent = true
+	unknown.Launch.LinkFlags = 0x20000
+	if len(SearchApplications([]Application{normal, admin, minimized, unknown}, "Editor", 0)) != 4 {
+		t.Fatal("search merged shortcuts with special launch semantics")
+	}
+	root2 := filepath.Join(root, "links")
+	if err := os.Mkdir(root2, 0700); err != nil {
+		t.Fatal(err)
+	}
+	identities := map[string]LaunchIdentity{"one.lnk": admin.Launch, "two.lnk": admin.Launch}
+	for name := range identities {
+		if err := os.WriteFile(filepath.Join(root2, name), nil, 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	apps, problems := IndexApplicationsWithResolver([]string{root2}, func(path string) (LaunchIdentity, error) { return identities[filepath.Base(path)], nil })
+	if len(problems) != 0 || len(apps) != 2 {
+		t.Fatal("special links with equal metadata must retain separate paths")
+	}
+}

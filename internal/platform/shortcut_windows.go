@@ -25,6 +25,7 @@ var (
 	shellLinkClass           = comGUID{0x00021401, 0, 0, [8]byte{0xc0, 0, 0, 0, 0, 0, 0, 0x46}}
 	shellLinkInterface       = comGUID{0x000214f9, 0, 0, [8]byte{0xc0, 0, 0, 0, 0, 0, 0, 0x46}}
 	persistFileInterface     = comGUID{0x0000010b, 0, 0, [8]byte{0xc0, 0, 0, 0, 0, 0, 0, 0x46}}
+	shellLinkDataInterface   = comGUID{0x45e2b4ae, 0xb1c3, 0x11d0, [8]byte{0xb9, 0x2f, 0, 0xa0, 0xc9, 3, 0x12, 0xe1}}
 )
 
 func (o *comObject) call(index int, args ...uintptr) uintptr {
@@ -100,7 +101,25 @@ func ShortcutIdentity(path string) (core.LaunchIdentity, error) {
 	if err != nil {
 		return core.LaunchIdentity{}, err
 	}
-	return core.LaunchIdentity{Target: expandShortcutPath(target), Arguments: arguments, WorkingDirectory: expandShortcutPath(directory)}, nil
+	var data *comObject
+	if err := comError("query shortcut launch flags", link.call(0, uintptr(unsafe.Pointer(&shellLinkDataInterface)), uintptr(unsafe.Pointer(&data)))); err != nil {
+		return core.LaunchIdentity{}, err
+	}
+	defer data.call(2)
+	var flags uint32
+	if err := comError("read shortcut launch flags", data.call(6, uintptr(unsafe.Pointer(&flags)))); err != nil {
+		return core.LaunchIdentity{}, err
+	}
+	var show int32
+	if err := comError("read shortcut show mode", link.call(14, uintptr(unsafe.Pointer(&show)))); err != nil {
+		return core.LaunchIdentity{}, err
+	}
+	// Only ordinary link structure, environment target strings and icon
+	// strings are understood. RunAsUser (0x2000), advertised/shim links and
+	// every unknown option keep their own shortcut identity. No link flags
+	// or show modes are modified by this reader.
+	const ordinaryFlags uint32 = 0xff | 0x200 | 0x4000
+	return core.LaunchIdentity{Target: expandShortcutPath(target), Arguments: arguments, WorkingDirectory: expandShortcutPath(directory), LinkFlags: flags, ShowCommand: show, Independent: flags & ^ordinaryFlags != 0 || show != 1}, nil
 }
 
 func expandShortcutPath(path string) string {
