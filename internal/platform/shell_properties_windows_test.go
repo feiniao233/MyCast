@@ -255,12 +255,33 @@ func TestAppIDPropertyFailuresStayUnknownThroughNativeIndex(t *testing.T) {
 
 func TestNativeAppIDScanThenProviderMergePreservesBothShortcuts(t *testing.T) {
 	root := t.TempDir()
-	links := filepath.Join(root, "Links")
-	if err := os.Mkdir(links, 0700); err != nil {
-		t.Fatal(err)
-	}
 	target := filepath.Join(root, "Host.exe")
 	if err := os.WriteFile(target, []byte("inert fixture"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	// Shell may return runner account/temp ancestors in 8.3 form. Establish
+	// the owned fixture spelling through a real link before creating the inputs;
+	// this tests AppID semantics, not unproved filesystem spelling equivalence.
+	probe := filepath.Join(root, "Probe.lnk")
+	createTestShortcut(t, probe, core.LaunchIdentity{Target: target})
+	read, err := ShortcutIdentity(probe)
+	if err != nil {
+		t.Fatal(err)
+	}
+	a, e1 := os.Stat(target)
+	b, e2 := os.Stat(read.Target)
+	if e1 != nil || e2 != nil || !os.SameFile(a, b) {
+		t.Fatal("native fixture target changed")
+	}
+	directory := filepath.Dir(read.Target)
+	a, e1 = os.Stat(root)
+	b, e2 = os.Stat(directory)
+	if e1 != nil || e2 != nil || !os.SameFile(a, b) {
+		t.Fatal("native fixture directory changed")
+	}
+	root, target = directory, read.Target
+	links := filepath.Join(root, "Links")
+	if err := os.Mkdir(links, 0700); err != nil {
 		t.Fatal(err)
 	}
 	for name, id := range map[string]string{"Synthetic Alpha.lnk": "org.synthetic.alpha", "Synthetic Alpha Copy.lnk": "org.synthetic.alpha", "Synthetic Beta.lnk": "org.synthetic.beta"} {

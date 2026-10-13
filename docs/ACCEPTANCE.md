@@ -12,6 +12,10 @@ authorize migration or erase stored preferences. Tab to a nonselected row then
 menu key/Shift+F10 targets that row at 100%/150%; search mouse context retains text
 editing. Full local verify/test/vet/Windows GUI build passed. Actual new desktop
 interaction and DTV reproduction remain open; no further native pass is inferred.
+The first review-fix CI run failed its synthetic namespace/shortcut comparison
+because Shell shortened runner temp ancestors. The fixture now establishes a
+native spelling and requires os.SameFile for both owned EXE and directory before
+creating test links. Production still refuses unproved path-spelling equivalence.
 
 ## Desktop association and row-menu follow-up
 
