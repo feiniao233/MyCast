@@ -6,6 +6,7 @@ package launcher
 
 import (
 	"context"
+	"image"
 	"strings"
 	"time"
 
@@ -18,6 +19,10 @@ import (
 )
 
 type launcher struct {
+	autoSources                                    uint8
+	shellImages                                    map[string]image.Image
+	shellImagesAt                                  time.Time
+	fileImages                                     map[string]fileIconEntry
 	scanTimeout                                    time.Duration
 	hiddenOpen                                     bool
 	hiddenScroll                                   ui.ScrollState
@@ -139,7 +144,7 @@ func (s *launcher) ready() {
 	s.requestClose = s.win.Close
 	s.uiUpdate = s.win.Update
 	s.scanWork = s.readApps
-	s.scanShellWork = readShellApps
+	s.scanShellWork = s.readShellApps
 	s.scanMissing = func(ctx context.Context, previous []core.Application) map[string]bool {
 		missing := map[string]bool{}
 		for _, app := range previous {
@@ -249,6 +254,10 @@ func (s *launcher) show(captureTarget bool) {
 }
 
 func (s *launcher) scan() {
+	s.scanSources(scanFiles | scanShell)
+}
+
+func (s *launcher) scanSources(sources uint8) {
 	if s.scanWork == nil || s.uiUpdate == nil {
 		return
 	}
@@ -265,6 +274,7 @@ func (s *launcher) scan() {
 	}
 	s.scanning = true
 	s.autoDirty = false
+	s.autoSources = 0
 	s.scanProgress = "正在扫描应用…"
 	if s.win != nil {
 		s.win.Invalidate()
@@ -280,13 +290,36 @@ func (s *launcher) scan() {
 		roots = platform.DefaultAppRoots()
 	}
 	previousApps := append([]core.Application(nil), s.apps...)
+	previousIcons := make(map[string]*ui.Bitmap, len(s.icons))
+	for id, icon := range s.icons {
+		previousIcons[id] = icon
+	}
 	probeMissing := s.scanMissing
 	shellEnabled, shellWork := s.config.AppsFolder, s.scanShellWork
 	go func() {
-		apps, icons, errs := s.scanWork(ctx, roots)
-		filePartial := len(errs) > 0 || ctx.Err() != nil
-		shellPartial := shellEnabled && (shellWork == nil || ctx.Err() != nil)
-		if shellEnabled && shellWork != nil && ctx.Err() == nil {
+		var apps []core.Application
+		icons := map[string]*ui.Bitmap{}
+		var errs []error
+		filePartial := false
+		if sources&scanFiles != 0 {
+			apps, icons, errs = s.scanWork(ctx, roots)
+			filePartial = len(errs) > 0 || ctx.Err() != nil
+		} else {
+			for _, app := range previousApps {
+				if app.ShellID == "" && core.PathInApplicationRoots(app.Path, roots) {
+					apps = append(apps, app)
+				}
+			}
+		}
+		shellPartial := shellEnabled && sources&scanShell != 0 && (shellWork == nil || ctx.Err() != nil)
+		if shellEnabled && sources&scanShell == 0 {
+			for _, app := range previousApps {
+				if app.ShellID != "" {
+					apps = append(apps, app)
+				}
+			}
+		}
+		if shellEnabled && sources&scanShell != 0 && shellWork != nil && ctx.Err() == nil {
 			virtual, virtualIcons, virtualErrs := shellWork(ctx)
 			shellPartial = len(virtualErrs) > 0
 			apps = append(apps, virtual...)
@@ -316,6 +349,15 @@ func (s *launcher) scan() {
 			}, 5000)
 		}
 		workerErr := ctx.Err()
+		if icons == nil {
+			icons = map[string]*ui.Bitmap{}
+		}
+		for _, app := range apps {
+			id := app.ItemID()
+			if icons[id] == nil && previousIcons[id] != nil {
+				icons[id] = previousIcons[id]
+			}
+		}
 		cancel()
 		s.uiUpdate(func() {
 			publish, restart := s.scanQueue.Finish(generation)
@@ -333,7 +375,7 @@ func (s *launcher) scan() {
 			s.scanProgress = ""
 			s.completeScan(apps, icons, errs, workerErr, scanCompletion{missing: missing, reconciled: true})
 			if s.autoDirty {
-				s.automaticRefresh()
+				s.automaticRefresh(s.autoSources)
 			}
 		})
 	}()
@@ -351,7 +393,7 @@ func (s *launcher) readApps(ctx context.Context, roots []string) ([]core.Applica
 		if ctx.Err() != nil || i >= 256 {
 			break
 		}
-		if im := platform.ApplicationIcon(app.Launch.Target); im != nil {
+		if im := s.readFileIcon(app.Launch.Target); im != nil {
 			icons[app.ItemID()] = ui.NewBitmap(im)
 		}
 	}

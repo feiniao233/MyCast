@@ -5,6 +5,8 @@ package platform
 
 import (
 	"context"
+	"os"
+	"runtime"
 	"syscall"
 	"time"
 	"unsafe"
@@ -20,12 +22,14 @@ var (
 type sourceSubscription struct {
 	path   string
 	handle uintptr
+	info   os.FileInfo
+}
+type sourceWatchOptions struct {
+	tick, merge, retry time.Duration
+	ready              func([]sourceSubscription)
 }
 
 func subscribeApplicationRoot(path string) uintptr {
-	// Even subscription creation must fail before native access to network or
-	// reparse ancestors. Files/missing roots use scoped periodic refresh instead
-	// of expanding watches to parents.
 	if LocalAppPath(path) != nil {
 		return 0
 	}
@@ -38,24 +42,50 @@ func subscribeApplicationRoot(path string) uintptr {
 		return 0
 	}
 	handle, _, _ := firstChangeNotification.Call(uintptr(unsafe.Pointer(wide)), 1, 0x1f)
+	runtime.KeepAlive(wide)
 	if handle == ^uintptr(0) {
 		return 0
 	}
 	return handle
 }
 
-// WatchApplicationSources owns synchronous notification handles on one worker.
-// Zero-time waits never block shutdown; no OVERLAPPED allocation/cancel race.
-// A fixed 500-ms merge window caps continuous-event latency. Every 30 seconds
-// a scoped refresh/retry also covers files, unavailable roots, and AppsFolder
-// package changes that filesystem notifications do not represent.
-func WatchApplicationSources(ctx context.Context, roots []string, notify func()) {
+func applicationSourceInfo(path string) os.FileInfo {
+	if LocalAppPath(path) != nil {
+		return nil
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		return nil
+	}
+	return info
+}
+func sameSourceInfo(a, b os.FileInfo) bool {
+	if a == nil || b == nil {
+		return a == nil && b == nil
+	}
+	if !os.SameFile(a, b) {
+		return false
+	}
+	if a.IsDir() && b.IsDir() {
+		return true
+	}
+	return a.Size() == b.Size() && a.ModTime().Equal(b.ModTime())
+}
+
+// Healthy directory roots are event-driven. Retry polls only root identity/file
+// metadata and attempts failed subscriptions, never a complete healthy tree.
+// Shell fallback is separate, enabled only for a configured AppsFolder source.
+func WatchApplicationSources(ctx context.Context, roots []string, shell bool, notify func(files, shell bool)) {
+	watchApplicationSources(ctx, roots, shell, notify, sourceWatchOptions{tick: 250 * time.Millisecond, merge: 500 * time.Millisecond, retry: 30 * time.Second})
+}
+
+func watchApplicationSources(ctx context.Context, roots []string, shell bool, notify func(bool, bool), options sourceWatchOptions) {
 	subscriptions := make([]sourceSubscription, 0, min(len(roots), 32))
 	for i, path := range roots {
 		if i >= 32 || ctx.Err() != nil {
 			break
 		}
-		subscriptions = append(subscriptions, sourceSubscription{path: path, handle: subscribeApplicationRoot(path)})
+		subscriptions = append(subscriptions, sourceSubscription{path: path, info: applicationSourceInfo(path), handle: subscribeApplicationRoot(path)})
 	}
 	defer func() {
 		for _, entry := range subscriptions {
@@ -64,11 +94,22 @@ func WatchApplicationSources(ctx context.Context, roots []string, notify func())
 			}
 		}
 	}()
-	tick := time.NewTicker(250 * time.Millisecond)
+	if options.ready != nil {
+		options.ready(append([]sourceSubscription(nil), subscriptions...))
+	}
+	tick := time.NewTicker(options.tick)
 	defer tick.Stop()
-	retry := time.NewTicker(30 * time.Second)
+	retry := time.NewTicker(options.retry)
 	defer retry.Stop()
 	var due time.Time
+	dirtyFiles, dirtyShell := false, false
+	mark := func(now time.Time, files, shell bool) {
+		dirtyFiles = dirtyFiles || files
+		dirtyShell = dirtyShell || shell
+		if due.IsZero() {
+			due = now.Add(options.merge)
+		}
+	}
 	for {
 		select {
 		case <-ctx.Done():
@@ -81,9 +122,7 @@ func WatchApplicationSources(ctx context.Context, roots []string, notify func())
 				}
 				state, _, _ := waitChangeNotification.Call(entry.handle, 0)
 				if state == 0 {
-					if due.IsZero() {
-						due = now.Add(500 * time.Millisecond)
-					}
+					mark(now, true, false)
 					ok, _, _ := nextChangeNotification.Call(entry.handle)
 					if ok == 0 {
 						closeChangeNotification.Call(entry.handle)
@@ -92,30 +131,42 @@ func WatchApplicationSources(ctx context.Context, roots []string, notify func())
 				} else if state == 0xffffffff {
 					closeChangeNotification.Call(entry.handle)
 					entry.handle = 0
-					if due.IsZero() {
-						due = now.Add(500 * time.Millisecond)
-					}
+					mark(now, true, false)
 				}
 			}
 			if !due.IsZero() && !now.Before(due) {
+				files, shell := dirtyFiles, dirtyShell
+				dirtyFiles, dirtyShell = false, false
 				due = time.Time{}
 				if ctx.Err() == nil {
-					notify()
+					notify(files, shell)
 				}
 			}
 		case now := <-retry.C:
 			for i := range subscriptions {
-				entry := &subscriptions[i]
-				if entry.handle != 0 && LocalAppPath(entry.path) != nil {
-					closeChangeNotification.Call(entry.handle)
-					entry.handle = 0
+				if ctx.Err() != nil {
+					return
 				}
-				if entry.handle == 0 && ctx.Err() == nil {
+				entry := &subscriptions[i]
+				info := applicationSourceInfo(entry.path)
+				replaced := !sameSourceInfo(entry.info, info)
+				if replaced {
+					if entry.handle != 0 {
+						closeChangeNotification.Call(entry.handle)
+						entry.handle = 0
+					}
+					entry.info = info
+					mark(now, true, false)
+				}
+				if entry.handle == 0 && ctx.Err() == nil && info != nil && info.IsDir() {
 					entry.handle = subscribeApplicationRoot(entry.path)
+					if entry.handle != 0 {
+						mark(now, true, false)
+					}
 				}
 			}
-			if due.IsZero() {
-				due = now.Add(500 * time.Millisecond)
+			if shell {
+				mark(now, false, true)
 			}
 		}
 	}

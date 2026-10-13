@@ -163,3 +163,57 @@ func TestEmptyPartialSnapshotCannotReviveRemovedRootsOrDisabledShell(t *testing.
 		t.Fatal("UI fallback revived removed/disabled provider")
 	}
 }
+
+func TestShellOnlyRefreshSkipsFileWorkAndRetainedIconsSurvive(t *testing.T) {
+	s := syntheticLauncher()
+	s.config = settings.Defaults()
+	s.config.IndexRoots = []string{`C:\Synthetic`}
+	s.config.AppsFolder = true
+	file := s.apps[0]
+	icon := s.icons[file.ItemID()]
+	shell := core.Application{Name: "Shell", ShellID: core.AppsFolderParsingPrefix + "Synthetic!App"}
+	s.apps = []core.Application{file, shell}
+	s.icons[shell.ItemID()] = icon
+	calls := 0
+	done := make(chan func(), 2)
+	s.uiUpdate = func(fn func()) { done <- fn }
+	s.scanWork = func(context.Context, []string) ([]core.Application, map[string]*ui.Bitmap, []error) {
+		t.Error("Shell timer scanned healthy file sources")
+		return nil, nil, nil
+	}
+	s.scanShellWork = func(context.Context) ([]core.Application, map[string]*ui.Bitmap, []error) {
+		calls++
+		return nil, nil, []error{errors.New("synthetic unavailable Shell")}
+	}
+	s.automaticRefresh(scanShell)
+	select {
+	case fn := <-done:
+		fn()
+	case <-time.After(time.Second):
+		t.Fatal("timeout")
+	}
+	if calls != 1 || len(s.apps) != 2 || s.icons[file.ItemID()] != icon || s.icons[shell.ItemID()] != icon {
+		t.Fatal("skipped/failed source lost catalog or icons")
+	}
+}
+
+func TestRetiredWatchEpochAndQuitCannotScheduleWork(t *testing.T) {
+	s := syntheticLauncher()
+	s.watchEpoch = 9
+	s.scanQueue.Running = true
+	s.deliverSourceChange(8, scanFiles)
+	if s.autoDirty {
+		t.Fatal("retired callback accepted")
+	}
+	s.deliverSourceChange(9, scanShell)
+	if !s.autoDirty || s.autoSources != scanShell {
+		t.Fatal("current source event discarded")
+	}
+	s.autoDirty = false
+	s.autoSources = 0
+	s.quitting = true
+	s.deliverSourceChange(9, scanFiles)
+	if s.autoDirty {
+		t.Fatal("quit accepted callback")
+	}
+}

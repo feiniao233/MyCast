@@ -32,7 +32,7 @@ var (
 // Nothing is activated and no WindowsApps paths or other users are scanned.
 // COM calls can block: cancellation is cooperative between calls, with no
 // abandoned apartment or unbounded replacement goroutines.
-func AppsFolderApplications(ctx context.Context) ([]core.Application, map[string]image.Image, []error) {
+func AppsFolderApplications(ctx context.Context, cachedIcons ...map[string]image.Image) ([]core.Application, map[string]image.Image, []error) {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 	hr, _, _ := coInitializeEx.Call(0, 2)
@@ -52,10 +52,14 @@ func AppsFolderApplications(ctx context.Context) ([]core.Application, map[string
 		return nil, nil, []error{fmt.Errorf("AppsFolder returned no interface")}
 	}
 	defer folder.call(2)
-	return enumerateShellApplications(ctx, folder, 5000, 256)
+	return enumerateShellApplications(ctx, folder, 5000, 256, cachedIcons...)
 }
 
-func enumerateShellApplications(ctx context.Context, folder *comObject, limit, iconLimit int) ([]core.Application, map[string]image.Image, []error) {
+func enumerateShellApplications(ctx context.Context, folder *comObject, limit, iconLimit int, cachedIcons ...map[string]image.Image) ([]core.Application, map[string]image.Image, []error) {
+	var cache map[string]image.Image
+	if len(cachedIcons) > 0 {
+		cache = cachedIcons[0]
+	}
 	var enumeration *comObject
 	if err := comError("enumerate Shell applications", folder.call(3, 0, uintptr(unsafe.Pointer(&enumItemsBHID)), uintptr(unsafe.Pointer(&enumShellItemsIID)), uintptr(unsafe.Pointer(&enumeration)))); err != nil {
 		return nil, nil, []error{err}
@@ -103,9 +107,11 @@ func enumerateShellApplications(ctx context.Context, folder *comObject, limit, i
 			seen[identity] = true
 			apps = append(apps, app)
 			if n < iconLimit && ctx.Err() == nil {
-				if im := shellItemIcon(item); im != nil {
-					icons[app.ItemID()] = im
+				im, found := cache[app.ItemID()]
+				if !found {
+					im = shellItemIcon(item)
 				}
+				icons[app.ItemID()] = im
 			}
 		}
 		item.call(2)

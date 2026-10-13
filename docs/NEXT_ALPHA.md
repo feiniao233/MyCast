@@ -52,6 +52,14 @@ roots are not broadened to parents; they are retried only at their configured
 locations every 30 seconds. The same periodic refresh covers AppsFolder package
 changes; filesystem notifications alone do not promise UWP install coverage.
 
+**Stage 4 supersedes that initial fallback policy:** healthy directories now
+refresh only on notifications. The 30-second maintenance tick checks just
+configured root identity/file metadata and retries failed subscriptions; it does
+not traverse unchanged healthy trees. Replacing a directory at the same path
+retires its old handle and rebinds the new identity. AppsFolder, if explicitly
+enabled, receives its own 30-second Shell-only refresh. It skips file traversal,
+localized file resources and file icons, even while the palette is hidden.
+
 Automatic requests during a scan mark one follow-up without cancelling current
 work. Explicit source changes still cancel/coalesce and reject stale generations.
 Watch epochs reject retired callbacks; quit cancels subscriptions/timers without
@@ -66,11 +74,15 @@ snapshot can remove its absent identities even when an unrelated local root
 failed. Combined catalogs are capped at 5,000 entries; icon reads remain bounded
 at 256 per provider (512 maximum with both sources enabled).
 
-The 30-second fallback performs a complete bounded rescan of the configured
-sources, including icon/name preparation, even while the palette is hidden; it
-does not merely probe failed roots. This trades background work for recovery and
-package-change coverage. It does not activate the window or restore input focus.
-Native Shell calls may still delay a worker beyond its cooperative deadline.
+Shell icons use a bounded in-memory cache for ten minutes, including unavailable
+icons, then refresh; reinstalls retaining an identity can therefore show a prior
+icon for up to ten minutes. File icons are cached by file identity/size/modtime
+with a 256-entry bound. Retained and unscanned entries retain existing bitmaps.
+The Shell fallback still performs bounded enumeration/name/search preparation,
+so it has a background cost. It never activates the window or restores focus.
+Native calls may delay a worker beyond its cooperative deadline; one STA is used
+without a separate application message loop, so third-party Shell-handler
+compatibility beyond the controlled synchronous fixtures remains unverified.
 
 ## Stage 3: source, location and hide management
 

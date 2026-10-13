@@ -54,6 +54,18 @@ snapshot after removing a root/disabling Shell. The reconciled worker snapshot
 cannot be overwritten by the UI's older fallback; old icons will be preserved
 in the following scheduling/cache correction stage.
 
+## 0.2.0-alpha.1 stage 4: scheduling and cache corrections
+
+Healthy file sources no longer receive periodic full scans. Accelerated native
+watch tests leave a real fixture unchanged across multiple retry periods and
+require zero refresh callbacks, then exercise a merged 16-write burst, same-path
+directory replacement/rebind, running cancellation and closed native handles.
+Separate Shell-timer tests require Shell-only requests. Launcher tests require
+zero file work on a Shell-only refresh, preserved old file/Shell icons on source
+failure, and rejection of retired watch epochs/quit callbacks. All use synthetic
+fixtures. Full dependency/test/vet/GUI-build checks pass locally; actual idle
+power consumption and third-party Shell-handler behavior remain **not tested**.
+
 ## Alpha verification boundary
 
 Native IME, successful automatic paste, tray/hotkey, high-DPI and multi-monitor

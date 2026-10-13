@@ -8,15 +8,28 @@ import (
 	"github.com/feiniao233/MyCast/internal/platform"
 )
 
-func (s *launcher) automaticRefresh() {
+const (
+	scanFiles uint8 = 1
+	scanShell uint8 = 2
+)
+
+func (s *launcher) automaticRefresh(requests ...uint8) {
+	sources := uint8(scanFiles | scanShell)
+	if len(requests) > 0 {
+		sources = requests[0]
+	}
+	if sources == 0 {
+		return
+	}
 	if s.quitting {
 		return
 	}
 	if s.scanQueue.Running {
 		s.autoDirty = true
+		s.autoSources |= sources
 		return
 	}
-	s.scan()
+	s.scanSources(sources)
 }
 
 func (s *launcher) restartSourceWatch() {
@@ -35,11 +48,23 @@ func (s *launcher) restartSourceWatch() {
 		roots = platform.DefaultAppRoots()
 	}
 	update := s.uiUpdate
-	go platform.WatchApplicationSources(ctx, roots, func() {
+	shellEnabled := s.config.AppsFolder
+	go platform.WatchApplicationSources(ctx, roots, shellEnabled, func(files, shell bool) {
+		sources := uint8(0)
+		if files {
+			sources |= scanFiles
+		}
+		if shell {
+			sources |= scanShell
+		}
 		update(func() {
-			if !s.quitting && s.watchEpoch == epoch {
-				s.automaticRefresh()
-			}
+			s.deliverSourceChange(epoch, sources)
 		})
 	})
+}
+
+func (s *launcher) deliverSourceChange(epoch uint64, sources uint8) {
+	if !s.quitting && s.watchEpoch == epoch {
+		s.automaticRefresh(sources)
+	}
 }
