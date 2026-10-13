@@ -4,11 +4,16 @@
 on `feat/0.4-compact`. Scope is only compact/expanded presentation, preserving
 search identity, input/IME, stable results and the Windows material fallback.
 Default-off compatibility and state/geometry risks are recorded in
-[COMPACT_0.4.md](COMPACT_0.4.md). Implementation and new acceptance are pending;
+[COMPACT_0.4.md](COMPACT_0.4.md). Runtime integration and automated acceptance pass;
 the separate 0.2/0.3 candidates and published main/tag remain preserved.
 The pure unified layout decision and backward-compatible default-off preference
 pass transition/temporary-store tests and full local verify/test/vet/GUI build.
-Native sizing and presentation integration are the next stage.
+Native sizing and presentation integration are described below.
+Native own-window sizing and compact/expanded UI are now implemented with the
+same mounted search editor, pre-Show dimensions, pending-geometry action guards
+and scrollable constrained settings/menus. Full local checks, controlled native
+64-cycle geometry/resource fixtures and 100%/150%/200% synthetic focus/input/
+visibility/work-area regressions pass; new actual desktop acceptance remains open.
 
 `0.3.0-alpha.1` development starts from the reviewed 0.2 candidate
 `772885ed4c344baed8ce53cb32da1c4131be9fea` on `feat/0.3-search`.

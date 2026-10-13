@@ -88,6 +88,7 @@ func (s *launcher) saveOrdinarySettings(candidate settings.Settings) (settings.S
 }
 
 func (s *launcher) openSettings() {
+	s.settingsScroll = ui.ScrollState{}
 	s.snapshotOpen = false
 	s.hiddenOpen = false
 	s.statusDetailsOpen, s.statusDetail = false, ""
@@ -137,6 +138,9 @@ func (s *launcher) saveSettings() {
 		return
 	}
 	changedRoots := !slices.Equal(s.config.IndexRoots, value.IndexRoots) || s.config.AppsFolder != value.AppsFolder
+	if s.config.CompactOnShow != value.CompactOnShow {
+		s.panelExpanded = true
+	} // Applies on next call, not by hiding active results.
 	if changedRoots {
 		s.sourceDiagnostics = nil
 	}
@@ -197,38 +201,44 @@ func (s *launcher) drawSettings(c *ui.Context) {
 			ui.Spacer(c)
 			ui.Text(c, "仅此应用 · 保存后生效").FontSize(11).TextColor(p.Secondary)
 		})
-		ui.Text(c, "呼出 / 隐藏快捷键").FontSize(12).TextColor(p.Secondary)
-		hotkey := ui.TextInputBase(c.Key("settings-hotkey"), &s.hotkeyText).FillWidth().Height(34).Shrink(0).Padding(6, 10).Radius(8).Background(p.Control).Border(1, p.Border).FontSize(14).Label("快捷键设置")
-		if s.settingsNeedsFocus {
-			hotkey.Focus()
-			s.settingsNeedsFocus = false
-		}
-		ui.Text(c, "Ctrl / Alt / Shift + 字母、数字、Space 或 F1–F24").FontSize(11).TextColor(p.Secondary)
-		ui.Row(c).FillWidth().Height(34).Shrink(0).Gap(16).AlignItems(ui.Center).Children(func() {
-			ui.Text(c, "外观").FontSize(12).TextColor(p.Secondary)
-			ui.Select(c.Key("settings-theme"), &s.themeText, []string{"深色", "浅色", "跟随系统"}).Width(210).Height(32).Label("主题设置")
+		hotkeyComposing, rootsComposing := false, false
+		ui.Scroll(c.Key("settings-controls")).FillWidth().Grow(1).MinHeight(0).Clip().TrackScroll(&s.settingsScroll).Label("设置控件滚动区域").Children(func() {
+			ui.Column(c.Key("settings-controls-content")).FillWidth().Shrink(0).Gap(4).Children(func() {
+				ui.Text(c, "呼出 / 隐藏快捷键").FontSize(12).TextColor(p.Secondary)
+				hotkey := ui.TextInputBase(c.Key("settings-hotkey"), &s.hotkeyText).FillWidth().Height(34).Shrink(0).Padding(6, 10).Radius(8).Background(p.Control).Border(1, p.Border).FontSize(14).Label("快捷键设置")
+				if s.settingsNeedsFocus {
+					hotkey.Focus()
+					s.settingsNeedsFocus = false
+				}
+				ui.Text(c, "Ctrl / Alt / Shift + 字母、数字、Space 或 F1–F24").FontSize(11).TextColor(p.Secondary)
+				ui.Row(c).FillWidth().Height(34).Shrink(0).Gap(16).AlignItems(ui.Center).Children(func() {
+					ui.Text(c, "外观").FontSize(12).TextColor(p.Secondary)
+					ui.Select(c.Key("settings-theme"), &s.themeText, []string{"深色", "浅色", "跟随系统"}).Width(210).Height(32).Label("主题设置")
+				})
+				ui.Checkbox(c.Key("settings-appsfolder"), &s.settingsDraft.AppsFolder, "AppsFolder 系统应用（含 UWP）").Label("AppsFolder 来源")
+				ui.Checkbox(c.Key("settings-startup"), &s.settingsDraft.Startup, "登录 Windows 后启动到托盘（默认关闭）").Label("开机启动")
+				ui.Checkbox(c.Key("settings-compact"), &s.settingsDraft.CompactOnShow, "空查询紧凑呼出（下次呼出生效；默认关闭）").Label("紧凑呼出")
+				ui.Row(c.Key("settings-extra")).Height(28).Shrink(0).Gap(8).Children(func() {
+					restore := ui.ButtonBase(c.Key("settings-hidden")).Height(28).Padding(4, 10).Radius(8).Background(p.Control).Label("管理隐藏入口")
+					restore.Children(func() { ui.Text(c, fmt.Sprintf("恢复隐藏入口（%d）", len(s.config.Hidden))).FontSize(12) })
+					if restore.Clicked() {
+						s.openHiddenApplications()
+					}
+					cache := ui.ButtonBase(c.Key("settings-snapshot-options")).Height(28).Padding(4, 10).Radius(8).Background(p.Control).Label("启动快照选项")
+					cache.Children(func() { ui.Text(c, "启动快照选项").FontSize(12) })
+					if cache.Clicked() {
+						s.snapshotOpen = true
+						s.settingsNeedsFocus = true
+					}
+				})
+				ui.Text(c, "应用目录 · 每行一个绝对本地路径；留空使用系统应用目录").FontSize(12).TextColor(p.Secondary)
+				roots := ui.TextAreaBase(c.Key("settings-roots"), &s.rootsText).FillWidth().Height(56).Shrink(0).Padding(6, 10).Radius(8).Background(p.Control).Border(1, p.Border).FontSize(12).Label("应用目录设置")
+				s.paletteComposing = s.paletteComposing || hotkey.Composing() || roots.Composing()
+				ui.Text(c, "仅索引 .lnk / .exe，不跟随符号链接，不读取文档内容。").FontSize(11).TextColor(p.Secondary)
+				ui.Text(c, s.settingsNote).FillWidth().Height(40).Shrink(0).FontSize(11).TextColor(p.Secondary).Label("设置提示")
+				hotkeyComposing, rootsComposing = hotkey.Composing(), roots.Composing()
+			})
 		})
-		ui.Checkbox(c.Key("settings-appsfolder"), &s.settingsDraft.AppsFolder, "AppsFolder 系统应用（含 UWP）").Label("AppsFolder 来源")
-		ui.Checkbox(c.Key("settings-startup"), &s.settingsDraft.Startup, "登录 Windows 后启动到托盘（默认关闭）").Label("开机启动")
-		ui.Row(c.Key("settings-extra")).Height(28).Shrink(0).Gap(8).Children(func() {
-			restore := ui.ButtonBase(c.Key("settings-hidden")).Height(28).Padding(4, 10).Radius(8).Background(p.Control).Label("管理隐藏入口")
-			restore.Children(func() { ui.Text(c, fmt.Sprintf("恢复隐藏入口（%d）", len(s.config.Hidden))).FontSize(12) })
-			if restore.Clicked() {
-				s.openHiddenApplications()
-			}
-			cache := ui.ButtonBase(c.Key("settings-snapshot-options")).Height(28).Padding(4, 10).Radius(8).Background(p.Control).Label("启动快照选项")
-			cache.Children(func() { ui.Text(c, "启动快照选项").FontSize(12) })
-			if cache.Clicked() {
-				s.snapshotOpen = true
-				s.settingsNeedsFocus = true
-			}
-		})
-		ui.Text(c, "应用目录 · 每行一个绝对本地路径；留空使用系统应用目录").FontSize(12).TextColor(p.Secondary)
-		roots := ui.TextAreaBase(c.Key("settings-roots"), &s.rootsText).FillWidth().Height(56).Shrink(0).Padding(6, 10).Radius(8).Background(p.Control).Border(1, p.Border).FontSize(12).Label("应用目录设置")
-		s.paletteComposing = s.paletteComposing || hotkey.Composing() || roots.Composing()
-		ui.Text(c, "仅索引 .lnk / .exe，不跟随符号链接，不读取文档内容。").FontSize(11).TextColor(p.Secondary)
-		ui.Text(c, s.settingsNote).FillWidth().Height(40).Shrink(0).FontSize(11).TextColor(p.Secondary).Label("设置提示")
-		ui.Spacer(c)
 		ui.Row(c).FillWidth().Height(32).Shrink(0).Gap(8).Justify(ui.End).Children(func() {
 			cancel := ui.ButtonBase(c.Key("settings-cancel")).Height(32).Padding(6, 16).Radius(8).Background(p.Control).Border(1, p.Border).Label("取消设置")
 			cancel.Children(func() { ui.Text(c, "取消").FontSize(14) })
@@ -237,12 +247,12 @@ func (s *launcher) drawSettings(c *ui.Context) {
 			}
 			save := ui.ButtonBase(c.Key("settings-save")).Height(32).Padding(6, 16).Radius(8).Background(p.Selection).Border(1, p.Border).Label("保存设置")
 			save.Children(func() { ui.Text(c, "保存").FontSize(14).Bold() })
-			if save.Clicked() && !hotkey.Composing() && !roots.Composing() {
+			if save.Clicked() && !hotkeyComposing && !rootsComposing {
 				s.saveSettings()
 			}
 		})
 		// Enter edits/submits fields only; it never launches a covered result.
-		if !hotkey.Composing() && !roots.Composing() && c.Shortcut(0, ui.KeyEscape) {
+		if !hotkeyComposing && !rootsComposing && c.Shortcut(0, ui.KeyEscape) {
 			s.closeSettings()
 		}
 	})

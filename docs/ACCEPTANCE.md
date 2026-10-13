@@ -429,4 +429,10 @@ Pure state truth table/transitions and old-config/opt-in/opt-out temporary-store
 tests pass, as do full local verify/test/vet/Windows GUI build. Native/DPI checks
 are pending. Actual multi-monitor/work-area/
 IME behavior remains not tested; no display configuration is changed.
+Integrated compact/expanded, hidden/transition Enter, first Down selection,
+mounted search focus/composition, layer access/Esc/reopen, stable refresh, and
+320-DIP settings/menu/first-last result tests pass at synthetic 100%/150%/200%.
+Owned hidden window/real MyGo geometry and 64-cycle GDI/input checks pass;
+full local verify/test/vet/GUI build passes. Native DPI matrix and actual
+multi-monitor/work-area/IME interaction remains not tested.
 

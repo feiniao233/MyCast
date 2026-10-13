@@ -22,6 +22,14 @@ import (
 )
 
 type launcher struct {
+	showPanel                                                          func()
+	panelExpanded, panelUnavailable, panelQueued, panelGeometryPending bool
+	panelApplied                                                       core.PanelLayout
+	panelActual                                                        platform.PaletteSize
+	resizePanel                                                        func(core.PanelLayout, bool) (platform.PaletteSize, error)
+	settingsScroll                                                     ui.ScrollState
+	menuScroll                                                         ui.ScrollState
+
 	nativeKeyGuard    *platform.PaletteKeyGuard
 	paletteComposing  bool
 	sourceDiagnostics []sourceDiagnostic
@@ -173,7 +181,7 @@ func Run() error {
 func (s *launcher) ready() {
 	s.pasteText = platform.PasteToWindow
 	s.win = mygo.NewWindow(mygo.WindowOptions{
-		Title: "MyCast", Width: int(palette.Width), Height: int(palette.Height), Hidden: true, Frameless: true,
+		Title: "MyCast", Width: s.panelLayout().Width, Height: s.panelLayout().Height, Hidden: true, Frameless: true,
 		Transparent: true, BackgroundColor: "#00000000", Vibrancy: mygo.VibrancyAcrylic,
 		DisableResize: true, DisableMaximize: true, DisableMinimize: true,
 		SkipTaskbar: true, AlwaysOnTop: true, Content: ui.View(s.view),
@@ -193,6 +201,10 @@ func (s *launcher) ready() {
 	s.win.OnBlur(s.hide)
 	s.requestClose = s.win.Close
 	s.uiUpdate = s.win.Update
+	s.showPanel = s.win.Show
+	s.resizePanel = func(layout core.PanelLayout, center bool) (platform.PaletteSize, error) {
+		return platform.ResizePalette(s.win.NativeHandle(), layout.Width, layout.Height, int(palette.Height), center)
+	}
 	s.scanWork = s.readApps
 	s.scanShellWork = s.readShellApps
 	s.scanMissing = func(ctx context.Context, previous []core.Application) map[string]bool {
@@ -283,6 +295,7 @@ func (s *launcher) hide() {
 
 // Only a hotkey activation captures a paste target. Tray clicks never guess one.
 func (s *launcher) show(captureTarget bool) {
+	s.panelExpanded = false
 	s.presentation++
 	s.appNeedsSelection = false
 	s.searchWasComposing = false
@@ -301,13 +314,20 @@ func (s *launcher) show(captureTarget bool) {
 	s.clipNeedsSelection = false
 	s.previewOpen = false
 	s.scroll.X, s.scroll.Y = 0, 0
+	s.applyPanelLayout(true) // Resolve while hidden before either real or fixture Show.
 	if s.win == nil {
 		s.input.Focus()
+		if s.showPanel != nil {
+			s.showPanel()
+		}
 		return
 	}
-	s.win.Center()
 	s.input.Focus()
-	s.win.Show()
+	if s.showPanel != nil {
+		s.showPanel()
+	} else {
+		s.win.Show()
+	}
 	s.win.Invalidate()
 }
 
@@ -647,6 +667,10 @@ func preview(text string) string {
 }
 
 func (s *launcher) activate(apps []core.Application, clips []string, copyOnly bool) {
+	if !s.panelLayout().ResultsVisible || s.panelGeometryPending {
+		s.status = "请先输入或按下箭头展开可见结果。"
+		return
+	}
 	if s.clipboardMode {
 		if s.selected < 0 || s.selected >= len(clips) {
 			return

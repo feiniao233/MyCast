@@ -47,11 +47,13 @@ func (s *launcher) resetResults() {
 func (s *launcher) switchMode(clipboard bool) {
 	if s.clipboardMode != clipboard {
 		s.clipboardMode, s.query = clipboard, ""
+		s.panelExpanded = false
 		s.resetResults()
 	}
 	s.restoreSearch = true
 }
 func (s *launcher) closeMenu() {
+	s.menuScroll = ui.ScrollState{}
 	s.menuAtRow = false
 	s.menu = menuClosed
 	s.restoreSearch = true
@@ -59,10 +61,15 @@ func (s *launcher) closeMenu() {
 	s.menuTargetKey = ""
 }
 func (s *launcher) openMenu(menu paletteMenu) {
+	if menu == menuActions && !s.panelLayout().ResultsVisible {
+		s.status = "请先展开可见结果，再打开入口菜单。"
+		return
+	}
 	s.menuAtRow = false
 	if s.menu == menu {
 		s.closeMenu()
 	} else {
+		s.menuScroll = ui.ScrollState{}
 		s.menu, s.menuSelected = menu, 0
 		s.menuNeedsFocus = true
 		s.menuTargetKey = ""
@@ -308,6 +315,7 @@ func (s *launcher) drawMenu(c *ui.Context, apps []core.Application, clips []stri
 		return
 	}
 	s.menuSelected = max(0, min(s.menuSelected, len(items)-1))
+	navigated := false
 	if !composing {
 		if c.Shortcut(0, ui.KeyEscape) {
 			s.closeMenu()
@@ -315,9 +323,11 @@ func (s *launcher) drawMenu(c *ui.Context, apps []core.Application, clips []stri
 		}
 		if c.Shortcut(0, ui.KeyDown) {
 			s.menuSelected = (s.menuSelected + 1) % len(items)
+			navigated = true
 		}
 		if c.Shortcut(0, ui.KeyUp) {
 			s.menuSelected = (s.menuSelected + len(items) - 1) % len(items)
+			navigated = true
 		}
 		if c.Shortcut(0, ui.KeyEnter) && !items[s.menuSelected].disabled {
 			chosen := items[s.menuSelected]
@@ -334,7 +344,19 @@ func (s *launcher) drawMenu(c *ui.Context, apps []core.Application, clips []stri
 		return
 	}
 	menuHeight := float32(len(items))*(palette.MenuRow+palette.RowGap) - palette.RowGap + 2*palette.MenuInset
-	panel := ui.Column(c.Key("menu-panel")).Absolute().Width(palette.MenuWidth).Height(menuHeight).Padding(palette.MenuInset).Gap(palette.RowGap).Radius(palette.MenuRadius).Background(palette.MenuSurface).Border(1, palette.Border).Label("菜单面板").Role(ui.RolePopup).Focusable()
+	width, height := c.Size()
+	menuHeight = min(menuHeight, max(palette.MenuRow+2*palette.MenuInset, height-palette.Header-palette.Footer-2*palette.Inset))
+	menuWidth := min(palette.MenuWidth, width-2*palette.Inset)
+	if navigated {
+		top := float32(s.menuSelected) * (palette.MenuRow + palette.RowGap)
+		visible := menuHeight - 2*palette.MenuInset
+		if top < s.menuScroll.Y {
+			s.menuScroll.Y = top
+		} else if top+palette.MenuRow > s.menuScroll.Y+visible {
+			s.menuScroll.Y = top + palette.MenuRow - visible
+		}
+	}
+	panel := ui.Column(c.Key("menu-panel")).Absolute().Width(menuWidth).Height(menuHeight).Padding(palette.MenuInset).Radius(palette.MenuRadius).Background(palette.MenuSurface).Border(1, palette.Border).Label("菜单面板").Role(ui.RolePopup).Focusable()
 	// A non-clickable focus owner prevents Enter from activating the footer
 	// ButtonBase before the menu's registered shortcuts can handle it.
 	if s.menuNeedsFocus {
@@ -342,8 +364,7 @@ func (s *launcher) drawMenu(c *ui.Context, apps []core.Application, clips []stri
 		s.menuNeedsFocus = false
 	}
 	if s.menuAtRow {
-		width, height := c.Size()
-		panel.Left(max(palette.Inset, min(s.menuX, width-palette.MenuWidth-palette.Inset))).Top(max(palette.Header+palette.Inset, min(s.menuY, height-palette.Footer-palette.Inset-menuHeight)))
+		panel.Left(max(palette.Inset, min(s.menuX, width-menuWidth-palette.Inset))).Top(max(palette.Header+palette.Inset, min(s.menuY, height-palette.Footer-palette.Inset-menuHeight)))
 	} else if s.menu == menuApplication {
 		panel.Bottom(palette.Footer)
 		panel.Left(palette.Inset)
@@ -352,23 +373,27 @@ func (s *launcher) drawMenu(c *ui.Context, apps []core.Application, clips []stri
 		panel.Right(palette.Inset)
 	}
 	panel.Children(func() {
-		for i, item := range items {
-			index, entry := i, item
-			row := ui.ButtonBase(c.Key(fmt.Sprintf("menu-%d-%d", s.menu, i))).FillWidth().Height(palette.MenuRow).Shrink(0).Padding(palette.ControlInset, palette.Inset).Gap(palette.Inset).Radius(palette.RowRadius).Justify(ui.Start).Label("菜单项：" + item.text).Disabled(item.disabled)
-			if index == s.menuSelected {
-				row.Background(palette.Selection)
-			} else if row.Hovered() {
-				row.Background(palette.Hover)
-			}
-			row.Children(func() {
-				ui.Text(c, entry.glyph).Width(palette.Icon).FontSize(palette.BodySize).TextColor(palette.Secondary)
-				ui.Text(c, entry.text).FontSize(palette.BodySize).TextColor(palette.Text)
+		ui.Scroll(c.Key("menu-scroll")).Fill().Clip().TrackScroll(&s.menuScroll).Label("菜单滚动区域").Children(func() {
+			ui.Column(c.Key("menu-scroll-content")).FillWidth().Shrink(0).Gap(palette.RowGap).Children(func() {
+				for i, item := range items {
+					index, entry := i, item
+					row := ui.ButtonBase(c.Key(fmt.Sprintf("menu-%d-%d", s.menu, i))).FillWidth().Height(palette.MenuRow).Shrink(0).Padding(palette.ControlInset, palette.Inset).Gap(palette.Inset).Radius(palette.RowRadius).Justify(ui.Start).Label("菜单项：" + item.text).Disabled(item.disabled)
+					if index == s.menuSelected {
+						row.Background(palette.Selection)
+					} else if row.Hovered() {
+						row.Background(palette.Hover)
+					}
+					row.Children(func() {
+						ui.Text(c, entry.glyph).Width(palette.Icon).FontSize(palette.BodySize).TextColor(palette.Secondary)
+						ui.Text(c, entry.text).FontSize(palette.BodySize).TextColor(palette.Text)
+					})
+					if row.Clicked() {
+						s.closeMenu()
+						entry.run()
+					}
+				}
 			})
-			if row.Clicked() {
-				s.closeMenu()
-				entry.run()
-			}
-		}
+		})
 	})
 }
 
@@ -389,7 +414,10 @@ func (s *launcher) view(c *ui.Context) {
 	palette := paletteFor(dark, c.Preferences().HighContrast)
 	c.SetTheme(launcherTheme(palette, dark))
 	c.Root().Background(ui.Transparent)
-	_, height := c.Size()
+	width, height := c.Size()
+	s.observePanelSize(width, height)
+	s.requestPanelLayout()
+	defer s.requestPanelLayout()
 	s.viewportHeight = height
 	background := palette.Fallback
 	if c.Vibrancy() && (!s.appearanceChecked || s.nativeAcrylic) {
@@ -400,6 +428,7 @@ func (s *launcher) view(c *ui.Context) {
 		apps := s.applicationResults()
 		clips := s.clipResults()
 		rows := s.rows(apps, clips)
+		layoutAtRows := s.panelLayout()
 		selectionLost := false
 		menuLost := false
 		if s.menu == menuActions && s.menuTargetKey != "" {
@@ -440,103 +469,105 @@ func (s *launcher) view(c *ui.Context) {
 		} else {
 			s.selected = max(0, min(s.selected, count-1))
 		}
-		ui.Scroll(c.Key("results")).Fill().Margin(palette.Header, 0, palette.Footer).Clip().TrackScroll(&s.scroll).Children(func() {
-			ui.Column(c).FillWidth().Shrink(0).Padding(palette.Inset).Gap(palette.RowGap).Children(func() {
-				ui.Row(c).Height(palette.SectionHeight-palette.RowGap).Shrink(0).Padding(0, palette.RowInset).Children(func() {
-					label := "应用"
-					if s.query != "" {
-						label = "搜索结果"
-					}
-					if s.clipboardMode {
-						label = "文本历史"
-					}
-					ui.Textf(c, "%s  %d", label, count).FontSize(palette.CaptionSize).TextColor(palette.Secondary)
-				})
-				if count == 0 {
-					label := "没有匹配的应用"
-					hint := "在菜单中重新扫描，或更换搜索词。"
-					if s.scanning {
-						label = "正在扫描应用…"
-						hint = ""
-					}
-					if s.clipboardMode {
-						label = "暂无文本历史"
-						hint = "在菜单中开启后，仅记录新复制的文本；退出即清空。"
-					}
-					sourceDisabled := !s.clipboardMode && !s.config.AppsFolder && !s.scanning
-					if sourceDisabled {
-						hint = "系统应用来源已关闭；在设置中开启后可搜索商店应用。"
-					}
-					emptyHeight := 2 * palette.RowHeight
-					if sourceDisabled {
-						emptyHeight = 3 * palette.RowHeight
-					}
-					ui.Column(c).FillWidth().Height(emptyHeight).Shrink(0).Padding(palette.Inset, palette.RowInset).Gap(palette.Inset).Children(func() {
-						ui.Text(c, label).FontSize(palette.BodySize).TextColor(palette.Secondary)
-						ui.Text(c, hint).FontSize(palette.CaptionSize).TextColor(palette.Tertiary)
+		if layoutAtRows.ResultsVisible {
+			ui.Scroll(c.Key("results")).Fill().Margin(palette.Header, 0, palette.Footer).Clip().TrackScroll(&s.scroll).Children(func() {
+				ui.Column(c).FillWidth().Shrink(0).Padding(palette.Inset).Gap(palette.RowGap).Children(func() {
+					ui.Row(c).Height(palette.SectionHeight-palette.RowGap).Shrink(0).Padding(0, palette.RowInset).Children(func() {
+						label := "应用"
+						if s.query != "" {
+							label = "搜索结果"
+						}
+						if s.clipboardMode {
+							label = "文本历史"
+						}
+						ui.Textf(c, "%s  %d", label, count).FontSize(palette.CaptionSize).TextColor(palette.Secondary)
+					})
+					if count == 0 {
+						label := "没有匹配的应用"
+						hint := "在菜单中重新扫描，或更换搜索词。"
+						if s.scanning {
+							label = "正在扫描应用…"
+							hint = ""
+						}
+						if s.clipboardMode {
+							label = "暂无文本历史"
+							hint = "在菜单中开启后，仅记录新复制的文本；退出即清空。"
+						}
+						sourceDisabled := !s.clipboardMode && !s.config.AppsFolder && !s.scanning
 						if sourceDisabled {
-							button := ui.ButtonBase(c.Key("empty-system-source")).Height(palette.ActionHeight).Padding(0, palette.Inset).Radius(palette.RowRadius).Background(palette.Control).Label("设置系统应用来源")
-							button.Children(func() { ui.Text(c, "设置系统应用来源").FontSize(palette.CaptionSize) })
-							if button.Clicked() {
-								s.openSettings()
-							}
+							hint = "系统应用来源已关闭；在设置中开启后可搜索商店应用。"
 						}
-					})
-				}
-				for i, row := range rows {
-					index, item := i, row
-					button := ui.ButtonBase(c.Key(fmt.Sprintf("presentation-%d-%s", s.presentation, item.key))).FillWidth().Height(item.height).Shrink(0).Padding(palette.RowPaddingY, palette.RowInset).Gap(palette.Gap).Justify(ui.Start).AlignItems(ui.Center).Radius(palette.RowRadius).Label("结果：" + item.title).Disabled(s.menu != menuClosed || s.settingsOpen || menuLost)
-					if !c.Preferences().HighContrast {
-						button.Opacity(rowOpacity(item.top-s.scroll.Y, item.height, height, s.scroll.Y, s.scroll.MaxY-s.scroll.Y))
-					}
-					if index == s.selected {
-						button.Background(palette.Selection)
-					} else if button.Hovered() {
-						button.Background(palette.Hover)
-					}
-					if item.subtitle != "" {
-						button.Tooltip(item.subtitle)
-					}
-					button.Children(func() {
-						ui.Box(c).Size(palette.IconSlot, palette.IconSlot).Shrink(0).Center().Children(func() {
-							if item.bitmap != nil {
-								ui.Image(c, item.bitmap).Size(palette.Icon, palette.Icon)
-							} else {
-								ui.Avatar(c, item.title, nil).Size(palette.Icon, palette.Icon).Label("图标：" + item.title)
+						emptyHeight := 2 * palette.RowHeight
+						if sourceDisabled {
+							emptyHeight = 3 * palette.RowHeight
+						}
+						ui.Column(c).FillWidth().Height(emptyHeight).Shrink(0).Padding(palette.Inset, palette.RowInset).Gap(palette.Inset).Children(func() {
+							ui.Text(c, label).FontSize(palette.BodySize).TextColor(palette.Secondary)
+							ui.Text(c, hint).FontSize(palette.CaptionSize).TextColor(palette.Tertiary)
+							if sourceDisabled {
+								button := ui.ButtonBase(c.Key("empty-system-source")).Height(palette.ActionHeight).Padding(0, palette.Inset).Radius(palette.RowRadius).Background(palette.Control).Label("设置系统应用来源")
+								button.Children(func() { ui.Text(c, "设置系统应用来源").FontSize(palette.CaptionSize) })
+								if button.Clicked() {
+									s.openSettings()
+								}
 							}
 						})
-						ui.Column(c).Grow(1).MinWidth(0).Gap(palette.DetailGap).Children(func() {
-							ui.Text(c, item.title).FontSize(palette.BodySize).NoWrap().Ellipsis("…")
-							if item.subtitle != "" {
-								ui.Text(c, item.subtitle).FontSize(palette.DetailSize).TextColor(palette.Tertiary).NoWrap().Ellipsis("…")
-							}
+					}
+					for i, row := range rows {
+						index, item := i, row
+						button := ui.ButtonBase(c.Key(fmt.Sprintf("presentation-%d-%s", s.presentation, item.key))).FillWidth().Height(item.height).Shrink(0).Padding(palette.RowPaddingY, palette.RowInset).Gap(palette.Gap).Justify(ui.Start).AlignItems(ui.Center).Radius(palette.RowRadius).Label("结果：" + item.title).Disabled(s.menu != menuClosed || s.settingsOpen || menuLost || s.panelGeometryPending)
+						if !c.Preferences().HighContrast {
+							button.Opacity(rowOpacity(item.top-s.scroll.Y, item.height, height, s.scroll.Y, s.scroll.MaxY-s.scroll.Y))
+						}
+						if index == s.selected {
+							button.Background(palette.Selection)
+						} else if button.Hovered() {
+							button.Background(palette.Hover)
+						}
+						if item.subtitle != "" {
+							button.Tooltip(item.subtitle)
+						}
+						button.Children(func() {
+							ui.Box(c).Size(palette.IconSlot, palette.IconSlot).Shrink(0).Center().Children(func() {
+								if item.bitmap != nil {
+									ui.Image(c, item.bitmap).Size(palette.Icon, palette.Icon)
+								} else {
+									ui.Avatar(c, item.title, nil).Size(palette.Icon, palette.Icon).Label("图标：" + item.title)
+								}
+							})
+							ui.Column(c).Grow(1).MinWidth(0).Gap(palette.DetailGap).Children(func() {
+								ui.Text(c, item.title).FontSize(palette.BodySize).NoWrap().Ellipsis("…")
+								if item.subtitle != "" {
+									ui.Text(c, item.subtitle).FontSize(palette.DetailSize).TextColor(palette.Tertiary).NoWrap().Ellipsis("…")
+								}
+							})
+							ui.Text(c, item.kind).FontSize(palette.CaptionSize).TextColor(palette.Tertiary).Shrink(0)
 						})
-						ui.Text(c, item.kind).FontSize(palette.CaptionSize).TextColor(palette.Tertiary).Shrink(0)
-					})
-					button.ContextMenu(func(m *ui.Menu) {
-						if s.searchWasComposing || menuLost {
-							return
-						}
-						bounds := button.Bounds()
-						x, y, over := button.PointerPosition()
-						if !over {
-							x, y = palette.Inset, bounds.H
-						}
-						s.openRowMenu(item.key, bounds.X+x, bounds.Y+y)
-						c.AnimationFrame()
-					})
-					if button.Clicked() {
-						needsSelection := (s.clipboardMode && s.clipNeedsSelection) || (!s.clipboardMode && s.appNeedsSelection)
-						s.clipNeedsSelection = false
-						s.appNeedsSelection = false
-						s.selected = index
-						if !needsSelection {
-							s.activate(apps, clips, false)
+						button.ContextMenu(func(m *ui.Menu) {
+							if s.searchWasComposing || menuLost {
+								return
+							}
+							bounds := button.Bounds()
+							x, y, over := button.PointerPosition()
+							if !over {
+								x, y = palette.Inset, bounds.H
+							}
+							s.openRowMenu(item.key, bounds.X+x, bounds.Y+y)
+							c.AnimationFrame()
+						})
+						if button.Clicked() {
+							needsSelection := (s.clipboardMode && s.clipNeedsSelection) || (!s.clipboardMode && s.appNeedsSelection)
+							s.clipNeedsSelection = false
+							s.appNeedsSelection = false
+							s.selected = index
+							if !needsSelection {
+								s.activate(apps, clips, false)
+							}
 						}
 					}
-				}
+				})
 			})
-		})
+		}
 		var field ui.Element
 		header := ui.ButtonBase(c.Key("header")).Absolute().Top(0).Left(0).Right(0).Height(palette.Header).Padding(0, 2*palette.Inset).Gap(palette.Gap).Justify(ui.Start).Label("搜索栏").Disabled(s.settingsOpen)
 		header.Children(func() {
@@ -567,6 +598,7 @@ func (s *launcher) view(c *ui.Context) {
 		// one event. Preserve the preceding state while consuming its keys.
 		wasComposing := s.searchWasComposing
 		s.searchWasComposing = field.Composing()
+		s.requestPanelLayout()
 		s.paletteComposing = s.paletteComposing || field.Composing()
 		if wasComposing || field.Composing() {
 			c.Shortcut(0, ui.KeyEnter)
@@ -579,18 +611,22 @@ func (s *launcher) view(c *ui.Context) {
 			if s.input.Focused(c) {
 				shiftF10 = c.Shortcut(ui.Shift, ui.KeyF10)
 			}
-			if shiftF10 && count > 0 && !selectionLost && !s.clipNeedsSelection && !s.appNeedsSelection {
+			if shiftF10 && layoutAtRows.ResultsVisible && !s.panelGeometryPending && count > 0 && !selectionLost && !s.clipNeedsSelection && !s.appNeedsSelection {
 				s.openMenu(menuActions)
 			}
 			if c.Shortcut(0, ui.KeyEscape) {
 				s.hide()
 			}
 			changed := false
-			if !s.statusControl.Focused(c) && c.Shortcut(0, ui.KeyDown) && count > 0 {
-				s.selected = (s.selected + 1) % count
-				changed = true
+			if !s.statusControl.Focused(c) && c.Shortcut(0, ui.KeyDown) {
+				if !layoutAtRows.ResultsVisible {
+					s.expandPanelFirst()
+				} else if count > 0 && !s.panelGeometryPending {
+					s.selected = (s.selected + 1) % count
+					changed = true
+				}
 			}
-			if !s.statusControl.Focused(c) && c.Shortcut(0, ui.KeyUp) && count > 0 {
+			if !s.statusControl.Focused(c) && c.Shortcut(0, ui.KeyUp) && layoutAtRows.ResultsVisible && !s.panelGeometryPending && count > 0 {
 				s.selected = (s.selected + count - 1) % count
 				changed = true
 			}
@@ -600,13 +636,15 @@ func (s *launcher) view(c *ui.Context) {
 				s.reveal(rows, height)
 				s.lastScroll = s.selected
 			}
-			if !s.statusControl.Focused(c) && !selectionLost && !s.clipNeedsSelection && !s.appNeedsSelection && (field.Submitted() || c.Shortcut(0, ui.KeyEnter)) {
-				s.activate(apps, clips, false)
+			if !s.statusControl.Focused(c) && (field.Submitted() || c.Shortcut(0, ui.KeyEnter)) {
+				if layoutAtRows.ResultsVisible && !s.panelGeometryPending && !selectionLost && !s.clipNeedsSelection && !s.appNeedsSelection {
+					s.activate(apps, clips, false)
+				}
 			}
 		}
 		footer := ui.ButtonBase(c.Key("footer")).Absolute().Bottom(0).Left(0).Right(0).Height(palette.Footer).Padding(palette.Inset).Gap(palette.Inset).Label("底栏").Disabled(s.settingsOpen)
 		footer.Children(func() {
-			circle := ui.ButtonBase(c.Key("menu-toggle")).Size(palette.MenuButton, palette.MenuButton).Shrink(0).Radius(palette.MenuButton/2).Background(palette.Control).Border(1, palette.Border).Label("菜单").Tooltip("菜单").Disabled(s.settingsOpen)
+			circle := ui.ButtonBase(c.Key(fmt.Sprintf("menu-toggle-%d", s.presentation))).Size(palette.MenuButton, palette.MenuButton).Shrink(0).Radius(palette.MenuButton/2).Background(palette.Control).Border(1, palette.Border).Label("菜单").Tooltip("菜单").Disabled(s.settingsOpen || s.panelGeometryPending)
 			circle.Children(func() {
 				ui.Icon(c, menuGlyph).Size(palette.FooterIcon, palette.FooterIcon).TextColor(palette.Secondary).Label("底栏菜单图标")
 			})
@@ -620,7 +658,7 @@ func (s *launcher) view(c *ui.Context) {
 			if message := s.statusMessage(); message != "" {
 				mode = message
 			}
-			status := ui.ButtonBase(c.Key("status-details-trigger")).Width(palette.StatusWidth).MinWidth(0).Shrink(1).Height(palette.MenuButton).Padding(0).Justify(ui.Start).Clip().Label("状态详情").Tooltip("查看完整状态详情").Bind(&s.statusControl).Disabled(s.statusMessage() == "" || s.settingsOpen || s.menu != menuClosed || menuLost || field.Composing())
+			status := ui.ButtonBase(c.Key(fmt.Sprintf("status-details-trigger-%d", s.presentation))).Width(palette.StatusWidth).MinWidth(0).Shrink(1).Height(palette.MenuButton).Padding(0).Justify(ui.Start).Clip().Label("状态详情").Tooltip("查看完整状态详情").Bind(&s.statusControl).Disabled(s.statusMessage() == "" || s.settingsOpen || s.menu != menuClosed || menuLost || field.Composing())
 			status.Children(func() {
 				ui.Text(c, mode).Grow(1).MinWidth(0).FontSize(palette.CaptionSize).FixedLineHeight(palette.ControlLine).TextColor(palette.Secondary).SingleLine()
 			})
@@ -630,19 +668,32 @@ func (s *launcher) view(c *ui.Context) {
 			ui.Spacer(c)
 			ui.Row(c).Height(palette.MenuButton).Shrink(0).Padding(palette.ControlInset).Gap(palette.RowGap).Radius(palette.MenuButton/2).Background(palette.Control).Border(1, palette.Border).Children(func() {
 				label, _ := s.primaryLabels()
+				compact := !layoutAtRows.ResultsVisible
 				pending := !s.clipboardMode && s.selected >= 0 && s.selected < len(apps) && apps[s.selected].DisplayOnlyID != ""
 				if pending {
 					label = "等待验证"
 				}
-				primary := barAction(c.Key(fmt.Sprintf("primary-action-%d", s.presentation)), label, pending || count == 0 || s.menu != menuClosed || s.settingsOpen || selectionLost || s.clipNeedsSelection || (!s.clipboardMode && s.appNeedsSelection))
+				if compact {
+					label = "展开结果"
+					pending = false
+				}
+				primary := barAction(c.Key(fmt.Sprintf("primary-action-%d", s.presentation)), label, s.panelGeometryPending || s.menu != menuClosed || s.settingsOpen || (!compact && (pending || count == 0 || selectionLost || s.clipNeedsSelection || (!s.clipboardMode && s.appNeedsSelection))))
 				primary.Children(func() {
 					ui.Text(c, label).FontSize(palette.BodySize).FixedLineHeight(palette.ControlLine).SingleLine().Bold().Label("底栏主操作文字")
 					ui.Box(c).Size(palette.KeyCap, palette.KeyCap).Center().Radius(palette.KeyCapRadius).Background(palette.Control).Label("底栏快捷键胶囊").Children(func() {
-						ui.Icon(c, returnGlyph).Size(palette.KeyGlyph, palette.KeyGlyph).TextColor(palette.Secondary).Label("底栏回车图标")
+						if compact {
+							ui.Text(c, "↓").FontSize(palette.KeyGlyph).TextColor(palette.Secondary).Label("展开向下图标")
+						} else {
+							ui.Icon(c, returnGlyph).Size(palette.KeyGlyph, palette.KeyGlyph).TextColor(palette.Secondary).Label("底栏回车图标")
+						}
 					})
 				})
 				if primary.Clicked() {
-					s.activate(apps, clips, false)
+					if compact {
+						s.expandPanelFirst()
+					} else {
+						s.activate(apps, clips, false)
+					}
 				}
 				if s.clipboardMode {
 					action := barAction(c.Key(fmt.Sprintf("actions-toggle-%d", s.presentation)), "操作", s.settingsOpen || selectionLost || s.clipNeedsSelection || (!s.clipboardMode && s.appNeedsSelection))
@@ -658,7 +709,7 @@ func (s *launcher) view(c *ui.Context) {
 		if footer.Clicked() && s.menu == menuClosed && !s.settingsOpen {
 			s.restoreSearch = true
 		}
-		if s.menu != menuClosed {
+		if s.menu != menuClosed && !s.panelGeometryPending {
 			s.drawMenu(c, apps, clips, field.Composing())
 		}
 		if s.settingsOpen {
