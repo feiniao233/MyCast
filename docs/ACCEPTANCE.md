@@ -192,3 +192,16 @@ and embedded/extra quotes before slicing. Malformed-reference table tests verify
 original-name/identity fallback with zero resource opens; bounded pure-parser
 fuzzing checks for panic and unsafe successful parses. No real user metadata is
 used by these checks.
+
+## OpenVPN result triage
+
+Source inspection confirms that the prior index accepted .lnk by source extension
+without target classification, while search excluded paths/targets/arguments but
+allowed unlimited-gap subsequences over display names, aliases and pinyin.
+Using the supplied SoftEther Chinese name and synthetic paths reproduced the
+35-gap polyphonic `heng` match. Known-target fixtures now exclude ordinary
+documents/directories; executable variants, independent/unknown links, Chinese
+and English aliases, short initials, cancellation and locality guards are retained.
+An integrated inert-file fixture returns only OpenVPN GUI for `openvpn` and keeps
+the CLI searchable by `vpncmd`. No actual user shortcut target was read or changed;
+the screenshot alone cannot establish the types of the user's six extra entries.

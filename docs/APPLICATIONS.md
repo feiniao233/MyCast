@@ -85,3 +85,30 @@ provide automated evidence. The native string test must return the fixture's
 known exact string without error; an unavailable or broken reader cannot silently
 pass it. Dedicated localized previews: [100%](previews/localized-applications-100.png),
 [150%](previews/localized-applications-150.png).
+
+## Application targets and search precision
+
+Ordinary readable .lnk metadata is now classified before identity merging.
+Confirmed document targets (text/Markdown/RTF/HTML/PDF/help/Office formats) and
+allowed local directory targets are omitted from application results, regardless
+of their shortcut names. Local-volume/reparse checks precede target stat; no
+network/reparse target is followed. Executable/CLI entries remain applications.
+Unknown associations such as scripts/profiles, unavailable targets, unreadable or
+virtual links and special/independent semantics are conservatively retained.
+Executable hosts with arguments are not reinterpreted as documents. No name
+blacklist, shortcut editing, resolution/repair, global GUI-only policy or weaker
+deduplication is introduced. A retained link still launches its original path.
+
+Search uses Name/Aliases/SearchTerms/UserAliases, never full paths, targets or
+arguments. The old unrestricted subsequence rule let the polyphonic spelling
+`softether vpn minglinghengshiyonggongju(vpncmd)` match `openvpn` across 35 gaps.
+Longer queries (four or more runes) now permit at most twice the query length in
+gaps; exact, prefix and contiguous matches are unaffected. One-to-three-rune
+acronyms/pinyin initials retain prior behavior. Chinese display names, original
+English/full-filename aliases, explicit user aliases and stable launch IDs remain.
+
+The reported screenshots did not reveal real shortcut targets. A dedicated fixture
+with a GUI executable, known HTML/text/directory links and the supplied SoftEther
+name now returns only OpenVPN GUI for `openvpn`, while `vpncmd` still finds the
+CLI executable. This is synthetic evidence; executable wrapper links and actual
+user target coverage require a rescan/user check, not inference from label text.

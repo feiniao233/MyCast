@@ -40,3 +40,9 @@ only for indexed application sources, prioritizes available Han display names,
 preserves English filenames/search and launch IDs, and retains existing scan
 locality/cancellation limits. It adds no runtime dependency or system language
 change. Installed-app naming coverage still requires a user check.
+
+The application-result follow-up classifies known ordinary shortcut targets and
+limits long-query scattered matches, including polyphonic pinyin false positives.
+It retains executable/CLI and unknown/special entrances without changing launch
+identity. GUI-only filtering and wrapper-argument interpretation are separate
+product decisions, not inferred from screenshots.

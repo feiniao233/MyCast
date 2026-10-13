@@ -270,6 +270,7 @@ func (s *launcher) scan() {
 func (s *launcher) readApps(ctx context.Context, roots []string) ([]core.Application, map[string]*ui.Bitmap, []error) {
 	options := core.DefaultScanOptions()
 	options.AllowPath = platform.LocalAppPath
+	options.IncludeResolvedTarget = platform.IncludeApplicationTarget
 	apps, errs := core.IndexApplicationsWithOptions(ctx, roots, platform.ShortcutIdentity, options)
 	apps = platform.LocalizedApplicationNames(ctx, apps)
 	apps = core.PrepareSearchContext(ctx, apps)

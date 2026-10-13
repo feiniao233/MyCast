@@ -178,6 +178,13 @@ func IndexApplicationsWithOptions(ctx context.Context, roots []string, resolve f
 				// Incomplete or relative identities cannot safely prove equivalence.
 				if err == nil && filepath.IsAbs(launch.Target) && (launch.WorkingDirectory == "" || filepath.IsAbs(launch.WorkingDirectory)) {
 					app.Launch = launch
+					if ctx.Err() != nil {
+						addProblem(ctx.Err())
+						break
+					}
+					if !launch.Independent && options.IncludeResolvedTarget != nil && !options.IncludeResolvedTarget(launch) {
+						continue
+					}
 				}
 			} else {
 				app.Launch.Target = app.Path
@@ -212,6 +219,8 @@ func IndexApplicationsWithOptions(ctx context.Context, roots []string, resolve f
 // and path ordering rather than the input order. Search uses Unicode simple
 // case folding and rune positions, including non-Latin names. It does not
 // transliterate names or perform accent stripping or Unicode normalization.
+// Subsequence queries of at least four runes require matched-span density of
+// at least one third; short initials/acronym queries retain their prior behavior.
 //
 // Leading and trailing query whitespace is ignored. An empty query lists all
 // applications alphabetically. limit <= 0 means no limit. Input is not modified.
@@ -350,6 +359,12 @@ func scoreMatch(name, query []rune) (matchScore, bool) {
 					score.class = 0
 				}
 			}
+		}
+		// Long queries should not assemble an unrelated name out of distant
+		// characters (including polyphonic pinyin). Preserve short acronym/
+		// initials queries; long subsequences must have at least 1/3 density.
+		if len(query) >= 4 && score.class == 3 && score.gaps > 2*len(query) {
+			continue
 		}
 		if !found || score.less(best) {
 			best, found = score, true

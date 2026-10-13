@@ -15,6 +15,9 @@ var ErrScanBudget = errors.New("application scan reached its budget")
 type ScanOptions struct {
 	MaxEntries, MaxApplications, MaxDepth int
 	AllowPath                             func(string) error
+	// Ordinary resolved links can be classified without changing launch data.
+	// Missing/unresolved/special links are kept independently by the indexer.
+	IncludeResolvedTarget func(LaunchIdentity) bool
 }
 
 func DefaultScanOptions() ScanOptions {
