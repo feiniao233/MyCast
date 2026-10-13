@@ -8,9 +8,21 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
 	"github.com/feiniao233/MyCast/internal/settings"
 )
+
+func nativeThemeSource(theme string) mygo.ThemeSource {
+	switch theme {
+	case "light":
+		return mygo.ThemeLight
+	case "dark":
+		return mygo.ThemeDark
+	default:
+		return mygo.ThemeSystem
+	}
+}
 
 func (s *launcher) onHotkey() {
 	if s.win.IsVisible() {
@@ -100,6 +112,9 @@ func (s *launcher) saveSettings() {
 	}
 	changedRoots := !slices.Equal(s.config.IndexRoots, value.IndexRoots)
 	s.config = value.Clone()
+	if s.syncNativeTheme != nil {
+		s.syncNativeTheme(value.Theme)
+	}
 	if s.tray != nil {
 		s.tray.SetToolTip("MyCast · " + s.config.Hotkey)
 	}

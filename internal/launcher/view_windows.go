@@ -35,6 +35,9 @@ type paletteMenuItem struct {
 
 var searchGlyph = ui.MustParseSVG([]byte(`<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><circle cx="10" cy="10" r="6.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M15 15L21 21" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>`))
 
+var menuGlyph = ui.MustParseSVG([]byte(`<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20"><path d="M4 5H16M4 10H16M4 15H16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>`))
+var returnGlyph = ui.MustParseSVG([]byte(`<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14"><path d="M11 3V8H3M6 5L3 8L6 11" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></svg>`))
+
 func (s *launcher) resetResults() {
 	s.selected, s.lastScroll = 0, 0
 	s.scroll.X, s.scroll.Y = 0, 0
@@ -179,7 +182,7 @@ func (s *launcher) reveal(rows []paletteRow, viewport float32) {
 
 func barAction(c *ui.Context, label string, disabled bool) ui.Element {
 	palette := paletteFor(c.Theme().Dark, c.Preferences().HighContrast)
-	item := ui.ButtonBase(c).Height(palette.ActionHeight).Shrink(0).Padding(palette.ControlInset, palette.Inset).Gap(palette.Inset).Radius(palette.ActionHeight / 2).Label(label).Disabled(disabled)
+	item := ui.ButtonBase(c).Height(palette.ActionHeight).Shrink(0).Padding(0, palette.Inset).Gap(palette.Inset).Center().Radius(palette.ActionHeight / 2).Label(label).Disabled(disabled)
 	if item.Hovered() {
 		item.Background(palette.Hover)
 	}
@@ -326,9 +329,10 @@ func (s *launcher) view(c *ui.Context) {
 	}
 	palette := paletteFor(dark, c.Preferences().HighContrast)
 	c.SetTheme(launcherTheme(palette, dark))
+	c.Root().Background(ui.Transparent)
 	_, height := c.Size()
 	background := palette.Fallback
-	if c.Vibrancy() {
+	if c.Vibrancy() && (!s.appearanceChecked || s.nativeAcrylic) {
 		background = palette.Scrim
 	}
 	ui.Box(c.Key("palette-root")).Fill().Background(background).Radius(palette.PanelRadius).Clip().Children(func() {
@@ -496,7 +500,9 @@ func (s *launcher) view(c *ui.Context) {
 		footer := ui.ButtonBase(c.Key("footer")).Absolute().Bottom(0).Left(0).Right(0).Height(palette.Footer).Padding(palette.Inset).Gap(palette.Inset).Label("底栏").Disabled(s.settingsOpen)
 		footer.Children(func() {
 			circle := ui.ButtonBase(c.Key("menu-toggle")).Size(palette.MenuButton, palette.MenuButton).Shrink(0).Radius(palette.MenuButton/2).Background(palette.Control).Border(1, palette.Border).Label("菜单").Tooltip(s.status).Disabled(s.settingsOpen)
-			circle.Children(func() { ui.Text(c, "≡").FontSize(palette.SearchSize).TextColor(palette.Secondary) })
+			circle.Children(func() {
+				ui.Icon(c, menuGlyph).Size(palette.FooterIcon, palette.FooterIcon).TextColor(palette.Secondary).Label("底栏菜单图标")
+			})
 			if circle.Clicked() {
 				s.openMenu(menuApplication)
 			}
@@ -510,20 +516,24 @@ func (s *launcher) view(c *ui.Context) {
 			if s.status != "" {
 				mode = s.status
 			}
-			ui.Text(c, mode).FontSize(palette.CaptionSize).TextColor(palette.Secondary).MaxWidth(palette.StatusWidth).NoWrap().Ellipsis("…").Tooltip(s.status)
+			ui.Text(c, mode).FontSize(palette.CaptionSize).FixedLineHeight(palette.ControlLine).TextColor(palette.Secondary).MaxWidth(palette.StatusWidth).SingleLine().Tooltip(s.status)
 			ui.Spacer(c)
 			ui.Row(c).Height(palette.MenuButton).Shrink(0).Padding(palette.ControlInset).Gap(palette.RowGap).Radius(palette.MenuButton/2).Background(palette.Control).Border(1, palette.Border).Children(func() {
 				label, _ := s.primaryLabels()
 				primary := barAction(c.Key("primary-action"), label, count == 0 || s.menu != menuClosed || s.settingsOpen || selectionLost || s.clipNeedsSelection)
 				primary.Children(func() {
-					ui.Text(c, label).FontSize(palette.BodySize).Bold()
-					ui.Box(c).Size(palette.KeyCap, palette.KeyCap).Center().Radius(palette.KeyCapRadius).Background(palette.Control).Children(func() { ui.Text(c, "↵").FontSize(palette.BodySize).TextColor(palette.Secondary) })
+					ui.Text(c, label).FontSize(palette.BodySize).FixedLineHeight(palette.ControlLine).SingleLine().Bold().Label("底栏主操作文字")
+					ui.Box(c).Size(palette.KeyCap, palette.KeyCap).Center().Radius(palette.KeyCapRadius).Background(palette.Control).Label("底栏快捷键胶囊").Children(func() {
+						ui.Icon(c, returnGlyph).Size(palette.KeyGlyph, palette.KeyGlyph).TextColor(palette.Secondary).Label("底栏回车图标")
+					})
 				})
 				if primary.Clicked() {
 					s.activate(apps, clips, false)
 				}
 				action := barAction(c.Key("actions-toggle"), "操作", s.settingsOpen || selectionLost || s.clipNeedsSelection)
-				action.Children(func() { ui.Text(c, "操作").FontSize(palette.BodySize).TextColor(palette.Secondary) })
+				action.Children(func() {
+					ui.Text(c, "操作").FontSize(palette.BodySize).FixedLineHeight(palette.ControlLine).SingleLine().TextColor(palette.Secondary).Label("底栏操作文字")
+				})
 				if action.Clicked() {
 					s.openMenu(menuActions)
 				}

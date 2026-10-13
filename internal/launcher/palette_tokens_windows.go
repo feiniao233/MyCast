@@ -7,6 +7,7 @@ import "github.com/egoist/mygo/ui"
 
 // Standard DIPs; the renderer handles DPI. Compact/expanded states are deferred.
 type paletteTokens struct {
+	FooterIcon, KeyGlyph, ControlLine                                                   float32
 	Width, Height, Header, Footer, PanelRadius, RowRadius                               float32
 	Inset, RowInset, Gap, RowGap, RowHeight, DetailRowHeight                            float32
 	Icon, IconSlot, MenuButton, ActionHeight, MenuWidth, MenuRadius                     float32
@@ -18,7 +19,10 @@ type paletteTokens struct {
 }
 
 var palette = paletteTokens{
-	Width: 750, Height: 475, Header: 44, Footer: 52, PanelRadius: 26, RowRadius: 10,
+	FooterIcon: 20, KeyGlyph: 14, ControlLine: 22,
+	// The HWND owns outer rounding; a second transparent cutout would expose
+	// the system backdrop between the UI and the native window outline.
+	Width: 750, Height: 475, Header: 44, Footer: 52, PanelRadius: 0, RowRadius: 10,
 	Inset: 8, RowInset: 8, Gap: 10, RowGap: 2, RowHeight: 38, DetailRowHeight: 46,
 	Icon: 24, IconSlot: 26, MenuButton: 36, ActionHeight: 28, MenuWidth: 276, MenuRadius: 16,
 	MenuInset: 6, MenuRow: 30, SectionHeight: 24, SearchSize: 20, BodySize: 14, CaptionSize: 11,
@@ -58,11 +62,12 @@ func launcherTheme(palette paletteTokens, dark bool) *ui.Theme {
 	if !dark {
 		theme = *ui.LightTheme()
 	}
-	// Do not let the renderer's clear color cover the OS backdrop.
-	theme.Background, theme.Surface = ui.Transparent, ui.Transparent
-	theme.SurfaceHover, theme.SurfacePressed = palette.Hover, palette.Selection
+	// Widgets, especially Select's overlay, need opaque semantic surfaces.
+	// Only c.Root is cleared in view; transparency is not a theme-wide setting.
+	theme.Background, theme.Surface = palette.MenuSurface, palette.Fallback
 	theme.Border, theme.Text, theme.TextMuted = palette.Border, palette.Text, palette.Tertiary
-	theme.Accent, theme.Focus, theme.Radius = palette.Text, palette.Border, palette.RowRadius
+	// Retain the upstream accent/AccentText pair instead of white on white.
+	theme.Focus, theme.Radius = palette.Border, palette.RowRadius
 	return &theme
 }
 

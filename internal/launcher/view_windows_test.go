@@ -8,6 +8,7 @@ import (
 	"image"
 	"image/color"
 	"image/png"
+	"math"
 	"os"
 	"path/filepath"
 	"testing"
@@ -180,7 +181,8 @@ func TestPaletteMaterialFallbackAndCornerPixels(t *testing.T) {
 	tester := newPaletteTester(s, 1)
 	_, _, _, corner := tester.Image().At(0, 0).RGBA()
 	_, _, _, center := tester.Image().At(700, 250).RGBA()
-	if corner != 0 || center != 65535 {
+	// The client background fills the corners; only DWM may clip the HWND.
+	if corner != 65535 || center != 65535 {
 		t.Fatalf("fallback/corner alpha wrong: corner=%d body=%d", corner, center)
 	}
 	tester.SetVibrancy(true)
@@ -189,6 +191,64 @@ func TestPaletteMaterialFallbackAndCornerPixels(t *testing.T) {
 		t.Fatalf("opaque root masks material: alpha=%d", center)
 	}
 	savePreview(t, tester, "material-layer-simulated-100")
+}
+
+func TestPaletteFooterOpticalLayoutAndNativeFallback(t *testing.T) {
+	for _, dark := range []bool{true, false} {
+		for _, scale := range []float32{1, 1.5} {
+			t.Run(fmt.Sprintf("dark-%v-dpi-%03d", dark, int(scale*100)), func(t *testing.T) {
+				s := syntheticLauncher()
+				if dark {
+					s.config.Theme = "dark"
+				} else {
+					s.config.Theme = "light"
+				}
+				tester := newPaletteTester(s, scale)
+				center := palette.Height - palette.Footer/2
+				for _, label := range []string{"底栏菜单图标", "底栏主操作文字", "底栏操作文字", "底栏快捷键胶囊", "底栏回车图标"} {
+					r, ok := tester.Find(label)
+					if !ok || r.Y+r.H/2 < center-.75 || r.Y+r.H/2 > center+.75 {
+						t.Fatalf("footer center: %s %+v", label, r)
+					}
+				}
+				// Check painted CJK ink as well as its line box. A geometrically
+				// centered box alone misses fallback-font baseline drift/cropping.
+				painted := tester.Image()
+				for _, label := range []string{"底栏主操作文字", "底栏操作文字"} {
+					r, _ := tester.Find(label)
+					minY, maxY := painted.Bounds().Dy(), -1
+					for y := int(r.Y * scale); y < int((r.Y+r.H)*scale); y++ {
+						for x := int(r.X * scale); x < int((r.X+r.W)*scale); x++ {
+							pixel := painted.RGBAAt(x, y)
+							// The secondary label has 60% ink opacity, unlike the
+							// primary text. Both separate from the capsule surface.
+							ink := dark && pixel.R > 110 && pixel.G > 110 && pixel.B > 110 || !dark && pixel.R < 145 && pixel.G < 145 && pixel.B < 145
+							if ink {
+								minY = min(minY, y)
+								maxY = max(maxY, y)
+							}
+						}
+					}
+					inkCenter := float32(minY+maxY+1) / (2 * scale)
+					if maxY < 0 || math.Abs(float64(inkCenter-center)) > 2.5 || minY <= int(r.Y*scale) || maxY >= int((r.Y+r.H)*scale)-1 {
+						t.Fatalf("CJK ink drift/clipping: %s [%d,%d] box %+v", label, minY, maxY, r)
+					}
+				}
+				savePreview(t, tester, fmt.Sprintf("feedback-footer-dark-%v-%03d", dark, int(scale*100)))
+				tester.SetVibrancy(true)
+				if tester.Image().RGBAAt(0, 0).A == 0 {
+					t.Fatal("renderer cutout exposes native backdrop corner")
+				}
+				s.appearanceChecked, s.nativeAcrylic = true, false
+				tester.Frame()
+				for _, point := range [][2]int{{0, 0}, {int(palette.Width*scale) - 1, 0}, {0, int(palette.Height*scale) - 1}, {int(palette.Width*scale) - 1, int(palette.Height*scale) - 1}} {
+					if pixel := tester.Image().RGBAAt(point[0], point[1]); pixel.A != 255 {
+						t.Fatalf("unsupported Acrylic not opaque: %+v", pixel)
+					}
+				}
+			})
+		}
+	}
 }
 
 func TestPaletteMenuKeyboardExecutesHighlightedItem(t *testing.T) {

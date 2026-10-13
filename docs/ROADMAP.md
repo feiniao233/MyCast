@@ -20,3 +20,13 @@ palette states are a later UI iteration, not a reason to delay the foundation.
 Do not bundle all phases into one change. Complete and push a buildable phase,
 report its evidence, accept review, and continue independent work. Repository
 publication, main merges and Releases remain coordinated by the release owner.
+
+## Windows UI feedback follow-up
+
+`fix/windows-ui-feedback` starts from `9017fade4a975a7addbfae3e05a0975eb60f4dc3`.
+It addresses the reported appearance of material, corner cutouts, footer text
+alignment and theme-dropdown rendering. Dropdown selection itself was not
+reported broken. Semantic theme surfaces and native appearance are synchronized;
+DWM owns the outer corners, and footer glyphs use vectors with tested text ink.
+See [UI feedback evidence](UI_FEEDBACK.md). Synthetic validation cannot close the
+actual native material/corner and Microsoft Pinyin acceptance gates.

@@ -23,6 +23,8 @@ import (
 )
 
 type launcher struct {
+	appearanceChecked, nativeAcrylic               bool
+	syncNativeTheme                                func(string)
 	clipQuery                                      string
 	pasteText                                      func(uintptr, string) error
 	menuTargetKey                                  string
@@ -86,6 +88,9 @@ func Run() error {
 	} else {
 		s.status = "无法定位应用设置目录，暂按默认运行。"
 	}
+	// Override this app's native appearance before window creation, so DWM
+	// and the UI start in the same saved theme, independently of Windows.
+	mygo.Theme.SetSource(nativeThemeSource(s.config.Theme))
 	mygo.App.OnSecondInstance(func([]string, string) {
 		if s.win != nil {
 			s.show(false)
@@ -104,6 +109,9 @@ func (s *launcher) ready() {
 		DisableResize: true, DisableMaximize: true, DisableMinimize: true,
 		SkipTaskbar: true, AlwaysOnTop: true, Content: ui.View(s.view),
 	})
+	appearance := platform.ConfigurePaletteWindow(s.win.NativeHandle())
+	s.appearanceChecked, s.nativeAcrylic = true, appearance.Acrylic
+	s.syncNativeTheme = func(theme string) { mygo.Theme.SetSource(nativeThemeSource(theme)) }
 	s.win.OnBlur(s.hide)
 	s.uiUpdate = s.win.Update
 	s.scanWork = s.readApps

@@ -25,6 +25,33 @@ The current edge fade is a supported per-row alpha approximation rather than a
 pixel gradient mask. No desktop interaction should be described as passed from
 the headless tests, a process-only smoke check or a successful build.
 
+## Windows UI feedback (2026-10-13)
+
+The user reported material appearance, visible corner blocks, footer alignment
+and visual corruption in the theme dropdown. Selection behavior was not reported
+broken. The two private user images were not accessible through this execution
+environment's Library download tools and were **not viewed locally** or committed.
+Source diagnosis and synthetic render evidence are distinct from those images.
+
+The theme no longer makes all widget backgrounds transparent or pairs a white
+accent with white accent text. Only the root rendering surface is cleared. The
+same saved appearance is applied to MyGo before native creation and after a
+successful settings save; cancel/failed save cannot change native appearance.
+The full client scrim has no larger renderer corner cutout; DWM receives the
+standard rounded-corner hint and an explicit Desktop Acrylic request, with
+HRESULT/readback checks. Unsupported material renders an opaque fallback.
+
+Automated checks cover deep/light 100%/150%, opaque expanded dropdown geometry,
+all three pointer choices, keyboard choice/Enter/Escape, click-away consumption,
+cancel/save/reopen, settings IME Escape, footer line boxes and actual CJK ink
+centering/cropping. A task-owned invisible HWND checks native DWM argument ABI
+and attribute acceptance; it does **not** prove visible blur or native rounding.
+Synthetic images are visually inspected in [UI_FEEDBACK.md](UI_FEEDBACK.md).
+
+Actual material/corner clipping, Microsoft Pinyin and desktop pointer appearance
+remain **not tested by this agent**: the current controller exposes only browser
+control, without native app/window selection or screenshot/input APIs.
+
 ## Settings phase
 
 Go 1.27.2 / MyGo v0.4.6 local tests, vet and Windows build passed. Storage tests
