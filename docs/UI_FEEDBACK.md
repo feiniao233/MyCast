@@ -48,3 +48,25 @@ Microsoft Pinyin and pointer appearance require another real desktop/user check.
 
 References: [Microsoft backdrop values](https://learn.microsoft.com/en-us/windows/win32/api/dwmapi/ne-dwmapi-dwm_systembackdrop_type),
 [native corner guidance](https://learn.microsoft.com/en-us/windows/apps/desktop/modernize/ui/apply-rounded-corners).
+
+## Full status and caption follow-up
+
+The full-status follow-up has synthetic UI coverage; actual native pointer/keyboard
+behavior remains distinct from renderer evidence.
+
+The unused top-right x is absent from MyCast's view and empty TextInputBase.
+Fixed MyGo frame geometry removes the title bar but retains WS_SYSMENU. The
+follow-up checks its own HWND/process and refuses a retained MyGoCaption child;
+it removes only WS_SYSMENU and recalculates the frame without activation/move/resize.
+The caption/border/material styles stay intact. Alt+F4 explicitly calls MyGo's
+normal Window.Close, including the existing tray/no-tray OnClose policy.
+Hidden native fixtures verify style preservation and DWM acceptance afterward;
+these tests do not prove visible ghost-x removal or actual desktop key handling.
+
+| Theme | 100% bounded footer | 150% bounded footer | 100% full details | 150% full details |
+| --- | --- | --- | --- | --- |
+| Dark | [image](previews/status-footer-dark-true-100.png) | [image](previews/status-footer-dark-true-150.png) | [image](previews/status-detail-dark-true-100.png) | [image](previews/status-detail-dark-true-150.png) |
+| Light | [image](previews/status-footer-dark-false-100.png) | [image](previews/status-footer-dark-false-150.png) | [image](previews/status-detail-dark-false-100.png) | [image](previews/status-detail-dark-false-150.png) |
+
+All message paths and text in these images are dedicated synthetic fixtures.
+The additional private user image was not viewed locally or committed.

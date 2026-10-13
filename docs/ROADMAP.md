@@ -30,3 +30,7 @@ reported broken. Semantic theme surfaces and native appearance are synchronized;
 DWM owns the outer corners, and footer glyphs use vectors with tested text ink.
 See [UI feedback evidence](UI_FEEDBACK.md). Synthetic validation cannot close the
 actual native material/corner and Microsoft Pinyin acceptance gates.
+
+The next small follow-up adds reliable full-status details and removes the unused
+native caption-menu style on the palette, with explicit normal Alt+F4 close routing.
+Chinese display-name enhancement will follow in a separate change.

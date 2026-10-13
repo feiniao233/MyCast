@@ -17,8 +17,8 @@ Verified using official Go 1.27.2, MyGo v0.4.6 and the Windows amd64 build.
 | Menu Down/Enter highlighted action | Passed after a reproduced regression fix | Actual tester click and key events; menu has a non-clickable keyboard focus owner |
 | IME candidate navigation guard | Passed in headless harness | Actual Microsoft Pinyin confirmation/cancel remains untested |
 | Vibrancy fallback and corner alpha | Passed in headless harness | Simulated material availability; no desktop backdrop sampled |
-| Hotkey, tray, focus loss and application launch | Not tested on the actual desktop | Desktop-control component unavailable |
-| Actual clipboard opt-in, copy and verified-target paste | Not tested on the actual desktop | Automated tests use fake interfaces; no existing clipboard was read |
+| Hotkey, tray, focus loss and application launch | Not verified by automated checks | Actual native interactions remain an accepted alpha limitation |
+| Actual clipboard opt-in, copy and verified-target paste | Not verified by automated checks | Successful automatic paste remains unconfirmed |
 | Native Acrylic/corner clipping/transparent edges | Not tested | Renderer tests do not prove OS composition |
 
 The current edge fade is a supported per-row alpha approximation rather than a
@@ -169,3 +169,4 @@ Record OS version, DPI, executable checksum, tested commit and passed/failed/not
 tested results. Shared evidence must omit personal app inventories, documents
 and clipboard contents. Cosmetic material limits may be documented; mandatory
 launch/input/privacy failures must be resolved before public alpha readiness.
+

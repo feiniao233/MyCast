@@ -56,6 +56,20 @@ func TestPaletteAppearanceNativeAttributeABI(t *testing.T) {
 		t.Fatalf("synthetic window creation: %v", err)
 	}
 	defer destroyWindow.Call(hwnd)
+	before, _, _ := paletteGetStyle.Call(hwnd, ^uintptr(15))
+	if uint32(before)&paletteSystemMenu == 0 {
+		t.Fatal("fixture has no native system menu")
+	}
+	if !RemovePaletteSystemMenu(hwnd) {
+		t.Fatal("could not remove fixture's caption controls")
+	}
+	after, _, _ := paletteGetStyle.Call(hwnd, ^uintptr(15))
+	if uint32(after) != uint32(before)&^paletteSystemMenu {
+		t.Fatal("chrome removal changed unrelated window styles")
+	}
+	if !RemovePaletteSystemMenu(hwnd) || RemovePaletteSystemMenu(0) {
+		t.Fatal("caption removal idempotence/zero guard failed")
+	}
 	if paletteDWMSet.Find() != nil || paletteDWMGet.Find() != nil {
 		t.Skip("DWM attributes unavailable; opaque fallback")
 	}

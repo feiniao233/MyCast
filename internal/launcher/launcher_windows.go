@@ -23,6 +23,12 @@ import (
 )
 
 type launcher struct {
+	searchWasComposing                             bool
+	statusControl                                  ui.Handle
+	statusDetailsOpen                              bool
+	statusDetail                                   string
+	statusDetailScroll                             ui.ScrollState
+	requestClose                                   func()
 	appearanceChecked, nativeAcrylic               bool
 	syncNativeTheme                                func(string)
 	clipQuery                                      string
@@ -109,10 +115,12 @@ func (s *launcher) ready() {
 		DisableResize: true, DisableMaximize: true, DisableMinimize: true,
 		SkipTaskbar: true, AlwaysOnTop: true, Content: ui.View(s.view),
 	})
+	platform.RemovePaletteSystemMenu(s.win.NativeHandle())
 	appearance := platform.ConfigurePaletteWindow(s.win.NativeHandle())
 	s.appearanceChecked, s.nativeAcrylic = true, appearance.Acrylic
 	s.syncNativeTheme = func(theme string) { mygo.Theme.SetSource(nativeThemeSource(theme)) }
 	s.win.OnBlur(s.hide)
+	s.requestClose = s.win.Close
 	s.uiUpdate = s.win.Update
 	s.scanWork = s.readApps
 	s.win.OnClose(func(e *mygo.CloseEvent) {
@@ -163,6 +171,7 @@ func (s *launcher) ready() {
 
 // With no tray, keep the fallback window reachable even if the hotkey failed.
 func (s *launcher) hide() {
+	s.statusDetailsOpen, s.statusDetail = false, ""
 	s.closeMenu()
 	s.settingsOpen = false
 	s.utilityOpen, s.linkEditor = false, false
@@ -177,6 +186,7 @@ func (s *launcher) hide() {
 
 // Only a hotkey activation captures a paste target. Tray clicks never guess one.
 func (s *launcher) show(captureTarget bool) {
+	s.statusDetailsOpen, s.statusDetail = false, ""
 	if captureTarget {
 		s.target = platform.ForegroundWindow()
 	} else {

@@ -475,16 +475,24 @@ func (s *launcher) view(c *ui.Context) {
 		if field.Changed() {
 			s.resetResults()
 		}
-		if !field.Composing() && s.menu == menuClosed && !s.settingsOpen && !menuLost {
+		// Candidate confirmation can clear Composing and submit the field in
+		// one event. Preserve the preceding state while consuming its keys.
+		wasComposing := s.searchWasComposing
+		s.searchWasComposing = field.Composing()
+		if wasComposing || field.Composing() {
+			c.Shortcut(0, ui.KeyEnter)
+			c.Shortcut(0, ui.KeyEscape)
+		}
+		if !wasComposing && !field.Composing() && s.menu == menuClosed && !s.settingsOpen && !menuLost {
 			if c.Shortcut(0, ui.KeyEscape) {
 				s.hide()
 			}
 			changed := false
-			if c.Shortcut(0, ui.KeyDown) && count > 0 {
+			if !s.statusControl.Focused(c) && c.Shortcut(0, ui.KeyDown) && count > 0 {
 				s.selected = (s.selected + 1) % count
 				changed = true
 			}
-			if c.Shortcut(0, ui.KeyUp) && count > 0 {
+			if !s.statusControl.Focused(c) && c.Shortcut(0, ui.KeyUp) && count > 0 {
 				s.selected = (s.selected + count - 1) % count
 				changed = true
 			}
@@ -493,13 +501,13 @@ func (s *launcher) view(c *ui.Context) {
 				s.reveal(rows, height)
 				s.lastScroll = s.selected
 			}
-			if !selectionLost && !s.clipNeedsSelection && (field.Submitted() || c.Shortcut(0, ui.KeyEnter)) {
+			if !s.statusControl.Focused(c) && !selectionLost && !s.clipNeedsSelection && (field.Submitted() || c.Shortcut(0, ui.KeyEnter)) {
 				s.activate(apps, clips, false)
 			}
 		}
 		footer := ui.ButtonBase(c.Key("footer")).Absolute().Bottom(0).Left(0).Right(0).Height(palette.Footer).Padding(palette.Inset).Gap(palette.Inset).Label("底栏").Disabled(s.settingsOpen)
 		footer.Children(func() {
-			circle := ui.ButtonBase(c.Key("menu-toggle")).Size(palette.MenuButton, palette.MenuButton).Shrink(0).Radius(palette.MenuButton/2).Background(palette.Control).Border(1, palette.Border).Label("菜单").Tooltip(s.status).Disabled(s.settingsOpen)
+			circle := ui.ButtonBase(c.Key("menu-toggle")).Size(palette.MenuButton, palette.MenuButton).Shrink(0).Radius(palette.MenuButton/2).Background(palette.Control).Border(1, palette.Border).Label("菜单").Tooltip("菜单").Disabled(s.settingsOpen)
 			circle.Children(func() {
 				ui.Icon(c, menuGlyph).Size(palette.FooterIcon, palette.FooterIcon).TextColor(palette.Secondary).Label("底栏菜单图标")
 			})
@@ -516,7 +524,13 @@ func (s *launcher) view(c *ui.Context) {
 			if s.status != "" {
 				mode = s.status
 			}
-			ui.Text(c, mode).FontSize(palette.CaptionSize).FixedLineHeight(palette.ControlLine).TextColor(palette.Secondary).MaxWidth(palette.StatusWidth).SingleLine().Tooltip(s.status)
+			status := ui.ButtonBase(c.Key("status-details-trigger")).Width(palette.StatusWidth).MinWidth(0).Shrink(1).Height(palette.MenuButton).Padding(0).Justify(ui.Start).Clip().Label("状态详情").Tooltip("查看完整状态详情").Bind(&s.statusControl).Disabled(s.status == "" || s.settingsOpen || s.menu != menuClosed || menuLost || field.Composing())
+			status.Children(func() {
+				ui.Text(c, mode).Grow(1).MinWidth(0).FontSize(palette.CaptionSize).FixedLineHeight(palette.ControlLine).TextColor(palette.Secondary).SingleLine()
+			})
+			if status.Clicked() || status.Shortcut(0, ui.KeyEnter) || status.Shortcut(0, ui.KeySpace) {
+				s.openStatusDetails()
+			}
 			ui.Spacer(c)
 			ui.Row(c).Height(palette.MenuButton).Shrink(0).Padding(palette.ControlInset).Gap(palette.RowGap).Radius(palette.MenuButton/2).Background(palette.Control).Border(1, palette.Border).Children(func() {
 				label, _ := s.primaryLabels()
@@ -556,4 +570,9 @@ func (s *launcher) view(c *ui.Context) {
 			s.clipQuery = queryAtRows
 		}
 	})
+	// Without WS_SYSMENU, route Alt+F4 through MyGo's normal close event:
+	// tray-backed close hides; no-tray close remains a real close request.
+	if c.Shortcut(ui.Alt, ui.KeyF4) && s.requestClose != nil {
+		s.requestClose()
+	}
 }
