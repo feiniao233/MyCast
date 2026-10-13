@@ -1,5 +1,8 @@
 # Finding applications
 
+Current desktop association and row context menus: see
+[compatibility and verification](DESKTOP_ASSOCIATION_CONTEXT_MENU.md).
+
 The approved 0.2 follow-up includes system AppsFolder applications by default,
 fixes Store search/activation parsing, excludes proved uninstall actions and
 adds a conservative virtual-shortcut identity bridge. It retains different

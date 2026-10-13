@@ -47,6 +47,27 @@ func createTestShortcut(t *testing.T, path string, launch core.LaunchIdentity) {
 		runtime.KeepAlive(value)
 	}
 	show := launch.ShowCommand
+	if launch.AppUserModelID != "" {
+		var properties *comObject
+		if err := comError("fixture property store", link.call(0, uintptr(unsafe.Pointer(&propertyStoreIID)), uintptr(unsafe.Pointer(&properties)))); err != nil {
+			t.Fatal(err)
+		}
+		if properties == nil {
+			t.Fatal("missing fixture property store")
+		}
+		defer properties.call(2)
+		text, _ := syscall.UTF16PtrFromString(launch.AppUserModelID)
+		var value stringPropVariant
+		value.kind = 31
+		(*struct{ pointer *uint16 })(unsafe.Pointer(&value.value[0])).pointer = text
+		if err := comError("fixture explicit AppID", properties.call(6, uintptr(unsafe.Pointer(&appUserModelIDKey)), uintptr(unsafe.Pointer(&value)))); err != nil {
+			t.Fatal(err)
+		}
+		if err := comError("fixture property commit", properties.call(7)); err != nil {
+			t.Fatal(err)
+		}
+		runtime.KeepAlive(text)
+	}
 	if show == 0 {
 		show = 1
 	}

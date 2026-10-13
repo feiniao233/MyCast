@@ -19,6 +19,9 @@ import (
 
 // Application is an indexed, local application or Windows shortcut.
 type Application struct {
+	// Read-only AppsFolder properties prove a non-packaged local EXE default
+	// entry, including a successful arguments read (VT_EMPTY is an empty value).
+	ShellDesktop bool
 	// Successful namespace counterpart, memory-only and without nested fallback.
 	ShellFallback *Application
 	// ShellID is populated only by the configured AppsFolder provider. Path is
@@ -39,6 +42,9 @@ type Application struct {
 // LaunchIdentity is shortcut metadata, never a command to execute. Arguments
 // remain byte-for-byte intact: changing whitespace or case can change a launch.
 type LaunchIdentity struct {
+	AppUserModelID string
+	// Set only after the desktop compatibility check against a Shell snapshot.
+	DesktopBridge bool
 	// Only a proved immediate AppsFolder PIDL child with unchanged default
 	// shortcut semantics can populate this cross-provider identity bridge.
 	ShellTarget      string
@@ -56,7 +62,7 @@ func (a Application) Identity() string {
 	if a.ShellID != "" {
 		return "appsfolder:" + a.ShellID
 	}
-	if a.Launch.ShellTarget != "" && !a.Launch.Independent && a.Launch.Arguments == "" && a.Launch.WorkingDirectory == "" {
+	if a.Launch.ShellTarget != "" && !a.Launch.Independent && a.Launch.Arguments == "" && (a.Launch.WorkingDirectory == "" || a.Launch.DesktopBridge && defaultDesktopDirectory(a.Launch.Target, a.Launch.WorkingDirectory)) {
 		return "appsfolder:" + a.Launch.ShellTarget
 	}
 	if a.Launch.Target == "" || a.Launch.Independent {

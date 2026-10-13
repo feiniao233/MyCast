@@ -1,5 +1,17 @@
 # Acceptance evidence and current status
 
+## Desktop association and row-menu follow-up
+
+User feedback on fd2d141 passes Store activation and ordinary favorite restart
+persistence only. The parent viewed the private duplicate screenshot; this
+Windows task did not view its pixels. Directed properties confirmed one supplied
+desktop target/AppID and empty argument variant; the second identity was
+unavailable and is not a passed reproduction. New metadata association,
+both-provider preference persistence, native temporary AppID/resource fixtures
+and 100%/150% right-click/keyboard/stale-target regressions pass locally with
+verify/test/vet/GUI build. Actual new duplicate/menu behavior remains not tested.
+See [details](DESKTOP_ASSOCIATION_CONTEXT_MENU.md).
+
 ## Store/source follow-up
 
 Read-only single-Store metadata diagnosis confirmed a registered Store, a bare

@@ -12,6 +12,8 @@ Do not share a real installed-app list, private paths or clipboard screenshots.
 
 | Incremental user check | Expected outcome | Current evidence |
 | --- | --- | --- |
+| Search a desktop application exposed through both sources | One proved default profile; independent arguments/directory/mode entries stay separate | Directed single-item native properties and pure regressions; actual removal not tested |
+| Right-click a scrolled row; use menu key/Shift+F10 | Captured ID, restored search focus and safe target loss | Headless 100%/150% hit/keyboard/dismissal tests; actual pointer behavior not tested |
 | Enable AppsFolder and search a packaged and desktop entry | System-localized names/icons; each default action starts the chosen identity | Adapter/native Shell fixtures and mocked activation; actual app start not tested |
 | Change a display name/rescan | Favorites, alias and recents remain on the same identity | Synthetic identity/routing regression |
 | Keep same-name/argument/directory/permission shortcut variants | Unproven equivalence stays separate; original shortcut launches | Existing native/pure fixtures; cross-provider dedupe intentionally conservative |

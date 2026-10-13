@@ -1,5 +1,10 @@
 # Windows alpha roadmap
 
+Desktop-EXE/AppsFolder association and application-row right-click menus are
+implemented, preserving launch variants and both-provider persisted preferences.
+Full local checks and 100%/150% headless menus pass; new actual duplicate/menu
+acceptance remains open. See [compatibility/evidence](DESKTOP_ASSOCIATION_CONTEXT_MENU.md).
+
 The approved Store/source follow-up now defaults AppsFolder on (explicit false
 preserved), fixes bare-AUMID filtering/activation and Chinese Store search,
 uses actual Known Folders with shallow default desktops, filters proved uninstall

@@ -52,12 +52,14 @@ func (s *launcher) switchMode(clipboard bool) {
 	s.restoreSearch = true
 }
 func (s *launcher) closeMenu() {
+	s.menuAtRow = false
 	s.menu = menuClosed
 	s.restoreSearch = true
 	s.menuNeedsFocus = false
 	s.menuTargetKey = ""
 }
 func (s *launcher) openMenu(menu paletteMenu) {
+	s.menuAtRow = false
 	if s.menu == menu {
 		s.closeMenu()
 	} else {
@@ -76,6 +78,20 @@ func (s *launcher) openMenu(menu paletteMenu) {
 			}
 		}
 	}
+}
+
+func (s *launcher) openRowMenu(key string, x, y float32) {
+	_, _, index, valid := s.resolveMenuTarget(key, s.clipboardMode)
+	if !valid || s.settingsOpen || s.menu != menuClosed {
+		return
+	}
+	s.selected = index
+	s.appNeedsSelection = false
+	s.clipNeedsSelection = false
+	s.openMenu(menuActions)
+	s.menuTargetKey = key
+	s.menuAtRow = true
+	s.menuX, s.menuY = x, y
 }
 
 func clipKey(text string) string { return fmt.Sprintf("clip-%x", sha256.Sum256([]byte(text))) }
@@ -301,20 +317,26 @@ func (s *launcher) drawMenu(c *ui.Context, apps []core.Application, clips []stri
 	// PopoverBase forwards an outside press. A same-window catcher instead
 	// consumes the entire click, so a covered result cannot inherit it.
 	catcher := ui.ButtonBase(c.Key("menu-dismiss")).Absolute().Top(0).Left(0).Right(0).Bottom(0).Label("关闭菜单")
-	if catcher.Clicked() {
+	if catcher.Clicked() || catcher.RightClicked() {
 		s.closeMenu()
 		return
 	}
-	panel := ui.Column(c.Key("menu-panel")).Absolute().Bottom(palette.Footer).Width(palette.MenuWidth).Height(float32(len(items))*(palette.MenuRow+palette.RowGap)-palette.RowGap+2*palette.MenuInset).Padding(palette.MenuInset).Gap(palette.RowGap).Radius(palette.MenuRadius).Background(palette.MenuSurface).Border(1, palette.Border).Label("菜单面板").Role(ui.RolePopup).Focusable()
+	menuHeight := float32(len(items))*(palette.MenuRow+palette.RowGap) - palette.RowGap + 2*palette.MenuInset
+	panel := ui.Column(c.Key("menu-panel")).Absolute().Width(palette.MenuWidth).Height(menuHeight).Padding(palette.MenuInset).Gap(palette.RowGap).Radius(palette.MenuRadius).Background(palette.MenuSurface).Border(1, palette.Border).Label("菜单面板").Role(ui.RolePopup).Focusable()
 	// A non-clickable focus owner prevents Enter from activating the footer
 	// ButtonBase before the menu's registered shortcuts can handle it.
 	if s.menuNeedsFocus {
 		panel.Focus()
 		s.menuNeedsFocus = false
 	}
-	if s.menu == menuApplication {
+	if s.menuAtRow {
+		width, height := c.Size()
+		panel.Left(max(palette.Inset, min(s.menuX, width-palette.MenuWidth-palette.Inset))).Top(max(palette.Header+palette.Inset, min(s.menuY, height-palette.Footer-palette.Inset-menuHeight)))
+	} else if s.menu == menuApplication {
+		panel.Bottom(palette.Footer)
 		panel.Left(palette.Inset)
 	} else {
+		panel.Bottom(palette.Footer)
 		panel.Right(palette.Inset)
 	}
 	panel.Children(func() {
@@ -473,6 +495,11 @@ func (s *launcher) view(c *ui.Context) {
 						})
 						ui.Text(c, item.kind).FontSize(palette.CaptionSize).TextColor(palette.Tertiary).Shrink(0)
 					})
+					if button.RightClicked() && !s.searchWasComposing && !menuLost {
+						bounds := button.Bounds()
+						x, y, _ := button.PointerPosition()
+						s.openRowMenu(item.key, bounds.X+x, bounds.Y+y)
+					}
 					if button.Clicked() {
 						needsSelection := (s.clipboardMode && s.clipNeedsSelection) || (!s.clipboardMode && s.appNeedsSelection)
 						s.clipNeedsSelection = false
@@ -515,11 +542,33 @@ func (s *launcher) view(c *ui.Context) {
 		// one event. Preserve the preceding state while consuming its keys.
 		wasComposing := s.searchWasComposing
 		s.searchWasComposing = field.Composing()
+		if !s.clipboardMode {
+			// MyGo routes the menu key through ContextMenu on its focused text
+			// editor, before ordinary shortcuts. Use that public hook to show our
+			// same-window, identity-bound action menu; no native popup is built.
+			field.ContextMenu(func(m *ui.Menu) {
+				if wasComposing || field.Composing() || s.settingsOpen || s.menu != menuClosed || s.appNeedsSelection || selectionLost || menuLost {
+					return
+				}
+				key := s.selectedApplicationID()
+				if _, _, _, valid := s.resolveMenuTarget(key, false); valid {
+					s.openMenu(menuActions)
+					s.menuTargetKey = key
+					c.AnimationFrame()
+				} else {
+					m.EditItems()
+				}
+			})
+		}
 		if wasComposing || field.Composing() {
 			c.Shortcut(0, ui.KeyEnter)
 			c.Shortcut(0, ui.KeyEscape)
 		}
 		if !wasComposing && !field.Composing() && s.menu == menuClosed && !s.settingsOpen && !menuLost {
+			shiftF10 := c.Shortcut(ui.Shift, ui.KeyF10)
+			if shiftF10 && count > 0 && !selectionLost && !s.clipNeedsSelection && !s.appNeedsSelection {
+				s.openMenu(menuActions)
+			}
 			if c.Shortcut(0, ui.KeyEscape) {
 				s.hide()
 			}
@@ -578,12 +627,14 @@ func (s *launcher) view(c *ui.Context) {
 				if primary.Clicked() {
 					s.activate(apps, clips, false)
 				}
-				action := barAction(c.Key(fmt.Sprintf("actions-toggle-%d", s.presentation)), "操作", s.settingsOpen || selectionLost || s.clipNeedsSelection || (!s.clipboardMode && s.appNeedsSelection))
-				action.Children(func() {
-					ui.Text(c, "操作").FontSize(palette.BodySize).FixedLineHeight(palette.ControlLine).SingleLine().TextColor(palette.Secondary).Label("底栏操作文字")
-				})
-				if action.Clicked() {
-					s.openMenu(menuActions)
+				if s.clipboardMode {
+					action := barAction(c.Key(fmt.Sprintf("actions-toggle-%d", s.presentation)), "操作", s.settingsOpen || selectionLost || s.clipNeedsSelection || (!s.clipboardMode && s.appNeedsSelection))
+					action.Children(func() {
+						ui.Text(c, "操作").FontSize(palette.BodySize).FixedLineHeight(palette.ControlLine).SingleLine().TextColor(palette.Secondary).Label("底栏操作文字")
+					})
+					if action.Clicked() {
+						s.openMenu(menuActions)
+					}
 				}
 			})
 		})

@@ -37,6 +37,31 @@ func TestPreferenceMigrationSaveFailureDoesNotClaimPersistence(t *testing.T) {
 	}
 }
 
+func TestFirstDesktopFavoriteSaveImmediatelyPersistsProof(t *testing.T) {
+	s := syntheticLauncher()
+	s.config = settings.Defaults()
+	shell := core.Application{Name: "Fixture", ShellID: core.AppsFolderParsingPrefix + "org.synthetic.desktop", ShellDesktop: true, Launch: core.LaunchIdentity{Target: `C:\Synthetic\Fixture.exe`, AppUserModelID: "org.synthetic.desktop"}}
+	file := core.Application{Name: "Fixture Link", Path: `C:\Synthetic\Fixture.lnk`, Launch: core.LaunchIdentity{Target: `C:\Synthetic\Fixture.exe`, WorkingDirectory: `C:\Synthetic`}}
+	old := file.ItemID()
+	s.apps = core.MergeProviderApplications([]core.Application{file, shell})
+	store := &settings.Store{Path: filepath.Join(t.TempDir(), "settings.json")}
+	s.persistPreferences = func(v settings.Settings) (settings.Settings, error) {
+		if err := store.Save(v); err != nil {
+			return settings.Settings{}, err
+		}
+		return v, nil
+	}
+	s.toggleFavorite(shell.ItemID())
+	loaded, err := (&settings.Store{Path: store.Path}).Load()
+	if err != nil || loaded.IdentityLinks[old] != shell.ItemID() {
+		t.Fatal("first save omitted proof until a future scan", err)
+	}
+	remaining := loaded.ApplyIdentityLinks([]core.Application{file})
+	if !remaining[0].Preferred(loaded.Favorites) {
+		t.Fatal("immediate restart/file-only provider lost favorite")
+	}
+}
+
 func TestMergedFileDisappearancePreservesShellAndRestartBindings(t *testing.T) {
 	for _, partialShell := range []bool{false, true} {
 		t.Run(map[bool]string{false: "file-only", true: "partial-shell"}[partialShell], func(t *testing.T) {

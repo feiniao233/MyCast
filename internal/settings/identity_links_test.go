@@ -80,3 +80,37 @@ func TestIdentityBindingBoundsChainsAndRetargetRefusal(t *testing.T) {
 		t.Fatal("oversized identity bindings accepted")
 	}
 }
+
+func TestDesktopBindingsKeepPreferencesWhenEitherProviderSurvives(t *testing.T) {
+	shell := core.Application{Name: "Fixture", ShellID: core.AppsFolderParsingPrefix + "org.synthetic.desktop", ShellDesktop: true, Launch: core.LaunchIdentity{Target: `C:\Synthetic\Fixture.exe`, AppUserModelID: "org.synthetic.desktop"}}
+	file := core.Application{Name: "Fixture Link", Path: `C:\Synthetic\Fixture.lnk`, Launch: core.LaunchIdentity{Target: `C:\Synthetic\Fixture.exe`, WorkingDirectory: `C:\Synthetic`}}
+	old := file.ItemID()
+	value := Defaults()
+	value.Favorites = []string{old}
+	merged := core.MergeProviderApplications([]core.Application{file, shell})
+	value, changed := value.BindProvedApplicationIdentities(merged)
+	if !changed || value.IdentityLinks[old] != shell.ItemID() {
+		t.Fatal("desktop proof did not bind old preference")
+	}
+	value.Favorites = []string{shell.ItemID()}
+	value.Recents = value.Favorites
+	value.Hidden = value.Favorites
+	value.Aliases = map[string][]string{shell.ItemID(): {"synthetic-alias"}}
+	store := &Store{Path: filepath.Join(t.TempDir(), "settings.json")}
+	if err := store.Save(value); err != nil {
+		t.Fatal(err)
+	}
+	loaded, err := (&Store{Path: store.Path}).Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, remaining := range []core.Application{file, shell} {
+		apps := loaded.ApplyIdentityLinks([]core.Application{remaining})
+		if !apps[0].Preferred(loaded.Favorites) || !apps[0].Preferred(loaded.Recents) || !apps[0].Preferred(loaded.Hidden) || len(core.SearchApplications(core.WithUserAliases(apps, loaded.Aliases), "synthetic-alias", 10)) != 1 {
+			t.Fatal("provider disappearance lost persisted preferences")
+		}
+		if _, changed := loaded.BindProvedApplicationIdentities(apps); changed {
+			t.Fatal("applying persisted preferences invented reversed proof")
+		}
+	}
+}

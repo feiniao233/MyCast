@@ -23,12 +23,12 @@ func TestFavoriteAndAliasEditorDPI(t *testing.T) {
 			s.persistPreferences = func(value settings.Settings) (settings.Settings, error) { return value.Validated() }
 			app := s.apps[0]
 			tester := newPaletteTester(s, scale)
-			tester.Click("操作")
+			tester.Key(ui.Shift, ui.KeyF10)
 			tester.Click("菜单项：收藏应用")
 			if !slices.Contains(s.config.Favorites, app.ItemID()) {
 				t.Fatal("favorite action failed")
 			}
-			tester.Click("操作")
+			tester.Key(ui.Shift, ui.KeyF10)
 			tester.Click("菜单项：编辑搜索别名")
 			if !s.settingsOpen || !tester.Focused("应用别名") {
 				t.Fatal("alias editor focus missing")

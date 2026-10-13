@@ -137,6 +137,12 @@ func readShellApplicationMetadata(item *comObject, verifiedFolder bool) (core.Ap
 	app := core.Application{Name: name, ShellID: identity, Aliases: core.SystemApplicationAliases(identity)}
 	app.Launch.Target, _ = shellStringProperty(item, &linkTargetKey)
 	app.Launch.Arguments, _ = shellStringProperty(item, &linkArgumentsKey)
+	appID, idOK := shellStringOrEmptyProperty(item, &appUserModelIDKey)
+	arguments, argsOK := shellStringOrEmptyProperty(item, &linkArgumentsKey)
+	if idOK && argsOK && appID == strings.TrimPrefix(identity, core.AppsFolderParsingPrefix) && !strings.Contains(appID, "!") && core.IsLocalDesktopExecutable(app.Launch.Target) && arguments == "" {
+		app.ShellDesktop = true
+		app.Launch.AppUserModelID = appID
+	}
 	return app, nil
 }
 

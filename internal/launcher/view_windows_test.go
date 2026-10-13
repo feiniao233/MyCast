@@ -205,7 +205,7 @@ func TestPaletteFooterOpticalLayoutAndNativeFallback(t *testing.T) {
 				}
 				tester := newPaletteTester(s, scale)
 				center := palette.Height - palette.Footer/2
-				for _, label := range []string{"底栏菜单图标", "底栏主操作文字", "底栏操作文字", "底栏快捷键胶囊", "底栏回车图标"} {
+				for _, label := range []string{"底栏菜单图标", "底栏主操作文字", "底栏快捷键胶囊", "底栏回车图标"} {
 					r, ok := tester.Find(label)
 					if !ok || r.Y+r.H/2 < center-.75 || r.Y+r.H/2 > center+.75 {
 						t.Fatalf("footer center: %s %+v", label, r)
@@ -214,7 +214,7 @@ func TestPaletteFooterOpticalLayoutAndNativeFallback(t *testing.T) {
 				// Check painted CJK ink as well as its line box. A geometrically
 				// centered box alone misses fallback-font baseline drift/cropping.
 				painted := tester.Image()
-				for _, label := range []string{"底栏主操作文字", "底栏操作文字"} {
+				for _, label := range []string{"底栏主操作文字"} {
 					r, _ := tester.Find(label)
 					minY, maxY := painted.Bounds().Dy(), -1
 					for y := int(r.Y * scale); y < int((r.Y+r.H)*scale); y++ {

@@ -85,3 +85,49 @@ func TestNativeShellPropertiesAndPIDLGuardPreserveSyntheticShortcut(t *testing.T
 		t.Fatal("read-only metadata changed source shortcut")
 	}
 }
+
+func TestNativeExplicitAppIDAndEmptyPropertyOwnership(t *testing.T) {
+	if unsafe.Sizeof(stringPropVariant{}) != 24 || unsafe.Sizeof(propertyKey{}) != 20 {
+		t.Fatal("property ABI size")
+	}
+	root := t.TempDir()
+	path := filepath.Join(root, "Synthetic Desktop.lnk")
+	launch := core.LaunchIdentity{Target: filepath.Join(root, "Fixture.exe"), WorkingDirectory: root, AppUserModelID: "org.synthetic.fixture"}
+	createTestShortcut(t, path, launch)
+	before, _ := os.ReadFile(path)
+	for i := 0; i < 32; i++ {
+		got, err := ShortcutIdentity(path)
+		if err != nil || got.AppUserModelID != launch.AppUserModelID || got.WorkingDirectory != root || got.Independent {
+			t.Fatal("explicit AppID read or original semantics lost", err)
+		}
+	}
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+	hr, _, _ := coInitializeEx.Call(0, 2)
+	if err := comError("fixture apartment", hr); err != nil {
+		t.Fatal(err)
+	}
+	defer coUninitialize.Call()
+	wide, _ := syscall.UTF16PtrFromString(path)
+	var item *comObject
+	hr, _, _ = createShellItem.Call(uintptr(unsafe.Pointer(wide)), 0, uintptr(unsafe.Pointer(&shellItemIID)), uintptr(unsafe.Pointer(&item)))
+	if err := comError("fixture item", hr); err != nil || item == nil {
+		t.Fatal("missing fixture item", err)
+	}
+	defer item.call(2)
+	for i := 0; i < 32; i++ {
+		id, ok := shellStringOrEmptyProperty(item, &appUserModelIDKey)
+		if !ok || id != launch.AppUserModelID {
+			t.Fatal("Shell AppID variant read")
+		}
+		args, ok := shellStringOrEmptyProperty(item, &linkArgumentsKey)
+		if !ok || args != "" {
+			t.Fatal("successful empty arguments confused with failed metadata")
+		}
+		runtime.GC()
+	}
+	after, _ := os.ReadFile(path)
+	if sha256.Sum256(before) != sha256.Sum256(after) {
+		t.Fatal("metadata changed fixture")
+	}
+}

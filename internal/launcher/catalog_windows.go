@@ -13,6 +13,7 @@ import (
 )
 
 func (s *launcher) saveCatalog(candidate settings.Settings) bool {
+	candidate, _ = candidate.BindProvedApplicationIdentities(s.apps)
 	if s.persistPreferences == nil {
 		s.status = "应用偏好暂时无法保存。"
 		return false

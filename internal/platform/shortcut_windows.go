@@ -141,6 +141,7 @@ func ShortcutIdentity(path string) (core.LaunchIdentity, error) {
 	// or show modes are modified by this reader.
 	const ordinaryFlags uint32 = 0xff | 0x200 | 0x4000
 	identity := core.LaunchIdentity{Target: expandShortcutPath(target), Arguments: arguments, WorkingDirectory: expandShortcutPath(directory), LinkFlags: flags, ShowCommand: show, Independent: flags & ^ordinaryFlags != 0 || show != 1}
+	identity.AppUserModelID = shortcutAppUserModelID(link)
 	if identity.Target == "" && identity.Arguments == "" && identity.WorkingDirectory == "" && !identity.Independent {
 		identity.ShellTarget = shortcutAppsFolderTarget(link)
 	}

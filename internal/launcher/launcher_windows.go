@@ -85,6 +85,8 @@ type launcher struct {
 	menu                                           paletteMenu
 	menuSelected                                   int
 	menuNeedsFocus                                 bool
+	menuAtRow                                      bool
+	menuX, menuY                                   float32
 	restoreSearch                                  bool
 	config                                         settings.Settings
 	store                                          *settings.Store

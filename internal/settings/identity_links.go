@@ -22,15 +22,20 @@ func (s Settings) BindProvedApplicationIdentities(apps []core.Application) (Sett
 	value := s.Clone()
 	changed := false
 	for old := range value.IdentityLinks {
-		if !referenced[old] {
+		if !referenced[old] && !referenced[value.IdentityLinks[old]] {
 			delete(value.IdentityLinks, old)
 			changed = true
 		}
 	}
 	for _, app := range apps {
+		// Persist only provider-proved canonical associations, never relations
+		// added solely to apply an already persisted preference in either direction.
+		if app.ShellID == "" && app.Launch.ShellTarget == "" {
+			continue
+		}
 		current := app.ItemID()
 		for _, old := range app.RelatedIDs {
-			if !referenced[old] || old == current {
+			if (!referenced[old] && !referenced[current]) || old == current {
 				continue
 			}
 			// Existing evidence is not silently redirected if a path is repurposed.
@@ -54,6 +59,9 @@ func (s Settings) ApplyIdentityLinks(apps []core.Application) []core.Application
 		current := result[i].ItemID()
 		result[i].RelatedIDs = slices.DeleteFunc(result[i].RelatedIDs, func(old string) bool { bound, exists := s.IdentityLinks[old]; return exists && bound != current })
 		for old, bound := range s.IdentityLinks {
+			if old == current && !result[i].HasPreferenceID(bound) {
+				result[i].RelatedIDs = append(result[i].RelatedIDs, bound)
+			}
 			if bound == current && !result[i].HasPreferenceID(old) {
 				result[i].RelatedIDs = append(result[i].RelatedIDs, old)
 			}
