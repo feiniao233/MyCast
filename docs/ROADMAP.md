@@ -1,5 +1,12 @@
 # Windows alpha roadmap
 
+`0.4.0-alpha.1` begins from reviewed `f941515aa562d4282435df82f0ca3568c7d99f76`
+on `feat/0.4-compact`. Scope is only compact/expanded presentation, preserving
+search identity, input/IME, stable results and the Windows material fallback.
+Default-off compatibility and state/geometry risks are recorded in
+[COMPACT_0.4.md](COMPACT_0.4.md). Implementation and new acceptance are pending;
+the separate 0.2/0.3 candidates and published main/tag remain preserved.
+
 `0.3.0-alpha.1` development starts from the reviewed 0.2 candidate
 `772885ed4c344baed8ce53cb32da1c4131be9fea` on `feat/0.3-search`.
 The planned stages are prepared full-catalog search with ranking/benchmark

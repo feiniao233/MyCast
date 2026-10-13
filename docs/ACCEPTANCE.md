@@ -422,3 +422,9 @@ F10 repeat checks include native WM_SYSKEYDOWN and the real hidden MyGo surface;
 first press, Alt+F10/other system keys, Alt+F4 and composing messages pass through.
 Actual desktop Shift+F10/IME acceptance remains not tested.
 
+# 0.4 development evidence
+
+Compact/expanded scope and compatibility design: [COMPACT_0.4.md](COMPACT_0.4.md).
+New pure/native-fixture/DPI checks are pending. Actual multi-monitor/work-area/
+IME behavior remains not tested; no display configuration is changed.
+
