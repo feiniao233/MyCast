@@ -11,8 +11,9 @@ $taskShort=$taskCommit.Substring(0,12)
 $taskGoVersion=(& $GoExe version | Out-String).Trim()
 if($LASTEXITCODE-ne 0 -or $taskGoVersion -notmatch '^go version go1\.27\.2 '){throw 'Use official Go 1.27.2 for packaging'}
 $taskBinary=Join-Path $taskRepo 'dist\MyCast.exe'
-$taskMetadata=(& $GoExe version -m $taskBinary | Out-String)
+$taskMetadata=(& $GoExe version -m 'dist/MyCast.exe' | Out-String)
 if($LASTEXITCODE-ne 0 -or $taskMetadata -notmatch '(?m)^.+:\s+go1\.27\.2\s*$' -or $taskMetadata -notmatch "vcs.revision=$taskCommit" -or $taskMetadata -notmatch 'vcs.modified=false' -or $taskMetadata -notmatch 'CGO_ENABLED=0' -or $taskMetadata -notmatch 'GOOS=windows' -or $taskMetadata -notmatch 'GOARCH=amd64' -or $taskMetadata -notmatch 'mygo_noinspector' -or $taskMetadata -notmatch 'github.com/egoist/mygo\s+v0\.4\.6'){throw 'Binary metadata must match the clean Windows amd64 commit and locked runtime'}
+if($taskMetadata -notmatch '(?m)^dist[\\/]MyCast\.exe:\s+go1\.27\.2\s*$' -or $taskMetadata.Contains($taskRepo)){throw 'Build info must use a relative binary name without this checkout path'}
 & $GoExe run ./scripts/verify-icon -exe $taskBinary | Out-Host
 if($LASTEXITCODE-ne 0){throw 'Packaged executable icon differs from canonical source ICO'}
 $taskOutput=Join-Path $taskRepo 'dist'

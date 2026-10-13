@@ -5,6 +5,8 @@ tests and vet, commit the reviewed change and build from that clean commit with
 the README Windows GUI command. The executable's VCS metadata must match HEAD,
 `vcs.modified=false`, Windows amd64 and CGO disabled. The package helper rejects
 a dirty checkout, mismatched binary or wrong toolchain.
+BUILDINFO records a relative executable name, never the packager's absolute
+checkout/account path. The packaging helper rejects a checkout-path leak.
 
 PowerShell 7:
 

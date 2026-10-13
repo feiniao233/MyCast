@@ -50,8 +50,6 @@ desktop acceptance as not tested. The build is unsigned. Quit and delete the
 extracted app to uninstall; remove only its own ordinary settings file separately
 if desired. Clipboard history has no data file to remove.
 
-The normal desktop-tool retry still fails with required Windows platform directory
-initialization error `HRESULT 0x80070003`. Actual hotkey/tray/focus, Microsoft Pinyin,
-launch UI, native copy/paste and Acrylic/corners are still **not tested**. The eight
-minimal manual steps in ACCEPTANCE.md remain the public-readiness gate. No custom
-desktop automation, main merge, visibility change or Release is used.
+Native desktop interaction checks are not proven by automated or resource/ABI
+checks. Remaining native limits are accepted for this first alpha. Exact-commit
+CI, privacy, license/package checks and owner review/publication remain required.
