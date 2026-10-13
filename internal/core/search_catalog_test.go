@@ -79,7 +79,7 @@ func TestPreparedSearchAliasRemovalAndExplanation(t *testing.T) {
 	apps := PrepareSearch([]Application{{Name: "显示", Path: "synthetic.exe"}})
 	id := apps[0].ItemID()
 	with := NewSearchCatalog(WithUserAliases(apps, map[string][]string{id: {"monitor"}}))
-	if got := with.Search("monitor", 0, nil, nil, nil); len(got) != 1 || got[0].Evidence.Field != "user-alias-or-pinyin" {
+	if got := with.Search("monitor", 0, nil, nil, nil); len(got) != 1 || got[0].Evidence.Field != "user-alias" {
 		t.Fatal(got)
 	}
 	without := NewSearchCatalog(WithUserAliases(apps, nil))

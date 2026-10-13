@@ -1,8 +1,13 @@
 # MyCast
 
+0.3 候选新增完整目录预计算搜索、默认关闭的本地显示快照，以及只读匹配/身份/来源诊断。
+快照入口验证前不能启动；设置中明确说明保存内容并提供清除。
+[本版设计与测量证据](docs/SEARCH_0.3.md) · [增量验收](docs/INCREMENTAL_ACCEPTANCE_0.3.md)。
+0.2 的候选分支仍独立保留；发布状态仍为 0.1.0-alpha。
+
 受 [Tinycast](https://github.com/abue-ammar/tinycast) 启发的 Windows 常驻启动器首版。采用 [MyGo](https://github.com/egoist/mygo) 的原生 Go UI，不使用 Electron、HTML 或 WebView 页面。
 
-> 已发布版本：[0.1.0-alpha](https://github.com/feiniao233/MyCast/releases/tag/v0.1.0-alpha)，对应提交 `5512e940e4693aabb56e02ac2cd0517e5f47dd26`。本分支开发 **0.2.0-alpha.1** 候选版，尚未合并 main、打新标签或发布 Release。
+> 已发布版本：[0.1.0-alpha](https://github.com/feiniao233/MyCast/releases/tag/v0.1.0-alpha)，对应提交 `5512e940e4693aabb56e02ac2cd0517e5f47dd26`。本分支开发 **0.3.0-alpha.1** 候选版，尚未合并 main、打新标签或发布 Release。
 
 新版默认包含 AppsFolder 系统应用来源、系统名称/图标与稳定身份激活；已实现已配置来源自动刷新、来源/位置/隐藏管理与默认关闭的开机启动。[新版范围与兼容性](docs/NEXT_ALPHA.md)、[验收证据](docs/ACCEPTANCE.md) 分别记录自动化、受控原生夹具和实际桌面检查。0.1 已接受的实机覆盖限制仍不是通过记录；新增功能需要增量验收。
 

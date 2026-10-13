@@ -23,6 +23,16 @@ the actual icon has no lettering/font dependency.
   no ZTools native binary or dependency is bundled/executed, and its name/target
   deduplication is not adopted. Reference license text: [licenses/ZTools-MIT.txt](licenses/ZTools-MIT.txt).
 
+## 0.3 behavioral references
+
+The 0.3 search changes use independently implemented behavioral references:
+[Wox prepared matching/cache behavior at 8a3c3f6](https://github.com/Wox-launcher/Wox/blob/8a3c3f67dbdf8ebc3bc9f2b30cd4015de125dfe7/wox.core/util/fuzzymatch/fuzzy_match.go)
+(GPL-3.0), [ZTools cache completeness at 6c9dee8](https://github.com/ZToolsCenter/ZTools/blob/6c9dee8c998ed7b4e6d0a80ad4311d3d8d24f72c/src/main/api/renderer/commands.ts)
+(MIT), and [Tinycast memo dependencies at 144727d](https://github.com/abue-ammar/tinycast/blob/144727d2bb75b2e36d000b9f0f5563d359944463/Tinycast/Features/Launcher/Service/AppIndex.swift)
+(AGPL-3.0-or-later). No code, native binaries or new dependencies from these
+references are copied, translated or bundled for 0.3. Existing ZTools/Tinycast
+license notices above remain applicable to prior references.
+
 ## MyGo dependency
 
 - Source: https://github.com/egoist/mygo

@@ -18,24 +18,24 @@ type snapshotJob struct {
 
 func (s *launcher) drawSnapshotSettings(c *ui.Context) {
 	p := paletteFor(c.Theme().Dark, c.Preferences().HighContrast)
-	ui.ButtonBase(c.Key("snapshot-backdrop")).Absolute().Top(0).Left(0).Right(0).Bottom(0).Background(ui.RGBA(0, 0, 0, .30)).Label("启动快照背景")
-	panel := ui.Column(c.Key("snapshot-panel")).Absolute().Left(36).Right(36).Top(18).Bottom(18).Padding(16).Gap(12).Radius(18).Background(p.MenuSurface).Border(1, p.Border).Role(ui.RoleDialog).Label("启动快照面板").Focusable()
+	ui.ButtonBase(c.Key("snapshot-backdrop")).Absolute().Top(0).Left(0).Right(0).Bottom(0).Background(p.ModalScrim).Label("启动快照背景")
+	panel := ui.Column(c.Key("snapshot-panel")).Absolute().Left(p.ModalSide).Right(p.ModalSide).Top(p.ModalTop).Bottom(p.ModalTop).Padding(p.ModalPadding).Gap(p.ModalGap).Radius(p.ModalRadius).Background(p.MenuSurface).Border(1, p.Border).Role(ui.RoleDialog).Label("启动快照面板").Focusable()
 	if s.settingsNeedsFocus {
 		panel.Focus()
 		s.settingsNeedsFocus = false
 	}
 	panel.Children(func() {
-		ui.Text(c, "本地启动显示快照").FontSize(20).Bold()
+		ui.Text(c, "本地启动显示快照").FontSize(p.SearchSize).Bold()
 		ui.Checkbox(c.Key("settings-snapshot"), &s.settingsDraft.StartupSnapshot, "启用显示快照（默认关闭）").Label("启动显示快照")
-		ui.Text(c, "只保存显示名和身份哈希；不保存路径、启动参数、查询或剪贴板。\n重启后可先显示待验证入口，来源验证前不能启动。\n关闭后不再读取或更新；已有快照可在这里清除。\n返回设置并保存后，开关才会生效。").FillWidth().FontSize(13).TextColor(p.Secondary)
-		clear := ui.ButtonBase(c.Key("settings-clear-snapshot")).Height(30).Shrink(0).Padding(4, 10).Radius(8).Background(p.Control).Label("清除本地启动快照").Disabled(s.snapshotClearing)
+		ui.Text(c, "只保存显示名和身份哈希；不保存路径、启动参数、查询或剪贴板。\n重启后可先显示待验证入口，来源验证前不能启动。\n关闭后不再读取或更新；已有快照可在这里清除。\n返回设置并保存后，开关才会生效。").FillWidth().FontSize(p.ModalBody).TextColor(p.Secondary)
+		clear := ui.ButtonBase(c.Key("settings-clear-snapshot")).Height(p.ModalClear).Shrink(0).Padding(p.ControlInset, p.Gap).Radius(p.Inset).Background(p.Control).Label("清除本地启动快照").Disabled(s.snapshotClearing)
 		clear.Children(func() { ui.Text(c, "立即清除启动快照").FontSize(12) })
 		if clear.Clicked() {
 			s.clearStartupSnapshot()
 		}
 		ui.Text(c, s.snapshotStatus).FillWidth().FontSize(12).TextColor(p.Secondary)
 		ui.Spacer(c)
-		back := ui.ButtonBase(c.Key("snapshot-back")).Height(32).Shrink(0).Padding(6, 14).Radius(8).Background(p.Control).Label("返回设置")
+		back := ui.ButtonBase(c.Key("snapshot-back")).Height(p.ModalBack).Shrink(0).Padding(p.MenuInset, p.BodySize).Radius(p.Inset).Background(p.Control).Label("返回设置")
 		back.Children(func() { ui.Text(c, "返回设置").FontSize(14) })
 		if back.Clicked() || c.Shortcut(0, ui.KeyEscape) {
 			s.snapshotOpen = false
@@ -97,11 +97,14 @@ func (s *launcher) clearStartupSnapshot() {
 	s.queueSnapshot(snapshotJob{clear: true, epoch: s.snapshotStore.Epoch()})
 	s.settingsNote = "正在清除本地显示快照；原应用和设置不受影响。"
 }
-func snapshotDisplayApplications(value settings.Snapshot, aliases map[string][]string) []core.Application {
+func snapshotDisplayApplications(value settings.Snapshot, aliases map[string][]string, configs ...settings.Settings) []core.Application {
 	apps := make([]core.Application, 0, len(value.Entries))
 	for _, e := range value.Entries {
 		apps = append(apps, core.Application{Name: e.Name, DisplayOnlyID: e.ID})
 	}
+	if len(configs) > 0 {
+		apps = configs[0].ApplyIdentityLinks(apps)
+	} // Existing saved preferences only; no cache proof.
 	return core.WithUserAliases(core.PrepareSearch(apps), aliases)
 }
 

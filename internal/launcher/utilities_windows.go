@@ -75,6 +75,7 @@ func (s *launcher) drawUtilities(c *ui.Context) {
 		}
 		ui.Text(c, "小工具").Height(26).Shrink(0).FontSize(20).Bold()
 		field := ui.TextInputBase(c.Key("calculator"), &s.calcText).FillWidth().Height(34).Shrink(0).Padding(6, 10).Radius(8).Background(p.Control).Border(1, p.Border).FontSize(16).Placeholder("1 + 2 * (3 - 1)").Label("计算表达式")
+		s.paletteComposing = s.paletteComposing || field.Composing()
 		if s.settingsNeedsFocus {
 			field.Focus()
 			s.settingsNeedsFocus = false
@@ -158,6 +159,7 @@ func (s *launcher) drawLinkEditor(c *ui.Context, p paletteTokens) {
 	ui.Text(c, "编辑快捷链接").Height(26).Shrink(0).FontSize(20).Bold()
 	ui.Text(c, "每行：名称 | https://地址 · 最多 32 条 · 留空删除全部").FontSize(12).TextColor(p.Secondary)
 	field := ui.TextAreaBase(c.Key("link-editor"), &s.linksText).FillWidth().Grow(1).MinHeight(0).Padding(8).Radius(8).Background(p.Control).Border(1, p.Border).FontSize(13).Label("快捷链接内容")
+	s.paletteComposing = s.paletteComposing || field.Composing()
 	if s.settingsNeedsFocus {
 		field.Focus()
 		s.settingsNeedsFocus = false

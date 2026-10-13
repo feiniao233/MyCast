@@ -42,12 +42,45 @@ The settings subpanel explains persisted data and pending authority. Its switch
 is a draft until the ordinary Settings Save action; Cancel retains default off.
 Clear is explicitly immediate and leaves original applications/settings intact.
 
-## Keyboard and diagnostics (third stage, not implemented yet)
+## Keyboard and diagnostics (third stage)
 
 Esc closes the active layer and restores search focus; repeats and IME remain
 protected. Read-only diagnostics report the winning search field and actual
 identity/adapter/source status evidence. Keep private inventory and query data
 in bounded memory; do not export automatically.
+
+The fixed Tinycast [UI specification](https://github.com/abue-ammar/tinycast/blob/144727d2bb75b2e36d000b9f0f5563d359944463/docs/ui.md)
+was read. New modal metrics/colors remain in `palette_tokens_windows.go`;
+existing readable Windows surfaces, clipping and native material fallback stay
+as documented approximations. No macOS glass/refraction or desktop capture is added.
+
+Implemented through the existing row-bound source/menu/status panel. The
+matcher supplies its actual winning field and score; custom alias pinyin retains
+separate derived provenance. Source records are bounded to 33, replace prior
+records per configured source and reset when source settings change. A partial
+batch is labeled unknown for unobserved entries, without inventing per-root
+availability or uninstall conclusions. Diagnostics do not perform new discovery,
+persist metadata or export an inventory/query.
+
+MyGo 0.4.6 forwards native repeat flags to input handlers but its window shortcut
+API does not expose them. A bounded same-thread subclass on this palette's
+immediate `MyGoSurface` refuses repeated Enter/Esc/menu/F10 actions outside
+composition, preserving first presses, navigation/text repeats, key releases and
+system-key handling. IMM notifications and active UI-field composition pass
+through. No global hook, keyboard injection or foreign-window subclass exists.
+Only the System32 `comctl32.dll` is loaded; numeric ownership tokens keep Go
+pointers out of native reference data, and explicit removal/WM_NCDESTROY clean up.
+Failure retains the original input path and displays an unavailable warning.
+Held Enter therefore does not add repeated line breaks in MyCast's own multiline
+editors outside composition; normal first Enter and text/navigation editing remain.
+
+API contracts: [SetWindowSubclass](https://learn.microsoft.com/en-us/windows/win32/api/commctrl/nf-commctrl-setwindowsubclass),
+[WM_KEYDOWN repeat bit](https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-keydown),
+[IME start](https://learn.microsoft.com/en-us/windows/win32/intl/wm-ime-startcomposition).
+Controlled hidden windows test repeat/IME pass-through, ownership, duplicate
+registration and cleanup. `scripts/verify-palette-keys` also validates the real
+hidden MyGo drawing surface, not just a simulated callback. These fixtures do
+not prove actual IME candidate behavior or desktop interaction.
 
 ## References and compatibility risks
 
@@ -111,3 +144,24 @@ A fresh test process with 512 dedicated synthetic files measured the first
 loading/preparing a display-only snapshot. OS file-cache state is uncontrolled;
 window/font startup, COM icons and an actual user inventory are excluded. This
 is fixture evidence, not a verified desktop cold-start latency promise.
+
+Upgrade: a missing `startup_snapshot` preference remains false. Its separate
+cache version cannot authorize launch or silently replace unknown-format data.
+An older 0.2 executable preserves unfamiliar settings and falls back to defaults;
+disable the snapshot and save in 0.3 before downgrading if the older settings
+reader must continue using that file.
+
+The pending display can apply already saved hash-only preference bindings to
+retain favorite/alias search while waiting. The cache creates no new binding or
+provider proof and never adds a launch path; effect refusal remains in place.
+
+Diagnostics/repeat stage: full local verify/test/vet/GUI build passes, with actual
+field provenance, bounded source records, 100%/150% menu/source/Esc focus tests,
+native ownership/repeat/IME/cleanup fixture and real hidden MyGoSurface verifier.
+Synthetic [100% diagnostics](previews/search-diagnostics-100.png) and
+[150% diagnostics](previews/search-diagnostics-150.png) have been visually checked.
+Prepared-search CI: [38446720021](https://github.com/feiniao233/MyCast/actions/runs/38446720021)
+at `c8d1dc6d5b0fe84806f12988dafcafac3ff7ba72` passes. Snapshot CI:
+[38448917388](https://github.com/feiniao233/MyCast/actions/runs/38448917388) at
+`f9c0a82690c1a00b216d8ded95819ca9f8881cc0` passes. Final candidate CI/package
+provenance is tracked separately; these are not Release publication events.

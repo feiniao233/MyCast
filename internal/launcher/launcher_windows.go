@@ -21,6 +21,10 @@ import (
 )
 
 type launcher struct {
+	nativeKeyGuard    *platform.PaletteKeyGuard
+	paletteComposing  bool
+	sourceDiagnostics []sourceDiagnostic
+
 	snapshotOpen                                                       bool
 	snapshotStore                                                      *settings.SnapshotStore
 	snapshotAttempted, snapshotBusy, snapshotClearing, pendingComplete bool
@@ -166,6 +170,11 @@ func (s *launcher) ready() {
 		s.status = "窗口图标加载失败：" + err.Error()
 	}
 	s.nativeCaptionRemoved = platform.RemovePaletteSystemMenu(s.win.NativeHandle())
+	if guard, err := platform.InstallPaletteKeyGuard(s.win.NativeHandle()); err == nil {
+		s.nativeKeyGuard = guard
+	} else {
+		s.status = "按键重复保护不可用；原输入路径继续运行。"
+	}
 	appearance := platform.ConfigurePaletteWindow(s.win.NativeHandle())
 	s.appearanceChecked, s.nativeAcrylic = true, appearance.Acrylic
 	s.syncNativeTheme = func(theme string) { mygo.Theme.SetSource(nativeThemeSource(theme)) }
@@ -217,6 +226,9 @@ func (s *launcher) ready() {
 	s.applyPreferences = s.applySettings
 	s.persistPreferences = s.saveOrdinarySettings
 	mygo.App.OnWillQuit(func(*mygo.QuitEvent) {
+		if s.nativeKeyGuard != nil {
+			s.nativeKeyGuard.Close()
+		}
 		close(s.stop)
 		s.stopSourceRetry()
 		if s.watchCancel != nil {
@@ -374,7 +386,7 @@ func (s *launcher) scanSourcesWithRoots(sources uint8, requestedRoots []string) 
 					s.snapshotStatus = "未使用启动快照；正常发现应用。"
 					return
 				}
-				s.pendingApps = snapshotDisplayApplications(value, s.config.Aliases)
+				s.pendingApps = snapshotDisplayApplications(value, s.config.Aliases, s.config)
 				s.invalidateApplicationSearch()
 				s.appNeedsSelection = true
 				s.snapshotStatus = "快照显示待验证；验证前不能启动。"
@@ -498,6 +510,9 @@ func (s *launcher) scanSourcesWithRoots(sources uint8, requestedRoots []string) 
 			}
 			completeSources := workerErr == nil && !filePartial && !shellPartial && len(errs) == 0 && sources&scanFiles != 0 && len(scanRoots) == len(roots) && (!shellEnabled || sources&scanShell != 0)
 			s.pendingComplete = completeSources
+			if workerErr != context.Canceled {
+				s.recordSourceDiagnostics(scanRoots, sources, filePartial, shellPartial, generation)
+			}
 			s.completeScan(apps, icons, errs, workerErr, scanCompletion{missing: missing, reconciled: true})
 			if completeSources && cacheEnabled && s.config.StartupSnapshot && cacheStore != nil && cacheEpoch == cacheStore.Epoch() && !s.snapshotClearing {
 				s.queueSnapshot(snapshotJob{epoch: cacheEpoch, value: settings.NewSnapshot(apps, cacheFingerprint, time.Now())})

@@ -7,6 +7,10 @@ import "github.com/egoist/mygo/ui"
 
 // Standard DIPs; the renderer handles DPI. Compact/expanded states are deferred.
 type paletteTokens struct {
+	ModalSide, ModalTop, ModalPadding, ModalGap, ModalRadius float32
+	ModalBody, ModalClear, ModalBack                         float32
+	ModalScrim                                               ui.Color
+
 	FooterIcon, KeyGlyph, ControlLine                                                   float32
 	Width, Height, Header, Footer, PanelRadius, RowRadius                               float32
 	Inset, RowInset, Gap, RowGap, RowHeight, DetailRowHeight                            float32
@@ -19,6 +23,9 @@ type paletteTokens struct {
 }
 
 var palette = paletteTokens{
+	ModalSide: 36, ModalTop: 18, ModalPadding: 16, ModalGap: 12, ModalRadius: 18,
+	ModalBody: 13, ModalClear: 30, ModalBack: 32, ModalScrim: ui.RGBA(0, 0, 0, .30),
+
 	FooterIcon: 20, KeyGlyph: 14, ControlLine: 22,
 	// The HWND owns outer rounding; a second transparent cutout would expose
 	// the system backdrop between the UI and the native window outline.

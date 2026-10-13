@@ -57,3 +57,23 @@ func TestSnapshotPartialAndCompleteRevalidation(t *testing.T) {
 		t.Fatal("complete discovery retained stale display")
 	}
 }
+
+func TestSnapshotUsesSavedLegacyPreferencesWithoutNewProof(t *testing.T) {
+	app := core.Application{Name: "Synthetic Current", Path: "synthetic-current.exe"}
+	old := core.Application{Name: "Synthetic Previous", Path: "synthetic-previous.exe"}.ItemID()
+	config := settings.Defaults()
+	config.IdentityLinks = map[string]string{old: app.ItemID()}
+	config.Favorites = []string{old}
+	config.Aliases = map[string][]string{old: {"monitor"}}
+	value := settings.NewSnapshot([]core.Application{app}, settings.SourceFingerprint(nil, nil, true), time.Now())
+	pending := snapshotDisplayApplications(value, config.Aliases, config)
+	if len(pending) != 1 || !pending[0].Preferred(config.Favorites) || len(core.NewSearchCatalog(pending).Search("monitor", 100, nil, nil, nil)) != 1 {
+		t.Fatal("saved legacy preferences lost during display")
+	}
+	if _, changed := config.BindProvedApplicationIdentities(pending); changed {
+		t.Fatal("display metadata created new proof")
+	}
+	if pending[0].Path != "" || pending[0].ShellID != "" || pending[0].Launch.Target != "" {
+		t.Fatal("saved preferences granted launch authority")
+	}
+}

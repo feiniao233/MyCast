@@ -108,10 +108,15 @@ func WithUserAliases(apps []Application, aliases map[string][]string) []Applicat
 	result := append([]Application(nil), apps...)
 	for i := range result {
 		result[i].UserAliases = nil
+		result[i].UserAliasKinds = nil
 		for _, id := range result[i].PreferenceIDs() {
 			for _, alias := range aliases[id] {
 				result[i].UserAliases = append(result[i].UserAliases, alias)
-				result[i].UserAliases = append(result[i].UserAliases, PinyinTerms(alias)...)
+				result[i].UserAliasKinds = append(result[i].UserAliasKinds, "user-alias")
+				for _, term := range PinyinTerms(alias) {
+					result[i].UserAliases = append(result[i].UserAliases, term)
+					result[i].UserAliasKinds = append(result[i].UserAliasKinds, "user-alias-pinyin")
+				}
 			}
 		}
 	}

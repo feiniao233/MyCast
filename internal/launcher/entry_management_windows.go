@@ -35,6 +35,7 @@ func (s *launcher) toggleHiddenApplication(id string) {
 }
 
 func (s *launcher) openApplicationSource(app core.Application) {
+	diagnostic := s.applicationDiagnostics(app)
 	s.openSettings()
 	detail := app.Name + "\n\n"
 	if app.DisplayOnlyID != "" {
@@ -55,7 +56,7 @@ func (s *launcher) openApplicationSource(app core.Application) {
 		detail += fmt.Sprintf("\n快捷方式独立语义：%t；标志：0x%08x；显示模式：%d", app.Launch.Independent, app.Launch.LinkFlags, app.Launch.ShowCommand)
 	}
 	s.statusDetailsOpen = true
-	s.statusDetail = detail
+	s.statusDetail = detail + diagnostic
 	s.statusDetailScroll = ui.ScrollState{}
 }
 

@@ -137,6 +137,9 @@ func (s *launcher) saveSettings() {
 		return
 	}
 	changedRoots := !slices.Equal(s.config.IndexRoots, value.IndexRoots) || s.config.AppsFolder != value.AppsFolder
+	if changedRoots {
+		s.sourceDiagnostics = nil
+	}
 	changedSnapshot := s.config.StartupSnapshot != value.StartupSnapshot
 	if (changedRoots || changedSnapshot) && s.snapshotStore != nil {
 		s.snapshotStore.Invalidate()
@@ -222,6 +225,7 @@ func (s *launcher) drawSettings(c *ui.Context) {
 		})
 		ui.Text(c, "应用目录 · 每行一个绝对本地路径；留空使用系统应用目录").FontSize(12).TextColor(p.Secondary)
 		roots := ui.TextAreaBase(c.Key("settings-roots"), &s.rootsText).FillWidth().Height(56).Shrink(0).Padding(6, 10).Radius(8).Background(p.Control).Border(1, p.Border).FontSize(12).Label("应用目录设置")
+		s.paletteComposing = s.paletteComposing || hotkey.Composing() || roots.Composing()
 		ui.Text(c, "仅索引 .lnk / .exe，不跟随符号链接，不读取文档内容。").FontSize(11).TextColor(p.Secondary)
 		ui.Text(c, s.settingsNote).FillWidth().Height(40).Shrink(0).FontSize(11).TextColor(p.Secondary).Label("设置提示")
 		ui.Spacer(c)

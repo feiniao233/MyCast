@@ -10,8 +10,10 @@ ranking in differential tests. Full local checks pass; 5,000-entry synthetic
 queries measure 1.457–1.482 ms versus 15.298–15.571 ms previously, with a separate
 13.857–13.980 ms preparation cost. Default-off bounded display-only snapshots
 and explicit clear are implemented with serial/epoch/completeness protections.
-Full local checks and synthetic DPI controls pass; diagnostics remains pending.
-New actual desktop acceptance is not claimed.
+Full local checks and synthetic DPI controls pass. Read-only actual matching/
+identity/source diagnostics and an owned native repeat-key guard are implemented,
+with 100%/150% focus/layer tests and a real hidden MyGoSurface fixture.
+New actual desktop keyboard/IME/pointer acceptance is not claimed.
 
 The independent review follow-up separates AUMIDs during file scanning, keeps
 property failures distinct from successful empty values, and gives each Tab-focus
@@ -41,7 +43,8 @@ Confirmed file removal plus an incomplete Shell refresh retains the proved
 namespace counterpart; unknown availability is not treated as an uninstall.
 
 `0.1.0-alpha` is published at `5512e940e4693aabb56e02ac2cd0517e5f47dd26`.
-The next candidate is **0.2.0-alpha.1**, developed on `feat/0.2-applications`.
+The reviewed **0.2.0-alpha.1** candidate is preserved on `feat/0.2-applications`;
+the current development candidate is **0.3.0-alpha.1** on `feat/0.3-search`.
 Stage 1 adds an explicit AppsFolder source, stable Shell identities, localized
 Shell names/icons and default-action activation; synthetic and native fixture
 checks cover adapters. See [scope and compatibility](NEXT_ALPHA.md). Automatic

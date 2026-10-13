@@ -408,6 +408,9 @@ Prepared-search differential/memo regressions and full local verify/test/vet/GUI
 build pass. Synthetic benchmarks and preparation cost are recorded in the design
 document. Snapshot safety/partial/generation/persistence regressions and
 100%/150% options/pending-row controls pass in the synthetic harness; full local
-checks pass. Diagnostics remains pending; no new desktop acceptance is claimed.
-The 0.2 candidate remains independently available.
+checks pass. Actual winning-field/identity/adapter/source-batch diagnostics,
+bounded memory, Esc layers and 100%/150% focus tests pass. Owned hidden subclass
+and real hidden MyGoSurface repeat/IME pass-through/cleanup fixtures pass.
+Full verify/test/vet/GUI build passes; new actual desktop keyboard/IME/pointer
+acceptance is not claimed. The 0.2 candidate remains independently available.
 

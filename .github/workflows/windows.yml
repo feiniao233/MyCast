@@ -31,11 +31,13 @@ jobs:
         run: go run ./scripts/verify-icon -exe dist/MyCast.exe
       - name: Check MyGo native window icon ABI
         run: go run -tags mygo_noinspector ./scripts/verify-window-icon
+      - name: Check owned MyGo surface repeat and IME guard
+        run: go run -tags mygo_noinspector ./scripts/verify-palette-keys
       - name: Package source notices and executable
         id: package
         shell: pwsh
         run: |
-          ./scripts/package-windows.ps1 -LayoutOnly -Version 0.2.0-alpha.1
+          ./scripts/package-windows.ps1 -LayoutOnly -Version 0.3.0-alpha.1
       - uses: actions/upload-artifact@v4
         with:
           name: MyCast-windows-amd64

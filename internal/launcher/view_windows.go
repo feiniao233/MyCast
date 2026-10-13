@@ -373,6 +373,12 @@ func (s *launcher) drawMenu(c *ui.Context, apps []core.Application, clips []stri
 }
 
 func (s *launcher) view(c *ui.Context) {
+	s.paletteComposing = false
+	defer func() {
+		if s.nativeKeyGuard != nil {
+			s.nativeKeyGuard.SetComposing(s.paletteComposing)
+		}
+	}()
 	dark := true
 	switch s.config.Theme {
 	case "light":
@@ -561,6 +567,7 @@ func (s *launcher) view(c *ui.Context) {
 		// one event. Preserve the preceding state while consuming its keys.
 		wasComposing := s.searchWasComposing
 		s.searchWasComposing = field.Composing()
+		s.paletteComposing = s.paletteComposing || field.Composing()
 		if wasComposing || field.Composing() {
 			c.Shortcut(0, ui.KeyEnter)
 			c.Shortcut(0, ui.KeyEscape)

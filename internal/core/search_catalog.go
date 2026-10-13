@@ -39,6 +39,7 @@ func cloneSearchApplication(a Application) Application {
 	a.Aliases = slices.Clone(a.Aliases)
 	a.SearchTerms = slices.Clone(a.SearchTerms)
 	a.UserAliases = slices.Clone(a.UserAliases)
+	a.UserAliasKinds = slices.Clone(a.UserAliasKinds)
 	a.NamePaths = slices.Clone(a.NamePaths)
 	if a.ShellFallback != nil {
 		fallback := *a.ShellFallback
@@ -62,8 +63,12 @@ func NewSearchCatalog(apps []Application) *SearchCatalog {
 		for _, text := range a.SearchTerms {
 			add("pinyin", text)
 		}
-		for _, text := range a.UserAliases {
-			add("user-alias-or-pinyin", text)
+		for i, text := range a.UserAliases {
+			kind := "user-alias-or-pinyin"
+			if i < len(a.UserAliasKinds) && (a.UserAliasKinds[i] == "user-alias" || a.UserAliasKinds[i] == "user-alias-pinyin") {
+				kind = a.UserAliasKinds[i]
+			}
+			add(kind, text)
 		}
 		c.entries = append(c.entries, e)
 	}

@@ -138,6 +138,7 @@ func (s *launcher) drawAliases(c *ui.Context) {
 		ui.Text(c, s.aliasName).FontSize(14).NoWrap().Ellipsis("…")
 		ui.Text(c, "每行一个；最多 8 个，每个最多 80 字。留空移除。").FontSize(12).TextColor(p.Secondary)
 		field := ui.TextAreaBase(c.Key("alias-input"), &s.aliasText).FillWidth().Height(150).Shrink(0).Padding(8).Radius(8).Background(p.Control).Border(1, p.Border).FontSize(14).Label("应用别名")
+		s.paletteComposing = s.paletteComposing || field.Composing()
 		if s.settingsNeedsFocus {
 			field.Focus()
 			s.settingsNeedsFocus = false

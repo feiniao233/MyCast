@@ -37,6 +37,8 @@ type Application struct {
 	Aliases     []string
 	SearchTerms []string
 	UserAliases []string
+	// Derived field provenance, parallel to UserAliases; never persisted.
+	UserAliasKinds []string
 	// NamePaths retain indexed source paths only until localized display names
 	// are prepared. They never participate in launch identity or persistence.
 	NamePaths []string
