@@ -400,6 +400,15 @@ func (s *launcher) scanSourcesWithRoots(sources uint8, requestedRoots []string) 
 			}
 			errs = append(errs, virtualErrs...)
 		}
+		if shellEnabled && shellPartial && ctx.Err() != context.Canceled {
+			// A failed namespace refresh cannot prove the cached counterpart gone,
+			// even if the file provider confirms that its shortcut was removed.
+			for _, app := range previousApps {
+				if app.ShellFallback != nil {
+					apps = append(apps, *app.ShellFallback)
+				}
+			}
+		}
 		if len(apps) > 5000 {
 			apps = core.FairProviderLimit(apps, previousApps, 5000)
 			errs = append(errs, core.ErrScanBudget)

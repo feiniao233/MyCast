@@ -52,6 +52,8 @@ and the minimal native check are distinct from screenshot evidence.
   and hidden state, including fallback to a surviving Shell identity. A merged
   file row retains its proved Shell counterpart in memory for a file-only
   refresh, so removing the link does not remove the surviving namespace row.
+  An incomplete Shell refresh also retains that counterpart when file removal
+  was confirmed; Shell permission/deadline failures do not prove an uninstall.
 - Referenced legacy preference hashes are bound to their proved canonical hash
   in bounded `identity_links` settings (at most 650 pairs). No names, paths or
   catalog are stored by this binding. Existing evidence is never silently

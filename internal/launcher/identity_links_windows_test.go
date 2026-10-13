@@ -38,6 +38,14 @@ func TestPreferenceMigrationSaveFailureDoesNotClaimPersistence(t *testing.T) {
 }
 
 func TestMergedFileDisappearancePreservesShellAndRestartBindings(t *testing.T) {
+	for _, partialShell := range []bool{false, true} {
+		t.Run(map[bool]string{false: "file-only", true: "partial-shell"}[partialShell], func(t *testing.T) {
+			testMergedFileDisappearance(t, partialShell)
+		})
+	}
+}
+
+func testMergedFileDisappearance(t *testing.T, partialShell bool) {
 	s := syntheticLauncher()
 	s.config = settings.Defaults()
 	s.config.IndexRoots = []string{`C:\Synthetic`}
@@ -72,10 +80,17 @@ func TestMergedFileDisappearancePreservesShellAndRestartBindings(t *testing.T) {
 		return nil, nil, nil
 	}
 	s.scanShellWork = func(context.Context) ([]core.Application, map[string]*ui.Bitmap, []error) {
+		if partialShell {
+			return nil, nil, []error{errors.New("synthetic unavailable Shell source")}
+		}
 		t.Error("file refresh unexpectedly rescanned Shell")
 		return nil, nil, nil
 	}
-	s.automaticRefresh(scanFiles)
+	if partialShell {
+		s.automaticRefresh(scanFiles | scanShell)
+	} else {
+		s.automaticRefresh(scanFiles)
+	}
 	select {
 	case fn := <-updates:
 		fn()

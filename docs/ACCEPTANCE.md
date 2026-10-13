@@ -17,6 +17,8 @@ simulated failed replacement leaves disk/config unchanged and reports the missin
 persistence. Bound maps reject chains and conflicting retargets. Full dependency
 verification, tests, vet and Windows GUI build pass locally. Actual application
 activation and unproved desktop-EXE/namespace duplicate coverage remain open.
+The merged-counterpart regression also covers confirmed shortcut deletion with
+a simultaneous failed/partial Shell refresh, retaining unknown namespace state.
 
 ## 0.2.0-alpha.1 stage 1
 

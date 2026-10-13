@@ -9,6 +9,8 @@ The review follow-up persists bounded hash-only legacy preference bindings and
 retains a proved Shell counterpart during file-only refresh. Restart/source-loss
 and failed-save regressions pass; ordinary unproved desktop duplicates remain
 distinct. Full local Go 1.27.2 verify/test/vet/GUI build passed for this change.
+Confirmed file removal plus an incomplete Shell refresh retains the proved
+namespace counterpart; unknown availability is not treated as an uninstall.
 
 `0.1.0-alpha` is published at `5512e940e4693aabb56e02ac2cd0517e5f47dd26`.
 The next candidate is **0.2.0-alpha.1**, developed on `feat/0.2-applications`.
