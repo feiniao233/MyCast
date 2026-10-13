@@ -58,8 +58,14 @@ func createTestShortcut(t *testing.T, path string, launch core.LaunchIdentity) {
 		defer properties.call(2)
 		text, _ := syscall.UTF16PtrFromString(launch.AppUserModelID)
 		var value stringPropVariant
-		value.kind = 31
-		(*struct{ pointer *uint16 })(unsafe.Pointer(&value.value[0])).pointer = text
+		// Match real legacy installers: explicit AppID stored as VT_BSTR.
+		allocated, _, _ := oleAutomation.NewProc("SysAllocString").Call(uintptr(unsafe.Pointer(text)))
+		if allocated == 0 {
+			t.Fatal("fixture BSTR allocation failed")
+		}
+		value.kind = 8
+		value.value[0] = allocated
+		defer clearPropVariant.Call(uintptr(unsafe.Pointer(&value)))
 		if err := comError("fixture explicit AppID", properties.call(6, uintptr(unsafe.Pointer(&appUserModelIDKey)), uintptr(unsafe.Pointer(&value)))); err != nil {
 			t.Fatal(err)
 		}

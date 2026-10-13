@@ -495,11 +495,18 @@ func (s *launcher) view(c *ui.Context) {
 						})
 						ui.Text(c, item.kind).FontSize(palette.CaptionSize).TextColor(palette.Tertiary).Shrink(0)
 					})
-					if button.RightClicked() && !s.searchWasComposing && !menuLost {
+					button.ContextMenu(func(m *ui.Menu) {
+						if s.searchWasComposing || menuLost {
+							return
+						}
 						bounds := button.Bounds()
-						x, y, _ := button.PointerPosition()
+						x, y, over := button.PointerPosition()
+						if !over {
+							x, y = palette.Inset, bounds.H
+						}
 						s.openRowMenu(item.key, bounds.X+x, bounds.Y+y)
-					}
+						c.AnimationFrame()
+					})
 					if button.Clicked() {
 						needsSelection := (s.clipboardMode && s.clipNeedsSelection) || (!s.clipboardMode && s.appNeedsSelection)
 						s.clipNeedsSelection = false
@@ -542,30 +549,17 @@ func (s *launcher) view(c *ui.Context) {
 		// one event. Preserve the preceding state while consuming its keys.
 		wasComposing := s.searchWasComposing
 		s.searchWasComposing = field.Composing()
-		if !s.clipboardMode {
-			// MyGo routes the menu key through ContextMenu on its focused text
-			// editor, before ordinary shortcuts. Use that public hook to show our
-			// same-window, identity-bound action menu; no native popup is built.
-			field.ContextMenu(func(m *ui.Menu) {
-				if wasComposing || field.Composing() || s.settingsOpen || s.menu != menuClosed || s.appNeedsSelection || selectionLost || menuLost {
-					return
-				}
-				key := s.selectedApplicationID()
-				if _, _, _, valid := s.resolveMenuTarget(key, false); valid {
-					s.openMenu(menuActions)
-					s.menuTargetKey = key
-					c.AnimationFrame()
-				} else {
-					m.EditItems()
-				}
-			})
-		}
 		if wasComposing || field.Composing() {
 			c.Shortcut(0, ui.KeyEnter)
 			c.Shortcut(0, ui.KeyEscape)
 		}
 		if !wasComposing && !field.Composing() && s.menu == menuClosed && !s.settingsOpen && !menuLost {
-			shiftF10 := c.Shortcut(ui.Shift, ui.KeyF10)
+			// Scope this to the editor. A focused result row keeps its own
+			// ContextMenu routing and immutable ID rather than selectedIndex.
+			shiftF10 := false
+			if s.input.Focused(c) {
+				shiftF10 = c.Shortcut(ui.Shift, ui.KeyF10)
+			}
 			if shiftF10 && count > 0 && !selectionLost && !s.clipNeedsSelection && !s.appNeedsSelection {
 				s.openMenu(menuActions)
 			}

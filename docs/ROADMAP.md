@@ -1,5 +1,11 @@
 # Windows alpha roadmap
 
+The independent review follow-up separates AUMIDs during file scanning, keeps
+property failures distinct from successful empty values, and gives each Tab-focus
+row its own keyboard context target. Real temporary shortcut scan/merge/search/
+save/restart and COM fault injection pass, as do 100%/150% focus/editor regressions.
+Ambiguous legacy preferences remain stored without guessed reassignment.
+
 Desktop-EXE/AppsFolder association and application-row right-click menus are
 implemented, preserving launch variants and both-provider persisted preferences.
 Full local checks and 100%/150% headless menus pass; new actual duplicate/menu

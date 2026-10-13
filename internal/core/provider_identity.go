@@ -52,7 +52,7 @@ func associateDesktopApplications(apps []Application) []Application {
 	}
 	for i := range result {
 		app := &result[i]
-		if app.ShellID != "" || app.Launch.ShellTarget != "" || app.Launch.Independent || app.Launch.Arguments != "" || !defaultDesktopDirectory(app.Launch.Target, app.Launch.WorkingDirectory) {
+		if app.ShellID != "" || app.Launch.ShellTarget != "" || app.Launch.Independent || !app.Launch.AppUserModelIDKnown || app.Launch.Arguments != "" || !defaultDesktopDirectory(app.Launch.Target, app.Launch.WorkingDirectory) {
 			continue
 		}
 		key := desktopPathKey(app.Launch.Target)
@@ -104,6 +104,7 @@ func (a Application) Preferred(ids []string) bool {
 // Equal stable launch identities only. A file entrance remains the preferred
 // launch adapter; namespace names and old shortcut hashes remain searchable/bound.
 func MergeProviderApplications(apps []Application) []Application {
+	apps = attachLegacyTargetPreferenceIDs(apps)
 	apps = associateDesktopApplications(apps)
 	result := make([]Application, 0, len(apps))
 	seen := map[string]int{}
@@ -135,6 +136,62 @@ func MergeProviderApplications(apps []Application) []Application {
 		}
 		seen[key] = len(result)
 		result = append(result, app)
+	}
+	return result
+}
+
+// v0.1 target/args/directory hashes omitted AppID. Attach those hashes only
+// when the configured file snapshot has one distinct identity for that tuple.
+// Ambiguous historical metadata remains stored, never guessed onto A or B.
+func attachLegacyTargetPreferenceIDs(apps []Application) []Application {
+	type owner struct {
+		id        string
+		ambiguous bool
+	}
+	owners := map[string]owner{}
+	legacy := func(app Application) string {
+		copy := app
+		copy.Launch.AppUserModelID = ""
+		copy.Launch.ShellTarget = ""
+		copy.Launch.DesktopBridge = false
+		copy.Launch.AppUserModelIDKnown = true
+		copy.Launch.Independent = false
+		return copy.ItemID()
+	}
+	eligible := func(app Application) bool {
+		return app.ShellID == "" && app.Launch.Target != "" && app.Launch.AppUserModelIDKnown && !app.Launch.Independent
+	}
+	for _, app := range apps {
+		if app.ShellID != "" || app.Launch.Target == "" || app.Launch.Independent && app.Launch.AppUserModelIDKnown {
+			continue
+		}
+		old := legacy(app)
+		copy := app
+		copy.Launch.ShellTarget = ""
+		copy.Launch.DesktopBridge = false
+		current := copy.ItemID()
+		value, exists := owners[old]
+		if !exists {
+			owners[old] = owner{id: current, ambiguous: !app.Launch.AppUserModelIDKnown}
+		} else if value.id != current || !app.Launch.AppUserModelIDKnown {
+			value.ambiguous = true
+			owners[old] = value
+		}
+	}
+	result := append([]Application(nil), apps...)
+	for i := range result {
+		app := &result[i]
+		if !eligible(*app) {
+			continue
+		}
+		old := legacy(*app)
+		if owners[old].ambiguous && old != app.ItemID() {
+			app.RelatedIDs = slices.DeleteFunc(append([]string(nil), app.RelatedIDs...), func(id string) bool { return id == old })
+			continue
+		}
+		if !owners[old].ambiguous && old != app.ItemID() && !app.HasPreferenceID(old) {
+			app.RelatedIDs = append(append([]string(nil), app.RelatedIDs...), old)
+		}
 	}
 	return result
 }

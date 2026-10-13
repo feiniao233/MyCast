@@ -373,6 +373,7 @@ func TestZeroResultsWithAnotherFailedRootDoesNotReviveConfirmedMissingApp(t *tes
 	options.AllowPath = platform.LocalAppPath
 	options.IncludeResolvedTarget = platform.IncludeApplicationTarget
 	roots := []string{links, filepath.Join(root, "UnavailableRoot")}
+	launch.AppUserModelIDKnown = true
 	resolve := func(string) (core.LaunchIdentity, error) { return launch, nil }
 	first, _ := core.IndexApplicationsWithOptions(context.Background(), roots, resolve, options)
 	if len(first) != 1 {

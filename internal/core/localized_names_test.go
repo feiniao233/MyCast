@@ -48,7 +48,7 @@ func TestMergedNameSourcePathsKeepIndependentVariants(t *testing.T) {
 		}
 	}
 	resolver := func(path string) (LaunchIdentity, error) {
-		identity := LaunchIdentity{Target: target}
+		identity := LaunchIdentity{Target: target, AppUserModelIDKnown: true}
 		switch filepath.Base(path) {
 		case "Argument.lnk":
 			identity.Arguments = "--alternate"

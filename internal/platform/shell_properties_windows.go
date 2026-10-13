@@ -20,6 +20,10 @@ var appUserModelIDKey = propertyKey{comGUID{0x9f4c2855, 0x9f79, 0x4b39, [8]byte{
 var propertyStoreIID = comGUID{0x886d8eeb, 0x8cf2, 0x4446, [8]byte{0x8d, 0x02, 0xcd, 0xba, 0x1d, 0xbd, 0xcf, 0x99}}
 var clearPropVariant = ole32.NewProc("PropVariantClear")
 
+// Windows OLE Automation, required for the documented VT_BSTR string form.
+var oleAutomation = syscall.NewLazyDLL("oleaut32.dll")
+var bstrLength = oleAutomation.NewProc("SysStringLen")
+
 // PROPVARIANT's eight-byte header and sixteen-byte union on Windows amd64.
 type stringPropVariant struct {
 	kind     uint16
@@ -31,18 +35,37 @@ func readStringVariant(object *comObject, method int, key *propertyKey) (string,
 	var v stringPropVariant
 	hr := object.call(method, uintptr(unsafe.Pointer(key)), uintptr(unsafe.Pointer(&v)))
 	defer clearPropVariant.Call(uintptr(unsafe.Pointer(&v)))
-	if uint32(hr) != 0 {
+	// GetValue documents S_OK and INPLACE_S_TRUNCATED canonicalized strings.
+	if uint32(hr) != 0 && uint32(hr) != 0x000401a0 {
 		return "", false
 	}
 	if v.kind == 0 {
-		return "", true
+		return "", uint32(hr) == 0
 	} // Successful VT_EMPTY, distinct from a failed read.
-	if v.kind != 31 || v.value[0] == 0 {
+	if v.kind != 31 && v.kind != 8 {
 		return "", false
-	} // VT_LPWSTR only.
+	}
 	// Read the pointer-typed union overlay directly; do not round-trip a native
 	// output pointer through an integer (also preserves the vet/ABI convention).
 	pointer := (*struct{ pointer *uint16 })(unsafe.Pointer(&v.value[0])).pointer
+	if v.kind == 8 {
+		count, _, _ := bstrLength.Call(uintptr(unsafe.Pointer(pointer)))
+		if count > 2048 {
+			return "", false
+		}
+		units := make([]uint16, 0, int(count))
+		for i := 0; i < int(count); i++ {
+			unit := *(*uint16)(unsafe.Add(unsafe.Pointer(pointer), i*2))
+			if unit == 0 {
+				return "", false
+			} // Embedded NUL cannot be an AppID.
+			units = append(units, unit)
+		}
+		return syscall.UTF16ToString(units), true
+	}
+	if pointer == nil {
+		return "", false
+	}
 	units := make([]uint16, 0, 2048)
 	for i := 0; i < 2048; i++ {
 		unit := *(*uint16)(unsafe.Add(unsafe.Pointer(pointer), i*2))
@@ -66,20 +89,16 @@ func shellStringOrEmptyProperty(item *comObject, key *propertyKey) (string, bool
 	return readStringVariant(properties, 13, key)
 }
 
-func shortcutAppUserModelID(link *comObject) string {
+func shortcutAppUserModelID(link *comObject) (string, bool) {
 	var properties *comObject
 	hr := link.call(0, uintptr(unsafe.Pointer(&propertyStoreIID)), uintptr(unsafe.Pointer(&properties)))
 	if properties != nil {
 		defer properties.call(2)
 	}
-	if comError("query link property store", hr) != nil || properties == nil {
-		return ""
+	if uint32(hr) != 0 || properties == nil {
+		return "", false
 	}
-	value, ok := readStringVariant(properties, 5, &appUserModelIDKey)
-	if !ok {
-		return ""
-	}
-	return value
+	return readStringVariant(properties, 5, &appUserModelIDKey)
 }
 
 func shellStringProperty(item *comObject, key *propertyKey) (string, bool) {

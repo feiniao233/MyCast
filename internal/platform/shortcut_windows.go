@@ -54,6 +54,10 @@ func comError(operation string, result uintptr) error {
 // IShellLink.Resolve, Save, ShellExecute, or any method that repairs a link.
 // A virtual/advertised target without a filesystem path is left unmerged.
 func ShortcutIdentity(path string) (core.LaunchIdentity, error) {
+	return shortcutIdentityWithAppIDReader(path, shortcutAppUserModelID)
+}
+
+func shortcutIdentityWithAppIDReader(path string, readAppID func(*comObject) (string, bool)) (core.LaunchIdentity, error) {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 	hr, _, _ := coInitializeEx.Call(0, 2)
@@ -141,7 +145,12 @@ func ShortcutIdentity(path string) (core.LaunchIdentity, error) {
 	// or show modes are modified by this reader.
 	const ordinaryFlags uint32 = 0xff | 0x200 | 0x4000
 	identity := core.LaunchIdentity{Target: expandShortcutPath(target), Arguments: arguments, WorkingDirectory: expandShortcutPath(directory), LinkFlags: flags, ShowCommand: show, Independent: flags & ^ordinaryFlags != 0 || show != 1}
-	identity.AppUserModelID = shortcutAppUserModelID(link)
+	if readAppID != nil {
+		identity.AppUserModelID, identity.AppUserModelIDKnown = readAppID(link)
+	}
+	if !identity.AppUserModelIDKnown {
+		identity.Independent = true
+	}
 	if identity.Target == "" && identity.Arguments == "" && identity.WorkingDirectory == "" && !identity.Independent {
 		identity.ShellTarget = shortcutAppsFolderTarget(link)
 	}

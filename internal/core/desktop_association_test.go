@@ -6,7 +6,7 @@ import "testing"
 func TestDesktopProviderAssociationUsesMetadataAndKeepsVariants(t *testing.T) {
 	id := AppsFolderParsingPrefix + "org.synthetic.desktop"
 	shell := Application{Name: "Localized Namespace", ShellID: id, ShellDesktop: true, Launch: LaunchIdentity{Target: `C:\Synthetic\Fixture.exe`, AppUserModelID: "org.synthetic.desktop"}}
-	file := Application{Name: "Different Link Name", Path: `C:\Synthetic\Fixture.lnk`, Launch: LaunchIdentity{Target: `C:\Synthetic\Fixture.exe`, WorkingDirectory: `C:\Synthetic\`, ShowCommand: 1, AppUserModelID: "org.synthetic.desktop"}}
+	file := Application{Name: "Different Link Name", Path: `C:\Synthetic\Fixture.lnk`, Launch: LaunchIdentity{Target: `C:\Synthetic\Fixture.exe`, WorkingDirectory: `C:\Synthetic\`, ShowCommand: 1, AppUserModelID: "org.synthetic.desktop", AppUserModelIDKnown: true}}
 	old := file.ItemID()
 	merged := MergeProviderApplications([]Application{file, shell})
 	if len(merged) != 1 || merged[0].ItemID() != shell.ItemID() || !merged[0].HasPreferenceID(old) || merged[0].Path != file.Path || merged[0].Launch.WorkingDirectory != file.Launch.WorkingDirectory || merged[0].ShellFallback == nil {

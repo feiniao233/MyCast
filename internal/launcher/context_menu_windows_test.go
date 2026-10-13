@@ -106,7 +106,7 @@ func TestContextMenuKeyboardEmptyAndDismissal(t *testing.T) {
 			for _, key := range []struct {
 				mods ui.Modifiers
 				key  ui.Key
-			}{{0, ui.KeyContextMenu}, {ui.Shift, ui.KeyF10}} {
+			}{{ui.Shift, ui.KeyF10}} {
 				tester.Key(key.mods, key.key)
 				if s.menu != menuActions || s.menuTargetKey != s.applicationResults()[s.selected].ItemID() {
 					t.Fatalf("keyboard context did not bind selected identity: key=%v mods=%v menu=%v target=%q nativeMenu=%v query=%q searchFocus=%t composing=%t selectionGuard=%t settings=%t", key.key, key.mods, s.menu, s.menuTargetKey, tester.Menu(), s.query, tester.Focused("搜索"), s.searchWasComposing, s.appNeedsSelection, s.settingsOpen)
@@ -132,6 +132,60 @@ func TestContextMenuKeyboardEmptyAndDismissal(t *testing.T) {
 			if s.menu != menuClosed {
 				t.Fatal("empty result keyboard menu")
 			}
+		})
+	}
+}
+
+func TestTabFocusedRowOwnsBothKeyboardContextEntrances(t *testing.T) {
+	for _, scale := range []float32{1, 1.5} {
+		for _, key := range []struct {
+			mods ui.Modifiers
+			key  ui.Key
+		}{{0, ui.KeyContextMenu}, {ui.Shift, ui.KeyF10}} {
+			t.Run(fmt.Sprintf("%v/%v", scale, key.key), func(t *testing.T) {
+				s := syntheticLauncher()
+				s.apps = s.apps[:3]
+				s.config = settings.Defaults()
+				s.persistPreferences = func(v settings.Settings) (settings.Settings, error) { return v, nil }
+				launches := 0
+				s.launchApplication = func(string) error { launches++; return nil }
+				tester := newPaletteTester(s, scale)
+				target := s.apps[1]
+				for i := 0; i < 20 && !tester.Focused("结果："+target.Name); i++ {
+					tester.Key(ui.Shift, ui.KeyTab)
+				}
+				if !tester.Focused("结果："+target.Name) || s.selected != 0 {
+					t.Fatal("nonselected row did not receive Tab focus")
+				}
+				tester.Key(key.mods, key.key)
+				if s.menu != menuActions || s.menuTargetKey != target.ItemID() || launches != 0 {
+					t.Fatal("keyboard context used mutable selected index")
+				}
+				tester.Click("菜单项：收藏应用")
+				if !target.Preferred(s.config.Favorites) || s.apps[0].Preferred(s.config.Favorites) || launches != 0 || !tester.Focused("搜索") {
+					t.Fatal("row context effect/focus transferred")
+				}
+			})
+		}
+	}
+}
+
+func TestSearchMouseContextRetainsTextEditingMenu(t *testing.T) {
+	for _, scale := range []float32{1, 1.5} {
+		t.Run(fmt.Sprint(scale), func(t *testing.T) {
+			s := syntheticLauncher()
+			tester := newPaletteTester(s, scale)
+			tester.RightClick("搜索")
+			items := tester.Menu()
+			if s.menu != menuClosed || len(items) == 0 {
+				t.Fatal("search right-click intercepted into application actions")
+			}
+			for _, label := range items {
+				if label == "收藏应用" || label == "查看来源" || label == "打开所选" {
+					t.Fatal("application item in editor menu")
+				}
+			}
+			tester.CloseMenu()
 		})
 	}
 }

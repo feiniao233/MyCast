@@ -8,7 +8,7 @@ func TestProvenVirtualShortcutMergeKeepsLegacyPreferencesAndVariants(t *testing.
 	old := Application{Name: "File branding", Path: `C:\Synthetic\Fixture.lnk`}
 	oldID := old.ItemID()
 	link := old
-	link.Launch = LaunchIdentity{ShellTarget: id, ShowCommand: 1}
+	link.Launch = LaunchIdentity{ShellTarget: id, ShowCommand: 1, AppUserModelIDKnown: true}
 	link.RelatedIDs = []string{oldID}
 	shell := Application{Name: "系统名称", ShellID: id}
 	merged := PrepareSearch(MergeProviderApplications([]Application{shell, link}))

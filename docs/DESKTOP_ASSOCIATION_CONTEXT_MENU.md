@@ -18,6 +18,18 @@ System.AppUserModel.ID, local EXE target and a successful empty argument read.
 Packaged identities, failed properties and non-EXE/remote targets cannot supply
 this association. Shortcut AppUserModelID is read through IPropertyStore;
 Resolve, repair, execution and source writes are not used.
+The file scanner includes each explicit AppID in its identity before deduplication,
+so same-EXE shortcuts with different AppIDs cannot lose a source/name before
+provider association. Read status is separate from the string: only S_OK string
+or documented canonical-string success means known (VT_EMPTY requires S_OK);
+QueryInterface/GetValue failures and unsupported types
+keep the original shortcut independent and cannot authorize target-only inference.
+The directed real shortcut returned S_OK VT_BSTR with the matching explicit
+AppID. Both bounded LPWSTR and BSTR strings are supported and freed through
+PropVariantClear; BSTR length comes from Windows OLE Automation. Null/empty BSTR,
+length bounds, embedded NUL rejection and canonical-success codes are covered by
+controlled native tests. The available real pair again reduces to one entry
+through explicit identity matching, not failed-read inference.
 Before desktop proof, the existing native volume/ancestor gate also rejects
 mapped network/unknown/offline/reparse targets. A failed gate retains the Shell
 row independently; it does not declare an uninstall or open target content.
@@ -39,6 +51,11 @@ survives. Applying saved preferences cannot invent a reverse proof; no applicati
 names, paths or catalog are added to settings by the binding.
 Favorite/alias/hidden/recent saves also bind their referenced proof immediately,
 so an exit before the next automatic scan cannot omit the relation.
+Older target/argument/directory hashes are retained only for one unambiguous
+known file identity. Conflicting or unreadable AppIDs do not authorize a guessed
+migration; ordinary preferences remain stored for the user to reassign. Existing
+proved persisted associations are preserved. Real temporary shortcut regressions
+exercise scan, provider merge, search routing and preference save/restart together.
 
 ## Menus and verification
 
@@ -47,10 +64,13 @@ it, clamped between header/footer and inside the window. Ranking/selection chang
 cannot transfer actions; a disappearing target closes safely. Right-click does
 not activate. Click-away is consumed and Escape restores search focus. The
 application footer Actions button is removed; clipboard keeps its existing control.
-The menu key on the focused search field uses MyGo's ContextMenu hook to open
-the same palette menu; a context request on that field also exposes the selected
-application's actions. No native popup is built. With no result the editor can use
-ordinary editing commands. Shift+F10 and IME action protection remain.
+Each result row owns a ContextMenu hook: mouse context, menu key and Shift+F10
+use that actual row's ID even when Tab focus differs from selection. No native
+popup is built for application rows. Search-field Shift+F10 operates on selection;
+mouse right-click and the menu key in that editor retain its original text menu.
+MyGo v0.4.6's public Menu callback does not expose pointer/keyboard trigger origin;
+this minimal focus-based split preserves editor behavior without input hooks.
+IME protection, click-away consumption and search-focus restoration remain.
 
 Local Go 1.27.2 verify/test/vet/GUI build passed. Pure regressions cover default
 directories, ID conflicts, ambiguity and launch variants. Native temporary links

@@ -43,6 +43,9 @@ type Application struct {
 // remain byte-for-byte intact: changing whitespace or case can change a launch.
 type LaunchIdentity struct {
 	AppUserModelID string
+	// True only after a successful string/VT_EMPTY property read. Unknown is
+	// not an empty AppID and cannot authorize target-only association.
+	AppUserModelIDKnown bool
 	// Set only after the desktop compatibility check against a Shell snapshot.
 	DesktopBridge bool
 	// Only a proved immediate AppsFolder PIDL child with unchanged default
@@ -62,12 +65,20 @@ func (a Application) Identity() string {
 	if a.ShellID != "" {
 		return "appsfolder:" + a.ShellID
 	}
-	if a.Launch.ShellTarget != "" && !a.Launch.Independent && a.Launch.Arguments == "" && (a.Launch.WorkingDirectory == "" || a.Launch.DesktopBridge && defaultDesktopDirectory(a.Launch.Target, a.Launch.WorkingDirectory)) {
+	if a.Launch.ShellTarget != "" && !a.Launch.Independent && a.Launch.AppUserModelIDKnown && (a.Launch.AppUserModelID == "" || a.Launch.AppUserModelID == strings.TrimPrefix(a.Launch.ShellTarget, AppsFolderParsingPrefix)) && a.Launch.Arguments == "" && (a.Launch.WorkingDirectory == "" || a.Launch.DesktopBridge && defaultDesktopDirectory(a.Launch.Target, a.Launch.WorkingDirectory)) {
 		return "appsfolder:" + a.Launch.ShellTarget
 	}
-	if a.Launch.Target == "" || a.Launch.Independent {
+	if a.Launch.Target == "" || a.Launch.Independent || strings.EqualFold(filepath.Ext(a.Path), ".lnk") && !a.Launch.AppUserModelIDKnown {
 		return pathKey(a.Path)
 	}
+	identity := a.legacyTargetIdentity()
+	if a.Launch.AppUserModelID != "" {
+		identity += fmt.Sprintf("|app-id:%q", a.Launch.AppUserModelID)
+	}
+	return identity
+}
+
+func (a Application) legacyTargetIdentity() string {
 	return fmt.Sprintf("%q|%q|%q", pathKey(a.Launch.Target), a.Launch.Arguments, pathKey(a.Launch.WorkingDirectory))
 }
 
@@ -202,6 +213,9 @@ func IndexApplicationsWithOptions(ctx context.Context, roots []string, resolve f
 			}
 			if strings.EqualFold(filepath.Ext(app.Path), ".lnk") {
 				launch, err := resolve(app.Path)
+				if !launch.AppUserModelIDKnown {
+					launch.Independent = true
+				}
 				if err != nil {
 					addProblem(fmt.Errorf("shortcut %q: %w", app.Path, err))
 				}
@@ -228,7 +242,8 @@ func IndexApplicationsWithOptions(ctx context.Context, roots []string, resolve f
 				}
 			} else {
 				app.Launch.Target = app.Path
-				app.Launch.ShowCommand = 1 // ShellExecute uses SW_SHOWNORMAL.
+				app.Launch.ShowCommand = 1            // ShellExecute uses SW_SHOWNORMAL.
+				app.Launch.AppUserModelIDKnown = true // Bare EXE has no shortcut AppID.
 			}
 			key := app.Identity()
 			if index, found := identities[key]; found {
@@ -248,7 +263,7 @@ func IndexApplicationsWithOptions(ctx context.Context, roots []string, resolve f
 			identities[key] = len(merged)
 			merged = append(merged, app)
 		}
-		applications = merged
+		applications = attachLegacyTargetPreferenceIDs(merged)
 		sort.Slice(applications, func(i, j int) bool { return applicationLess(applications[i], applications[j]) })
 	}
 	return applications, problems

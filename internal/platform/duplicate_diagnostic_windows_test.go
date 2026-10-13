@@ -85,7 +85,20 @@ func TestDirectedDuplicateMetadata(t *testing.T) {
 					if LocalAppPath(source) != nil {
 						continue
 					}
-					identity, err := ShortcutIdentity(source)
+					identity, err := shortcutIdentityWithAppIDReader(source, func(link *comObject) (string, bool) {
+						var props *comObject
+						qi := link.call(0, uintptr(unsafe.Pointer(&propertyStoreIID)), uintptr(unsafe.Pointer(&props)))
+						if props != nil {
+							defer props.call(2)
+							var value stringPropVariant
+							get := props.call(5, uintptr(unsafe.Pointer(&appUserModelIDKey)), uintptr(unsafe.Pointer(&value)))
+							t.Logf("pair=%d appid_query_hr=%08x appid_value_hr=%08x variant_type=%d", n, uint32(qi), uint32(get), value.kind)
+							clearPropVariant.Call(uintptr(unsafe.Pointer(&value)))
+						} else {
+							t.Logf("pair=%d appid_query_hr=%08x interface_absent=true", n, uint32(qi))
+						}
+						return shortcutAppUserModelID(link)
+					})
 					if err != nil {
 						continue
 					}

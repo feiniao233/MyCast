@@ -83,7 +83,7 @@ func TestIdentityBindingBoundsChainsAndRetargetRefusal(t *testing.T) {
 
 func TestDesktopBindingsKeepPreferencesWhenEitherProviderSurvives(t *testing.T) {
 	shell := core.Application{Name: "Fixture", ShellID: core.AppsFolderParsingPrefix + "org.synthetic.desktop", ShellDesktop: true, Launch: core.LaunchIdentity{Target: `C:\Synthetic\Fixture.exe`, AppUserModelID: "org.synthetic.desktop"}}
-	file := core.Application{Name: "Fixture Link", Path: `C:\Synthetic\Fixture.lnk`, Launch: core.LaunchIdentity{Target: `C:\Synthetic\Fixture.exe`, WorkingDirectory: `C:\Synthetic`}}
+	file := core.Application{Name: "Fixture Link", Path: `C:\Synthetic\Fixture.lnk`, Launch: core.LaunchIdentity{Target: `C:\Synthetic\Fixture.exe`, WorkingDirectory: `C:\Synthetic`, AppUserModelIDKnown: true}}
 	old := file.ItemID()
 	value := Defaults()
 	value.Favorites = []string{old}

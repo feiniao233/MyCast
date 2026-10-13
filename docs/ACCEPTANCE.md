@@ -1,5 +1,18 @@
 # Acceptance evidence and current status
 
+## Independent review corrections
+
+Native synthetic Alpha/Beta shortcuts sharing an EXE/arguments/directory but
+different AppIDs stay separate through the real file scanner and provider merger;
+search Beta routes Beta's original shortcut. Same-AppID duplicate shortcuts still
+merge. QueryInterface/GetValue/unsupported-property fault injection preserves
+unknown state and blocks target-only association. Unique old hashes survive
+save/restart with all ordinary preferences; ambiguous/unknown siblings do not
+authorize migration or erase stored preferences. Tab to a nonselected row then
+menu key/Shift+F10 targets that row at 100%/150%; search mouse context retains text
+editing. Full local verify/test/vet/Windows GUI build passed. Actual new desktop
+interaction and DTV reproduction remain open; no further native pass is inferred.
+
 ## Desktop association and row-menu follow-up
 
 User feedback on fd2d141 passes Store activation and ordinary favorite restart

@@ -41,7 +41,7 @@ func TestFirstDesktopFavoriteSaveImmediatelyPersistsProof(t *testing.T) {
 	s := syntheticLauncher()
 	s.config = settings.Defaults()
 	shell := core.Application{Name: "Fixture", ShellID: core.AppsFolderParsingPrefix + "org.synthetic.desktop", ShellDesktop: true, Launch: core.LaunchIdentity{Target: `C:\Synthetic\Fixture.exe`, AppUserModelID: "org.synthetic.desktop"}}
-	file := core.Application{Name: "Fixture Link", Path: `C:\Synthetic\Fixture.lnk`, Launch: core.LaunchIdentity{Target: `C:\Synthetic\Fixture.exe`, WorkingDirectory: `C:\Synthetic`}}
+	file := core.Application{Name: "Fixture Link", Path: `C:\Synthetic\Fixture.lnk`, Launch: core.LaunchIdentity{Target: `C:\Synthetic\Fixture.exe`, WorkingDirectory: `C:\Synthetic`, AppUserModelIDKnown: true}}
 	old := file.ItemID()
 	s.apps = core.MergeProviderApplications([]core.Application{file, shell})
 	store := &settings.Store{Path: filepath.Join(t.TempDir(), "settings.json")}
@@ -78,6 +78,7 @@ func testMergedFileDisappearance(t *testing.T, partialShell bool) {
 	legacy := file.ItemID()
 	id := core.AppsFolderParsingPrefix + "Synthetic!App"
 	file.Launch.ShellTarget = id
+	file.Launch.AppUserModelIDKnown = true
 	file.RelatedIDs = []string{legacy}
 	shell := core.Application{Name: "Fixture Shell", ShellID: id}
 	s.apps = core.MergeProviderApplications([]core.Application{file, shell})

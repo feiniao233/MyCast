@@ -22,7 +22,9 @@ func TestIndexMergesLaunchIdentityAndKeepsVariants(t *testing.T) {
 		"Editor caps.lnk":      {Target: target, Arguments: "--SAFE"},
 		"Editor workspace.lnk": {Target: target, WorkingDirectory: work},
 	}
-	for name := range metadata {
+	for name, value := range metadata {
+		value.AppUserModelIDKnown = true
+		metadata[name] = value
 		if err := os.WriteFile(filepath.Join(root, name), []byte("fixture"), 0600); err != nil {
 			t.Fatal(err)
 		}
@@ -74,7 +76,7 @@ func TestIndexUnresolvedLinksStayDistinct(t *testing.T) {
 
 func TestIdentityDistinguishesNamesakesAndExactArguments(t *testing.T) {
 	root := t.TempDir()
-	a := Application{Name: "Editor", Path: filepath.Join(root, "a.lnk"), Launch: LaunchIdentity{Target: filepath.Join(root, "Editor.exe"), Arguments: "--open  a"}}
+	a := Application{Name: "Editor", Path: filepath.Join(root, "a.lnk"), Launch: LaunchIdentity{Target: filepath.Join(root, "Editor.exe"), Arguments: "--open  a", AppUserModelIDKnown: true}}
 	b := a
 	b.Path = filepath.Join(root, "b.lnk")
 	if a.ItemID() != b.ItemID() {

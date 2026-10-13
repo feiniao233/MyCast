@@ -59,7 +59,9 @@ func TestResolvedTargetFilterKeepsVariantsAndUnknownLinks(t *testing.T) {
 		"Admin.lnk":     {Target: filepath.Join(root, "App.exe"), Independent: true, LinkFlags: 0x2000},
 		"Virtual.lnk":   {}, "Manual.lnk": {Target: filepath.Join(root, "manual.html")},
 	}
-	for name := range metadata {
+	for name, value := range metadata {
+		value.AppUserModelIDKnown = true
+		metadata[name] = value
 		if err := os.WriteFile(filepath.Join(root, name), nil, 0600); err != nil {
 			t.Fatal(err)
 		}

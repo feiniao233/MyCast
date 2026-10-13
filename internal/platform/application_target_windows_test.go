@@ -38,7 +38,9 @@ func TestOpenVPNApplicationOnlyFixtureAndSearch(t *testing.T) {
 		"OpenVPN Log File Directory.lnk": {Target: folder}, "OpenVPN Sample Configuration Files.lnk": {Target: folder}, "OpenVPN Configuration File Directory.lnk": {Target: folder},
 		"SoftEther VPN 命令行实用工具(vpncmd).lnk": {Target: cli},
 	}
-	for name := range identities {
+	for name, value := range identities {
+		value.AppUserModelIDKnown = true
+		identities[name] = value
 		if err := os.WriteFile(filepath.Join(links, name), nil, 0600); err != nil {
 			t.Fatal(err)
 		}
