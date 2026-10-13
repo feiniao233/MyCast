@@ -6,6 +6,7 @@ package launcher
 import (
 	"context"
 	"github.com/feiniao233/MyCast/internal/platform"
+	"slices"
 )
 
 const (
@@ -18,6 +19,10 @@ func (s *launcher) automaticRefresh(requests ...uint8) {
 	if len(requests) > 0 {
 		sources = requests[0]
 	}
+	s.automaticRefreshRoots(sources, nil)
+}
+
+func (s *launcher) automaticRefreshRoots(sources uint8, roots []string) {
 	if sources == 0 {
 		return
 	}
@@ -27,12 +32,25 @@ func (s *launcher) automaticRefresh(requests ...uint8) {
 	if s.scanQueue.Running {
 		s.autoDirty = true
 		s.autoSources |= sources
+		if sources&scanFiles != 0 {
+			if len(roots) == 0 {
+				s.autoAllFiles = true
+				s.autoRoots = nil
+			} else if !s.autoAllFiles {
+				for _, root := range roots {
+					if !slices.Contains(s.autoRoots, root) {
+						s.autoRoots = append(s.autoRoots, root)
+					}
+				}
+			}
+		}
 		return
 	}
-	s.scanSources(sources)
+	s.scanSourcesWithRoots(sources, roots)
 }
 
 func (s *launcher) restartSourceWatch() {
+	s.stopSourceRetry()
 	if s.watchCancel != nil {
 		s.watchCancel()
 	}
@@ -49,7 +67,7 @@ func (s *launcher) restartSourceWatch() {
 	}
 	update := s.uiUpdate
 	shellEnabled := s.config.AppsFolder
-	go platform.WatchApplicationSources(ctx, roots, shellEnabled, func(files, shell bool) {
+	go platform.WatchApplicationSources(ctx, roots, shellEnabled, func(files, shell bool, roots []string) {
 		sources := uint8(0)
 		if files {
 			sources |= scanFiles
@@ -58,7 +76,9 @@ func (s *launcher) restartSourceWatch() {
 			sources |= scanShell
 		}
 		update(func() {
-			s.deliverSourceChange(epoch, sources)
+			if !s.quitting && s.watchEpoch == epoch {
+				s.automaticRefreshRoots(sources, roots)
+			}
 		})
 	})
 }

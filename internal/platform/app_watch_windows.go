@@ -20,11 +20,14 @@ var (
 )
 
 type sourceSubscription struct {
-	path   string
-	handle uintptr
-	info   os.FileInfo
+	lastFallback time.Time
+	path         string
+	handle       uintptr
+	info         os.FileInfo
 }
 type sourceWatchOptions struct {
+	fallback           time.Duration
+	subscribe          func(string) uintptr
 	tick, merge, retry time.Duration
 	ready              func([]sourceSubscription)
 }
@@ -75,17 +78,23 @@ func sameSourceInfo(a, b os.FileInfo) bool {
 // Healthy directory roots are event-driven. Retry polls only root identity/file
 // metadata and attempts failed subscriptions, never a complete healthy tree.
 // Shell fallback is separate, enabled only for a configured AppsFolder source.
-func WatchApplicationSources(ctx context.Context, roots []string, shell bool, notify func(files, shell bool)) {
+func WatchApplicationSources(ctx context.Context, roots []string, shell bool, notify func(files, shell bool, roots []string)) {
 	watchApplicationSources(ctx, roots, shell, notify, sourceWatchOptions{tick: 250 * time.Millisecond, merge: 500 * time.Millisecond, retry: 30 * time.Second})
 }
 
-func watchApplicationSources(ctx context.Context, roots []string, shell bool, notify func(bool, bool), options sourceWatchOptions) {
+func watchApplicationSources(ctx context.Context, roots []string, shell bool, notify func(bool, bool, []string), options sourceWatchOptions) {
+	if options.fallback <= 0 {
+		options.fallback = 2 * time.Minute
+	}
+	if options.subscribe == nil {
+		options.subscribe = subscribeApplicationRoot
+	}
 	subscriptions := make([]sourceSubscription, 0, min(len(roots), 32))
 	for i, path := range roots {
 		if i >= 32 || ctx.Err() != nil {
 			break
 		}
-		subscriptions = append(subscriptions, sourceSubscription{path: path, info: applicationSourceInfo(path), handle: subscribeApplicationRoot(path)})
+		subscriptions = append(subscriptions, sourceSubscription{path: path, info: applicationSourceInfo(path), handle: options.subscribe(path), lastFallback: time.Now()})
 	}
 	defer func() {
 		for _, entry := range subscriptions {
@@ -103,7 +112,11 @@ func watchApplicationSources(ctx context.Context, roots []string, shell bool, no
 	defer retry.Stop()
 	var due time.Time
 	dirtyFiles, dirtyShell := false, false
-	mark := func(now time.Time, files, shell bool) {
+	changedRoots := map[string]bool{}
+	mark := func(now time.Time, files, shell bool, root string) {
+		if files && root != "" {
+			changedRoots[root] = true
+		}
 		dirtyFiles = dirtyFiles || files
 		dirtyShell = dirtyShell || shell
 		if due.IsZero() {
@@ -122,7 +135,7 @@ func watchApplicationSources(ctx context.Context, roots []string, shell bool, no
 				}
 				state, _, _ := waitChangeNotification.Call(entry.handle, 0)
 				if state == 0 {
-					mark(now, true, false)
+					mark(now, true, false, entry.path)
 					ok, _, _ := nextChangeNotification.Call(entry.handle)
 					if ok == 0 {
 						closeChangeNotification.Call(entry.handle)
@@ -131,15 +144,20 @@ func watchApplicationSources(ctx context.Context, roots []string, shell bool, no
 				} else if state == 0xffffffff {
 					closeChangeNotification.Call(entry.handle)
 					entry.handle = 0
-					mark(now, true, false)
+					mark(now, true, false, entry.path)
 				}
 			}
 			if !due.IsZero() && !now.Before(due) {
 				files, shell := dirtyFiles, dirtyShell
+				roots := make([]string, 0, len(changedRoots))
+				for root := range changedRoots {
+					roots = append(roots, root)
+				}
+				changedRoots = map[string]bool{}
 				dirtyFiles, dirtyShell = false, false
 				due = time.Time{}
 				if ctx.Err() == nil {
-					notify(files, shell)
+					notify(files, shell, roots)
 				}
 			}
 		case now := <-retry.C:
@@ -156,17 +174,21 @@ func watchApplicationSources(ctx context.Context, roots []string, shell bool, no
 						entry.handle = 0
 					}
 					entry.info = info
-					mark(now, true, false)
+					mark(now, true, false, entry.path)
 				}
 				if entry.handle == 0 && ctx.Err() == nil && info != nil && info.IsDir() {
-					entry.handle = subscribeApplicationRoot(entry.path)
+					entry.handle = options.subscribe(entry.path)
 					if entry.handle != 0 {
-						mark(now, true, false)
+						mark(now, true, false, entry.path)
+					}
+					if entry.handle == 0 && now.Sub(entry.lastFallback) >= options.fallback {
+						entry.lastFallback = now
+						mark(now, true, false, entry.path)
 					}
 				}
 			}
 			if shell {
-				mark(now, false, true)
+				mark(now, false, true, "")
 			}
 		}
 	}

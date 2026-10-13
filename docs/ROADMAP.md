@@ -88,3 +88,9 @@ install/uninstall latency, idle power use, Explorer selection, login/background
 focus, keyboard/IME and native menus remain incrementally unverified. Signature,
 updater, AI/plugins and full-drive search remain outside scope. See
 [candidate evidence](NEXT_ALPHA.md) and [acceptance](ACCEPTANCE.md).
+
+Candidate review adds scoped two-minute fallback for readable failed-watch
+roots, a single bounded exponential retry timer for unfinished file snapshots,
+and the locked MyGo second-instance callback-shape correction. Healthy sources
+are not periodically traversed. Fault-injection/deadline/epoch/routing regression
+evidence is recorded in the candidate acceptance sections above.

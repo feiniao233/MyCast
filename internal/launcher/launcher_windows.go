@@ -20,6 +20,13 @@ import (
 )
 
 type launcher struct {
+	autoRoots                                      []string
+	autoAllFiles                                   bool
+	retryTimer                                     *time.Timer
+	retryEpoch                                     uint64
+	retryAttempts                                  int
+	incompleteRoots                                map[string]bool
+	retryDelay                                     time.Duration
 	backgroundStart                                bool
 	startupRegistration                            *settings.StartupRegistration
 	autoSources                                    uint8
@@ -123,8 +130,8 @@ func Run() error {
 	// and the UI start in the same saved theme, independently of Windows.
 	mygo.Theme.SetSource(nativeThemeSource(s.config.Theme))
 	mygo.App.OnSecondInstance(func(args []string, _ string) {
-		if s.win != nil && (len(args) == 0 || !backgroundInvocation(args[1:])) {
-			s.show(false)
+		if s.win != nil {
+			handleSecondInvocation(args, func() { s.show(false) })
 		}
 	})
 	mygo.App.OnBeforeQuit(func(*mygo.QuitEvent) { s.quitting = true })
@@ -196,6 +203,7 @@ func (s *launcher) ready() {
 	s.persistPreferences = s.saveOrdinarySettings
 	mygo.App.OnWillQuit(func(*mygo.QuitEvent) {
 		close(s.stop)
+		s.stopSourceRetry()
 		if s.watchCancel != nil {
 			s.watchCancel()
 		}
@@ -269,6 +277,10 @@ func (s *launcher) scan() {
 }
 
 func (s *launcher) scanSources(sources uint8) {
+	s.scanSourcesWithRoots(sources, nil)
+}
+
+func (s *launcher) scanSourcesWithRoots(sources uint8, requestedRoots []string) {
 	if s.scanWork == nil || s.uiUpdate == nil {
 		return
 	}
@@ -286,6 +298,8 @@ func (s *launcher) scanSources(sources uint8) {
 	s.scanning = true
 	s.autoDirty = false
 	s.autoSources = 0
+	s.autoRoots = nil
+	s.autoAllFiles = false
 	s.scanProgress = "正在扫描应用…"
 	if s.win != nil {
 		s.win.Invalidate()
@@ -300,6 +314,18 @@ func (s *launcher) scanSources(sources uint8) {
 	if len(roots) == 0 {
 		roots = platform.DefaultAppRoots()
 	}
+	scanRoots := append([]string(nil), roots...)
+	if len(requestedRoots) > 0 {
+		scanRoots = nil
+		for _, root := range roots {
+			for _, requested := range requestedRoots {
+				if strings.EqualFold(root, requested) {
+					scanRoots = append(scanRoots, root)
+					break
+				}
+			}
+		}
+	}
 	previousApps := append([]core.Application(nil), s.apps...)
 	previousIcons := make(map[string]*ui.Bitmap, len(s.icons))
 	for id, icon := range s.icons {
@@ -313,8 +339,13 @@ func (s *launcher) scanSources(sources uint8) {
 		var errs []error
 		filePartial := false
 		if sources&scanFiles != 0 {
-			apps, icons, errs = s.scanWork(ctx, roots)
+			apps, icons, errs = s.scanWork(ctx, scanRoots)
 			filePartial = len(errs) > 0 || ctx.Err() != nil
+			for _, app := range previousApps {
+				if app.ShellID == "" && core.PathInApplicationRoots(app.Path, roots) && !core.PathInApplicationRoots(app.Path, scanRoots) {
+					apps = append(apps, app)
+				}
+			}
 		} else {
 			for _, app := range previousApps {
 				if app.ShellID == "" && core.PathInApplicationRoots(app.Path, roots) {
@@ -332,7 +363,7 @@ func (s *launcher) scanSources(sources uint8) {
 		}
 		if shellEnabled && sources&scanShell != 0 && shellWork != nil && ctx.Err() == nil {
 			virtual, virtualIcons, virtualErrs := shellWork(ctx)
-			shellPartial = len(virtualErrs) > 0
+			shellPartial = len(virtualErrs) > 0 || ctx.Err() != nil
 			apps = append(apps, virtual...)
 			if icons == nil {
 				icons = map[string]*ui.Bitmap{}
@@ -349,14 +380,20 @@ func (s *launcher) scanSources(sources uint8) {
 		}
 		var missing map[string]bool
 		if filePartial && probeMissing != nil && ctx.Err() == nil {
-			missing = probeMissing(ctx, previousApps)
+			var prior []core.Application
+			for _, app := range previousApps {
+				if app.ShellID == "" && core.PathInApplicationRoots(app.Path, scanRoots) {
+					prior = append(prior, app)
+				}
+			}
+			missing = probeMissing(ctx, prior)
 		}
 		if (filePartial || shellPartial) && ctx.Err() != context.Canceled {
 			apps = core.RetainUnconfirmed(apps, previousApps, missing, func(app core.Application) bool {
 				if app.ShellID != "" {
 					return shellEnabled && shellPartial
 				}
-				return filePartial && core.PathInApplicationRoots(app.Path, roots)
+				return filePartial && core.PathInApplicationRoots(app.Path, scanRoots)
 			}, 5000)
 		}
 		workerErr := ctx.Err()
@@ -385,8 +422,11 @@ func (s *launcher) scanSources(sources uint8) {
 			}
 			s.scanProgress = ""
 			s.completeScan(apps, icons, errs, workerErr, scanCompletion{missing: missing, reconciled: true})
+			if sources&scanFiles != 0 && workerErr != context.Canceled {
+				s.recordFileScanCompletion(scanRoots, filePartial)
+			}
 			if s.autoDirty {
-				s.automaticRefresh(s.autoSources)
+				s.automaticRefreshRoots(s.autoSources, s.autoRoots)
 			}
 		})
 	}()

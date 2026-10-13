@@ -130,3 +130,18 @@ Synthetic settings: [100%](previews/startup-settings-100.png),
 [150%](previews/startup-settings-150.png). These show a draft toggle only; generating
 them never registers startup. See [settings recovery/uninstall](SETTINGS.md) and
 [privacy](PRIVACY.md).
+
+## Candidate review recovery corrections
+
+Readable roots whose notification subscription continually fails receive a
+two-minute fallback rescan of only those configured roots; healthy roots remain
+event-driven. Unfinished file providers retry after 30/60/120 seconds with a
+five-minute cap, without requiring another external event. Subset refreshes reuse
+the still-configured unscanned catalog/icons, and source errors/deadlines preserve
+unconfirmed identities. A single timer and the existing single scan worker bound
+retry concurrency. Config changes/quit cancel timers and reject posted callbacks
+by epoch. Successful source recovery clears the pending failure state.
+
+Background duplicate routing uses MyGo's already-trimmed callback arguments,
+not the full process argument shape. Native IPC and login/focus behavior still
+require user acceptance even after the callback-shape regression passes.

@@ -77,3 +77,20 @@ func TestBackgroundInvocationIsExplicit(t *testing.T) {
 		}
 	}
 }
+
+func TestSecondInstanceCallbackReceivesArgsWithoutExecutable(t *testing.T) {
+	shows := 0
+	show := func() { shows++ }
+	handleSecondInvocation([]string{"--background"}, show)
+	if shows != 0 {
+		t.Fatal("forwarded background invocation opened existing window")
+	}
+	handleSecondInvocation(nil, show)
+	if shows != 1 {
+		t.Fatal("normal duplicate did not open existing window")
+	}
+	handleSecondInvocation([]string{"--other"}, show)
+	if shows != 2 {
+		t.Fatal("ordinary invocation routing")
+	}
+}

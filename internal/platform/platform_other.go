@@ -27,4 +27,4 @@ func NewStartupRegistration(string) (*settings.StartupRegistration, error) {
 func AppsFolderApplications(context.Context, ...map[string]image.Image) ([]core.Application, map[string]image.Image, []error) {
 	return nil, nil, []error{ErrUnsupported}
 }
-func WatchApplicationSources(context.Context, []string, bool, func(bool, bool)) {}
+func WatchApplicationSources(context.Context, []string, bool, func(bool, bool, []string)) {}

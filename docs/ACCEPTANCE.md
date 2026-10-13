@@ -86,6 +86,25 @@ or changed. No user clipboard or app inventory is accessed by these tests.
 Actual Windows login startup, tray-focus behavior and second-process desktop
 presentation remain **not tested**, alongside incremental launch/input gates.
 
+## Candidate review recovery corrections
+
+Fault injection now keeps a readable configured root's subscription failing and
+requires a two-minute degraded fallback scoped to only that root; accelerated
+tests prove the healthy root is excluded. Unfinished file snapshots schedule one
+30/60/120-second retry, capped at five minutes, scoped to unfinished roots. A
+successful retry clears the failure/timer without a directory event. Fifty rapid
+failure publications reuse one timer; retired configuration epochs reject posted
+retry callbacks. A file-stage deadline with Shell never executed retains both
+providers and schedules recovery. Retry/watch work remain serialized with the
+existing scan worker and cooperative budget/cancellation limits.
+
+MyGo v0.4.6's second-instance message already forwards `os.Args[1:]`. The callback
+now checks that actual shape directly, avoiding a second slice that opened an
+existing window for `--background`. `TestSecondInstanceCallbackReceivesArgsWithoutExecutable`
+checks background/normal/other invocations through the same routing helper.
+Full local verify/test/vet/GUI-build checks passed after these corrections; real
+IPC/login/focus remains separately **not tested**.
+
 ## Alpha verification boundary
 
 Native IME, successful automatic paste, tray/hotkey, high-DPI and multi-monitor

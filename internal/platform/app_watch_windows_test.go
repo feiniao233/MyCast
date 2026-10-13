@@ -45,7 +45,7 @@ func TestNativeConfiguredRootNotificationsCoalesceAndCancel(t *testing.T) {
 	cancel()
 	finished := make(chan struct{})
 	go func() {
-		WatchApplicationSources(ctx, []string{root}, false, func(bool, bool) { t.Error("callback after cancellation") })
+		WatchApplicationSources(ctx, []string{root}, false, func(bool, bool, []string) { t.Error("callback after cancellation") })
 		close(finished)
 	}()
 	select {
@@ -74,7 +74,7 @@ func TestRunningWatchIdleMergeReplacementRetryAndHandleCleanup(t *testing.T) {
 	finished := make(chan struct{})
 	options := sourceWatchOptions{tick: 10 * time.Millisecond, merge: 40 * time.Millisecond, retry: 80 * time.Millisecond, ready: func(v []sourceSubscription) { ready <- v }}
 	go func() {
-		watchApplicationSources(ctx, []string{root}, false, func(files, shell bool) { events <- [2]bool{files, shell} }, options)
+		watchApplicationSources(ctx, []string{root}, false, func(files, shell bool, _ []string) { events <- [2]bool{files, shell} }, options)
 		close(finished)
 	}()
 	var initial []sourceSubscription
@@ -164,7 +164,7 @@ func TestWatchShellTimerDoesNotRequestHealthyFileScan(t *testing.T) {
 	events := make(chan [2]bool, 8)
 	done := make(chan struct{})
 	go func() {
-		watchApplicationSources(ctx, []string{t.TempDir()}, true, func(f, s bool) { events <- [2]bool{f, s} }, sourceWatchOptions{tick: 5 * time.Millisecond, merge: 10 * time.Millisecond, retry: 50 * time.Millisecond})
+		watchApplicationSources(ctx, []string{t.TempDir()}, true, func(f, s bool, _ []string) { events <- [2]bool{f, s} }, sourceWatchOptions{tick: 5 * time.Millisecond, merge: 10 * time.Millisecond, retry: 50 * time.Millisecond})
 		close(done)
 	}()
 	for n := 0; n < 2; n++ {
@@ -179,4 +179,48 @@ func TestWatchShellTimerDoesNotRequestHealthyFileScan(t *testing.T) {
 	}
 	cancel()
 	<-done
+}
+
+func TestReadableRootWithFailedSubscriptionGetsOnlyScopedFallback(t *testing.T) {
+	failed, healthy := t.TempDir(), t.TempDir()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	events := make(chan []string, 8)
+	ready := make(chan struct{})
+	done := make(chan struct{})
+	opts := sourceWatchOptions{tick: 5 * time.Millisecond, merge: 10 * time.Millisecond, retry: 20 * time.Millisecond, fallback: 60 * time.Millisecond, subscribe: func(path string) uintptr {
+		if path == failed {
+			return 0
+		}
+		return subscribeApplicationRoot(path)
+	}, ready: func([]sourceSubscription) { close(ready) }}
+	go func() {
+		watchApplicationSources(ctx, []string{failed, healthy}, false, func(f, s bool, roots []string) {
+			if !f || s {
+				t.Error("fallback scope flags")
+			}
+			events <- roots
+		}, opts)
+		close(done)
+	}()
+	<-ready
+	if err := os.WriteFile(filepath.Join(failed, "Fixture.exe"), []byte("inert"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	for n := 0; n < 2; n++ {
+		select {
+		case roots := <-events:
+			if len(roots) != 1 || roots[0] != failed {
+				t.Fatal("failed watch fallback scanned healthy root")
+			}
+		case <-time.After(time.Second):
+			t.Fatal("failed subscription did not recover changes")
+		}
+	}
+	cancel()
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("fallback cancellation stuck")
+	}
 }
