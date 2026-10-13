@@ -34,3 +34,9 @@ actual native material/corner and Microsoft Pinyin acceptance gates.
 The next small follow-up adds reliable full-status details and removes the unused
 native caption-menu style on the palette, with explicit normal Alt+F4 close routing.
 Chinese display-name enhancement will follow in a separate change.
+
+The independent Chinese-name follow-up reads bounded desktop.ini/resource data
+only for indexed application sources, prioritizes available Han display names,
+preserves English filenames/search and launch IDs, and retains existing scan
+locality/cancellation limits. It adds no runtime dependency or system language
+change. Installed-app naming coverage still requires a user check.

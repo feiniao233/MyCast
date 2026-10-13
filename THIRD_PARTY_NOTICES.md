@@ -9,7 +9,16 @@ MyCast is distributed under GNU Affero General Public License version 3 or, at y
 - License: AGPL-3.0-or-later
 - Used as a feature and architecture reference for a keyboard-first launcher, clipboard history, and separating pure logic from platform effects. No Tinycast Swift source has been copied or line-by-line translated in this first implementation. MyCast intentionally retains the same project license family.
 
-## MyGo
+## ZTools reference
+
+- Sources: https://github.com/ZToolsCenter/ZTools/blob/main/scripts/compare-windows-scanner.cjs and https://github.com/ZToolsCenter/ZTools/blob/main/src/main/core/commandScanner/windowsScanner.ts
+- License: MIT; Copyright (c) 2025 lzx8589561
+- The documented desktop.ini/localized-name behavior was read as a reference.
+  MyCast independently implements a bounded Go parser and resource-data reader;
+  no ZTools native binary or dependency is bundled/executed, and its name/target
+  deduplication is not adopted. Reference license text: [licenses/ZTools-MIT.txt](licenses/ZTools-MIT.txt).
+
+## MyGo dependency
 
 - Source: https://github.com/egoist/mygo
 - Version: v0.4.6 (commit bc111b6d2cca221716ad99ddea1580449ad8c18e)

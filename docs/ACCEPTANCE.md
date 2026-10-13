@@ -170,3 +170,15 @@ tested results. Shared evidence must omit personal app inventories, documents
 and clipboard contents. Cosmetic material limits may be documented; mandatory
 launch/input/privacy failures must be resolved before public alpha readiness.
 
+## Chinese-name follow-up (separate from status/chrome)
+
+Synthetic UTF-8/BOM/UTF-16LE fixtures cover localized Chinese display selection,
+original English/full-filename/duplicate search, retained Chinese names when a
+resource is English, invalid/oversized metadata fallback, strict local resource
+syntax, mapped-remote/reparse refusal before reads, cached results, cancellation,
+directory/byte/resource budgets and independent launch variants. Pure identity
+tests retain arguments/working directory/flags and favorite/recent bindings.
+An official Windows DLL resource is read only in data/image-resource mode to
+check native ABI; its actual string is not printed or shared. Headless localized
+name previews use synthetic applications only. Actual installed-app naming and
+locale-specific resource coverage await a user check. See [applications](APPLICATIONS.md).

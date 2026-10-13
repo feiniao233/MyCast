@@ -25,6 +25,9 @@ type Application struct {
 	Aliases     []string
 	SearchTerms []string
 	UserAliases []string
+	// NamePaths retain indexed source paths only until localized display names
+	// are prepared. They never participate in launch identity or persistence.
+	NamePaths []string
 }
 
 // LaunchIdentity is shortcut metadata, never a command to execute. Arguments
@@ -141,7 +144,7 @@ func IndexApplicationsWithOptions(ctx context.Context, roots []string, resolve f
 					return ErrScanBudget
 				}
 				seen[key] = true
-				applications = append(applications, Application{Name: name, Path: path})
+				applications = append(applications, Application{Name: name, Path: path, NamePaths: []string{path}})
 			}
 			return nil
 		})
@@ -182,11 +185,15 @@ func IndexApplicationsWithOptions(ctx context.Context, roots []string, resolve f
 			}
 			key := app.Identity()
 			if index, found := identities[key]; found {
+				sources := append(append([]string(nil), merged[index].NamePaths...), app.NamePaths...)
 				merged[index].Aliases = append(merged[index].Aliases, app.Name)
 				// Prefer a shortcut to a bare executable, retaining shell launch semantics.
 				if strings.EqualFold(filepath.Ext(app.Path), ".lnk") && !strings.EqualFold(filepath.Ext(merged[index].Path), ".lnk") {
 					app.Aliases = append(merged[index].Aliases, merged[index].Name)
+					app.NamePaths = sources
 					merged[index] = app
+				} else {
+					merged[index].NamePaths = sources
 				}
 				continue
 			}

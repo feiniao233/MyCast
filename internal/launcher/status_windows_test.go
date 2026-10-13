@@ -146,6 +146,43 @@ func TestCandidateEnterCannotBecomeLauncherSubmit(t *testing.T) {
 	}
 }
 
+func TestCompositionEndTransitionsAndShowReset(t *testing.T) {
+	for _, transition := range []string{"text-commit", "empty-end", "space-text", "text-commit-mouse", "hide-show"} {
+		t.Run(transition, func(t *testing.T) {
+			s := syntheticLauncher()
+			s.query = "Synthetic"
+			calls := 0
+			s.launchApplication = func(string) error { calls++; return nil }
+			tester := newPaletteTester(s, 1)
+			tester.Compose(" App", 2)
+			switch transition {
+			case "text-commit":
+				tester.Type(" App")
+			case "empty-end":
+				tester.Compose("", 0)
+			case "space-text":
+				tester.TypeKey(0, ui.KeySpace, " ")
+			case "text-commit-mouse":
+				tester.Type(" App")
+				tester.Click("搜索")
+			case "hide-show":
+				tester.SetFocused(false)
+				s.hide()
+				s.show(false)
+				tester.SetFocused(true)
+				tester.Frame()
+			}
+			if calls != 0 {
+				t.Fatal("composition transition launched without ordinary Enter")
+			}
+			tester.Key(0, ui.KeyEnter)
+			if calls != 1 {
+				t.Fatalf("first ordinary Enter blocked after %s: query=%q", transition, s.query)
+			}
+		})
+	}
+}
+
 func TestCurrentLongStatusDoesNotCoverActionPill(t *testing.T) {
 	for _, dark := range []bool{true, false} {
 		for _, scale := range []float32{1, 1.5} {

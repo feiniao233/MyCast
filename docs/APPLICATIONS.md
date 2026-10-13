@@ -41,3 +41,45 @@ the file and use defaults instead of overwriting it. See [recovery](SETTINGS.md)
 
 Synthetic alias editor previews: [100%](previews/aliases-100.png),
 [150%](previews/aliases-150.png). These show dedicated fixture apps/text only.
+
+## Localized Chinese display names
+
+After the existing bounded index/identity merge, before pinyin preparation, each
+already indexed source path can contribute display metadata. Proven duplicate
+links retain temporary name-source paths so their localized names are not lost
+when the preferred original shortcut is chosen. These paths are discarded after
+name preparation, never serialized, and never affect launch identity.
+
+Only those indexed files' directories are examined for desktop.ini
+`[LocalizedFileNames]`, accepting UTF-8 (optional BOM) or valid UTF-16LE BOM.
+Keys must be basenames of .lnk/.exe files. Valid bounded names containing Han text
+take display priority; English resources cannot replace an existing Chinese name.
+Without Chinese metadata, original branding remains as named. Both original
+filenames and duplicate-link names remain searchable aliases, along with existing
+user aliases and offline pinyin. Name changes leave Path, exact arguments,
+working directory, special flags, ItemID, favorites and recents unchanged.
+
+Indirect values support only `@absolute-local-dll-or-exe,-id` (IDs 1–65535).
+Only SystemRoot/windir prefixes are expanded, using the Windows directory API;
+unresolved variables, UNC/protocol/relative/stream/malformed references are refused.
+INI and resource paths use the same local-volume/reparse-ancestor checks **before
+opening**. Resources are mapped with DATAFILE_EXCLUSIVE | IMAGE_RESOURCE, never
+initialized/executed or invoked through GetProcAddress. Module size is capped at
+128 MiB and string buffers at 512 UTF-16 units. The current Windows language is
+used; this feature does not change system or thread UI languages.
+
+Per scan: at most 256 directory maps, 64 KiB per INI, 4 MiB read budget,
+1024 entries per map and 256 resource results; missing/invalid results are cached.
+Cancellation is checked between filesystem/native operations and shares the
+existing scan deadline/serialized worker. Missing, corrupt, over-budget or
+unavailable resources safely retain original names. No additional roots,
+registry guesses, full-drive searches, Shortcut Resolve, external translation or
+UWP scope is introduced.
+
+The behavior was independently implemented after reading the public ZTools
+scanner/reference script; its native implementation is not claimed known and
+its binary is not used. See [notices](../THIRD_PARTY_NOTICES.md).
+The actual user app list remains untested by this agent; synthetic mapping,
+encoding/guard/budget/identity tests and an official Windows resource ABI fixture
+provide automated evidence. Dedicated localized previews: [100%](previews/localized-applications-100.png),
+[150%](previews/localized-applications-150.png).

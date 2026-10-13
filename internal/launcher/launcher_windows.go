@@ -23,6 +23,7 @@ import (
 )
 
 type launcher struct {
+	nativeCaptionRemoved                           bool
 	searchWasComposing                             bool
 	statusControl                                  ui.Handle
 	statusDetailsOpen                              bool
@@ -115,7 +116,7 @@ func (s *launcher) ready() {
 		DisableResize: true, DisableMaximize: true, DisableMinimize: true,
 		SkipTaskbar: true, AlwaysOnTop: true, Content: ui.View(s.view),
 	})
-	platform.RemovePaletteSystemMenu(s.win.NativeHandle())
+	s.nativeCaptionRemoved = platform.RemovePaletteSystemMenu(s.win.NativeHandle())
 	appearance := platform.ConfigurePaletteWindow(s.win.NativeHandle())
 	s.appearanceChecked, s.nativeAcrylic = true, appearance.Acrylic
 	s.syncNativeTheme = func(theme string) { mygo.Theme.SetSource(nativeThemeSource(theme)) }
@@ -186,6 +187,7 @@ func (s *launcher) hide() {
 
 // Only a hotkey activation captures a paste target. Tray clicks never guess one.
 func (s *launcher) show(captureTarget bool) {
+	s.searchWasComposing = false
 	s.statusDetailsOpen, s.statusDetail = false, ""
 	if captureTarget {
 		s.target = platform.ForegroundWindow()
@@ -201,6 +203,10 @@ func (s *launcher) show(captureTarget bool) {
 	s.clipNeedsSelection = false
 	s.previewOpen = false
 	s.scroll.X, s.scroll.Y = 0, 0
+	if s.win == nil {
+		s.input.Focus()
+		return
+	}
 	s.win.Center()
 	s.input.Focus()
 	s.win.Show()
@@ -265,6 +271,7 @@ func (s *launcher) readApps(ctx context.Context, roots []string) ([]core.Applica
 	options := core.DefaultScanOptions()
 	options.AllowPath = platform.LocalAppPath
 	apps, errs := core.IndexApplicationsWithOptions(ctx, roots, platform.ShortcutIdentity, options)
+	apps = platform.LocalizedApplicationNames(ctx, apps)
 	apps = core.PrepareSearchContext(ctx, apps)
 	icons := map[string]*ui.Bitmap{}
 	for i, app := range apps {
