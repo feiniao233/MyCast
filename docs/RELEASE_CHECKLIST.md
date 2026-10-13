@@ -1,4 +1,10 @@
-# 0.1.0 alpha release gate
+# Alpha release and candidate gate
+
+`0.1.0-alpha` is published at `5512e940e4693aabb56e02ac2cd0517e5f47dd26`.
+The current **0.2.0-alpha.1** is a development candidate on a feature branch.
+The prior owner acceptance does not pass the new native interactions. Use
+[incremental acceptance](INCREMENTAL_ACCEPTANCE_0.2.md) alongside the existing
+gates; no new main merge, tag or Release has been authorized.
 
 This checklist is a gate, not a claim that the alpha is ready.
 
@@ -16,7 +22,7 @@ privacy, license and package checks still apply. The owner coordinates publicati
 - [ ] Invalid settings, upgrade/migration and unavailable hotkeys have safe
       recovery paths; access through tray/window remains available.
 - [ ] Privacy defaults are verified: no telemetry, no clipboard import, history
-      persistence off, no automatic startup or permission/security changes.
+      persistence off, startup off unless explicitly saved, no permission/security changes.
 - [ ] Tests/previews/logs and packaged files contain no user data or credentials.
 - [ ] All dependency licenses, AGPL obligations and notices are current.
 - [ ] The package contains the executable, README, LICENSE and third-party
@@ -28,5 +34,5 @@ privacy, license and package checks still apply. The owner coordinates publicati
       publication are coordinated and authorized by the release owner.
 
 No network services/API credentials are necessary for this alpha. Clipboard
-history persistence, startup integration and expanded/compact window states may
+history persistence and expanded/compact window states may
 remain unsupported; do not advertise an option or feature that has not shipped.

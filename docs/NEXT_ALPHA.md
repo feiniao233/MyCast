@@ -43,6 +43,9 @@ Official API references: [BindToHandler](https://learn.microsoft.com/en-us/windo
 Explicit default-off per-user startup registration with tray-only single-instance startup. Signing, auto-update,
 full-drive search, AI and plugins remain outside this candidate.
 
+Startup is now implemented in stage 5 below; remaining work is candidate
+packaging, exact-commit CI/review, and the explicitly unverified user acceptance.
+
 ## Stage 2: automatic configured-source refresh
 
 Safe directory roots use FindFirst/Next/CloseChangeNotification, with zero-time
@@ -75,8 +78,8 @@ failed. Combined catalogs are capped at 5,000 entries; icon reads remain bounded
 at 256 per provider (512 maximum with both sources enabled).
 
 Shell icons use a bounded in-memory cache for ten minutes, including unavailable
-icons, then refresh; reinstalls retaining an identity can therefore show a prior
-icon for up to ten minutes. File icons are cached by file identity/size/modtime
+icons, then attempt refresh; unreadable/over-budget results may retain a previous
+known bitmap until a successful read. File icons are cached by file identity/size/modtime
 with a 256-entry bound. Retained and unscanned entries retain existing bitmaps.
 The Shell fallback still performs bounded enumeration/name/search preparation,
 so it has a background cost. It never activates the window or restores focus.
@@ -106,3 +109,24 @@ Clearly labeled synthetic headless previews (dedicated fixture data only):
 [hidden 100%](previews/entry-hidden-100.png), [hidden 150%](previews/entry-hidden-150.png),
 [settings 100%](previews/sources-settings-100.png), [settings 150%](previews/sources-settings-150.png).
 These are not desktop screenshots or proof of actual native material/IME behavior.
+
+## Stage 5: opt-in per-user startup
+
+Saving a changed default-off switch writes only HKCU Run `MyCast.Launcher`, using
+the quoted current executable and `--background`. No application launch/ordinary
+save re-registers startup. Existing different commands are preserved. Settings or
+hotkey failures attempt to restore the original exact registration; detected
+external changes and rollback failure are reported. No transactional guarantee
+against other writers or Windows-wide crash durability is claimed.
+
+Background startup creates the existing single instance and hidden palette,
+scans configured sources and exposes tray access without showing/focusing the
+window. A duplicate `--background` request leaves the existing instance alone.
+Normal duplicate launch still opens it. If tray creation fails, the visible
+fallback keeps the application accessible. Actual login/focus behavior requires
+incremental user acceptance; mocks and process survival do not prove it.
+
+Synthetic settings: [100%](previews/startup-settings-100.png),
+[150%](previews/startup-settings-150.png). These show a draft toggle only; generating
+them never registers startup. See [settings recovery/uninstall](SETTINGS.md) and
+[privacy](PRIVACY.md).

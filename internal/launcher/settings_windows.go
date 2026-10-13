@@ -37,6 +37,26 @@ func (s *launcher) applySettings(candidate settings.Settings) (settings.Settings
 	if err != nil {
 		return settings.Settings{}, err
 	}
+	if value.Startup == s.config.Startup {
+		return s.applySettingsWithoutStartup(value)
+	}
+	var applied settings.Settings
+	err = s.startupRegistration.Apply(value.Startup, func() error {
+		var transitionErr error
+		applied, transitionErr = s.applySettingsWithoutStartup(value)
+		return transitionErr
+	})
+	if err != nil {
+		return settings.Settings{}, err
+	}
+	return applied, nil
+}
+
+func (s *launcher) applySettingsWithoutStartup(candidate settings.Settings) (settings.Settings, error) {
+	value, err := candidate.Validated()
+	if err != nil {
+		return settings.Settings{}, err
+	}
 	if value.Hotkey == s.config.Hotkey {
 		return s.saveOrdinarySettings(value)
 	}
@@ -159,7 +179,7 @@ func (s *launcher) drawSettings(c *ui.Context) {
 		ui.Row(c).FillWidth().Height(26).Shrink(0).AlignItems(ui.Center).Children(func() {
 			ui.Text(c, "设置").FontSize(20).Bold()
 			ui.Spacer(c)
-			ui.Text(c, "仅此应用 · 不启用开机启动").FontSize(11).TextColor(p.Secondary)
+			ui.Text(c, "仅此应用 · 保存后生效").FontSize(11).TextColor(p.Secondary)
 		})
 		ui.Text(c, "呼出 / 隐藏快捷键").FontSize(12).TextColor(p.Secondary)
 		hotkey := ui.TextInputBase(c.Key("settings-hotkey"), &s.hotkeyText).FillWidth().Height(34).Shrink(0).Padding(6, 10).Radius(8).Background(p.Control).Border(1, p.Border).FontSize(14).Label("快捷键设置")
@@ -173,6 +193,7 @@ func (s *launcher) drawSettings(c *ui.Context) {
 			ui.Select(c.Key("settings-theme"), &s.themeText, []string{"深色", "浅色", "跟随系统"}).Width(210).Height(32).Label("主题设置")
 		})
 		ui.Checkbox(c.Key("settings-appsfolder"), &s.settingsDraft.AppsFolder, "AppsFolder 系统应用（含 UWP）").Label("AppsFolder 来源")
+		ui.Checkbox(c.Key("settings-startup"), &s.settingsDraft.Startup, "登录 Windows 后启动到托盘（默认关闭）").Label("开机启动")
 		restore := ui.ButtonBase(c.Key("settings-hidden")).Height(28).Shrink(0).Padding(4, 10).Radius(8).Background(p.Control).Label("管理隐藏入口")
 		restore.Children(func() { ui.Text(c, fmt.Sprintf("恢复隐藏入口（%d）", len(s.config.Hidden))).FontSize(12) })
 		if restore.Clicked() {

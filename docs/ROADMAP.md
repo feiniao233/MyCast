@@ -8,7 +8,7 @@ checks cover adapters. See [scope and compatibility](NEXT_ALPHA.md). Automatic
 refresh is implemented with guarded directory notifications, 500-ms coalescing,
 30-second scoped retries and conservative partial snapshot reconciliation.
 Hide/source/location are implemented with identity-bound menus and bounded
-persistent hidden IDs, restored through settings; opt-in startup is next. Native
+persistent hidden IDs, restored through settings; explicit default-off per-user startup is implemented. Native
 packaged/desktop activation remains a new-version acceptance blocker.
 
 The first public alpha should be useful and predictable on Windows 10/11 before
@@ -22,7 +22,7 @@ code, regression tests, build and stated manual checks have evidence.
 | 2 — Finding applications | Favorites, successful-launch recents, stable ranking, aliases and offline pinyin search | No namesake or launch-semantic merging; repeated scans stay bounded; metadata saved only in app data | Implemented with identity/ranking/pinyin, bounded persistence and headless alias editor tests. See [applications](APPLICATIONS.md); actual app launch remains untested |
 | 3 — Clipboard usability | Full bounded text preview, individual/whole-history cleanup, optional memory retention controls | Recording disabled on session start; only future opt-in text; clearing and expiry remove memory entries | Implemented with deterministic expiry and synthetic DPI/scroll/copy/delete/selection tests. See [clipboard](CLIPBOARD.md); actual desktop collection/paste remains untested |
 | 4 — Small utilities | Safe local arithmetic and user-created HTTP(S) quicklinks | No code/shell evaluation; explicit copy/open actions; validated bounded input | Implemented with bounded parser/URL/storage and synthetic keyboard/DPI/mock-effect tests. See [utilities](UTILITIES.md); actual browser/copy remains untested |
-| 5 — Alpha hardening | Error recovery, settings migration, packaging, notices, checksums, docs and manual validation | Exact-commit checks pass; known untested limits explicitly accepted; owner reviews final artifact | Clean-commit packaging/checksums, offline vendored-source build and full history checks are in place. User accepted deferred Windows checks on 2026-10-13; final icon/experience review, exact-commit CI and coordinated publication remain |
+| 5 — Alpha hardening | Error recovery, settings migration, packaging, notices, checksums, docs and manual validation | Exact-commit checks pass; known untested limits explicitly accepted; owner reviews final artifact | Clean-commit packaging/checksums, offline vendored-source build and full history checks are in place. User accepted deferred Windows checks on 2026-10-13; published as 0.1.0-alpha; exact-commit CI and candidate packaging for 0.2.0-alpha.1 are tracked below |
 
 File-content search, window management, AI/network services, API keys and Raycast
 extension compatibility are outside the alpha requirements. Compact/expanded
@@ -72,3 +72,19 @@ is paused until this experience follow-up and approved documentation cleanup are
 The first alpha accepts the documented unverified native limitations after
 experience cleanup. This release decision does not convert untested checks into
 passes. Icon/experience review precedes coordinated publication.
+
+## 0.2.0-alpha.1 candidate stages
+
+| Stage | Implementation/evidence | State |
+| --- | --- | --- |
+| 1 | Explicit AppsFolder source, names/icons, stable Shell identity and activation routing | Implemented; native Shell fixtures and headless DPI tests |
+| 2 | Serialized automatic refresh and provider-specific partial preservation | Implemented; independent error/deadline/empty-source regressions |
+| 3 | Source/location, persistent hide/restore and stale-action guards | Implemented; native PIDL and headless 100%/150% fixtures |
+| 4 | Event-driven healthy file roots, Shell-only timer, root identity rebinding and icon caches | Implemented; running cancellation/coalescing/idle/epoch tests |
+| 5 | Explicit default-off startup, ownership/rollback, background single-instance routing | Implemented; isolated registry fixture and simulated transitions |
+
+No new main merge/tag/Release is authorized. Actual AppsFolder activation,
+install/uninstall latency, idle power use, Explorer selection, login/background
+focus, keyboard/IME and native menus remain incrementally unverified. Signature,
+updater, AI/plugins and full-drive search remain outside scope. See
+[candidate evidence](NEXT_ALPHA.md) and [acceptance](ACCEPTANCE.md).

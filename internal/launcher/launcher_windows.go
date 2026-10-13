@@ -7,6 +7,7 @@ package launcher
 import (
 	"context"
 	"image"
+	"os"
 	"strings"
 	"time"
 
@@ -19,6 +20,8 @@ import (
 )
 
 type launcher struct {
+	backgroundStart                                bool
+	startupRegistration                            *settings.StartupRegistration
 	autoSources                                    uint8
 	shellImages                                    map[string]image.Image
 	shellImagesAt                                  time.Time
@@ -98,6 +101,10 @@ func Run() error {
 	s := &launcher{history: core.NewHistory(50, 64*1024), stop: make(chan struct{}), config: settings.Defaults(), launchApplication: platform.Launch, copyText: platform.WriteClipboardText, openURL: platform.OpenHTTPURL}
 	s.launchShellApplication = platform.LaunchShellApplication
 	s.showLocation = platform.ShowApplicationLocation
+	s.backgroundStart = backgroundInvocation(os.Args[1:])
+	if executable, err := os.Executable(); err == nil {
+		s.startupRegistration, _ = platform.NewStartupRegistration(executable)
+	}
 	mygo.App.SetName("MyCast")
 	if !mygo.App.RequestSingleInstanceLock() {
 		return nil
@@ -115,8 +122,8 @@ func Run() error {
 	// Override this app's native appearance before window creation, so DWM
 	// and the UI start in the same saved theme, independently of Windows.
 	mygo.Theme.SetSource(nativeThemeSource(s.config.Theme))
-	mygo.App.OnSecondInstance(func([]string, string) {
-		if s.win != nil {
+	mygo.App.OnSecondInstance(func(args []string, _ string) {
+		if s.win != nil && (len(args) == 0 || !backgroundInvocation(args[1:])) {
 			s.show(false)
 		}
 	})
@@ -204,8 +211,12 @@ func (s *launcher) ready() {
 	s.restartSourceWatch()
 	s.scan()
 	go s.pollClipboard()
-	s.show(false)
+	if !s.backgroundStart || s.tray == nil {
+		s.show(false)
+	}
 }
+
+func backgroundInvocation(args []string) bool { return len(args) == 1 && args[0] == "--background" }
 
 // With no tray, keep the fallback window reachable even if the hotkey failed.
 func (s *launcher) hide() {

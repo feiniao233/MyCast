@@ -66,6 +66,26 @@ failure, and rejection of retired watch epochs/quit callbacks. All use synthetic
 fixtures. Full dependency/test/vet/GUI-build checks pass locally; actual idle
 power consumption and third-party Shell-handler behavior remain **not tested**.
 
+## 0.2.0-alpha.1 stage 5: explicit startup
+
+Pure tests cover default-off settings, quoted bounded command construction,
+explicit enable/disable, collisions, registration errors, save/hotkey failure
+rollback and external-replacement preservation. Headless 100%/150% tests toggle
+the draft, cancel without effects, then explicitly save. Ordinary theme saves
+must not touch registration. Background routing recognizes only `--background`;
+the existing MyGo single-instance lock remains in use and duplicate background
+invocation does not show the palette.
+
+The sandbox account could not create the isolated HKCU native fixture (access
+denied), so the full Go 1.27.2 verify/test/vet/build pass was repeated in the
+machine's standard-user context. Its registry test creates one random volatile
+Software fixture outside Run/RunOnce, repeatedly checks UTF-16 REG_SZ round trips,
+disable/save-failure restoration, unrelated-value preservation and foreign-command
+refusal, then removes that own fixture key. No real startup value was installed
+or changed. No user clipboard or app inventory is accessed by these tests.
+Actual Windows login startup, tray-focus behavior and second-process desktop
+presentation remain **not tested**, alongside incremental launch/input gates.
+
 ## Alpha verification boundary
 
 Native IME, successful automatic paste, tray/hotkey, high-DPI and multi-monitor
