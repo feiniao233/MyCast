@@ -1,5 +1,12 @@
 # Windows alpha roadmap
 
+`0.3.0-alpha.1` development starts from the reviewed 0.2 candidate
+`772885ed4c344baed8ce53cb32da1c4131be9fea` on `feat/0.3-search`.
+The planned stages are prepared full-catalog search with ranking/benchmark
+evidence, a default-off display-only startup snapshot, and keyboard/read-only
+diagnostics. See [scope, references and compatibility risks](SEARCH_0.3.md).
+These new stages are not yet implemented or accepted.
+
 The independent review follow-up separates AUMIDs during file scanning, keeps
 property failures distinct from successful empty values, and gives each Tab-focus
 row its own keyboard context target. Real temporary shortcut scan/merge/search/

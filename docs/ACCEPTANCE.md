@@ -401,3 +401,9 @@ reviving a confirmed missing target, fresh shortcut metadata in fallback probes,
 explicit hide/show guard reset, old held-pointer session isolation and list ink
 clipping away from header/footer. Keyboard input after refresh is tested; a
 native same-frame queued Enter boundary is not directly tested.
+# 0.3 development evidence
+
+Scope and compatibility design: [SEARCH_0.3.md](SEARCH_0.3.md).
+New prepared-search/cache/diagnostics checks are pending; no new desktop
+acceptance is claimed. The 0.2 candidate remains independently available.
+
