@@ -378,6 +378,8 @@ func (s *launcher) scanSourcesWithRoots(sources uint8, requestedRoots []string) 
 			for _, app := range previousApps {
 				if app.ShellID != "" {
 					apps = append(apps, app)
+				} else if app.ShellFallback != nil {
+					apps = append(apps, *app.ShellFallback)
 				}
 			}
 		}
@@ -439,7 +441,15 @@ func (s *launcher) scanSourcesWithRoots(sources uint8, requestedRoots []string) 
 				return
 			}
 			s.scanProgress = ""
+			bindingWarning := ""
+			if workerErr != context.Canceled {
+				apps, bindingWarning = s.persistProvedIdentityLinks(apps)
+			}
 			s.completeScan(apps, icons, errs, workerErr, scanCompletion{missing: missing, reconciled: true})
+			if bindingWarning != "" {
+				s.status += "\n" + bindingWarning
+				s.scanLastStatus = s.status
+			}
 			if sources&scanFiles != 0 && workerErr != context.Canceled {
 				s.recordFileScanCompletion(scanRoots, filePartial)
 			}

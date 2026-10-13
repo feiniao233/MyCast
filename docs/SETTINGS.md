@@ -11,6 +11,11 @@ ordinary settings or application preferences are saved. It contains the hotkey,
 appearance, application roots and bounded [application metadata](APPLICATIONS.md).
 Clipboard recording state and text are absent. Recording starts disabled every
 session, regardless of ordinary settings; existing clipboard text is not imported.
+The optional `identity_links` map contains at most 650 hash-to-hash relations for
+preferences already saved against a shortcut and subsequently proved equivalent
+to a Shell identity. It records no names/paths/catalog. Save failure preserves
+the old file and warns that the relation has not survived a restart yet. Existing
+bindings cannot be silently redirected by reusing a shortcut path.
 
 - Hotkey: Ctrl/Alt/Shift with a letter, digit, Space or F1–F24. The new shortcut
   must register before the old shortcut is removed. Registration or saving failure

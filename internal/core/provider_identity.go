@@ -47,6 +47,11 @@ func MergeProviderApplications(apps []Application) []Application {
 				app = old
 			}
 			preferred := &result[index]
+			if preferred.Path != "" && app.ShellID != "" {
+				fallback := app
+				fallback.ShellFallback = nil
+				preferred.ShellFallback = &fallback
+			}
 			for _, alias := range append([]string{app.Name}, app.Aliases...) {
 				if alias != preferred.Name && !slices.Contains(preferred.Aliases, alias) {
 					preferred.Aliases = append(preferred.Aliases, alias)

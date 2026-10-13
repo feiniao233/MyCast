@@ -49,7 +49,16 @@ and the minimal native check are distinct from screenshot evidence.
   immediate AppsFolder child, with no arguments/working directory and ordinary
   flags/show mode. No Resolve is called. Unknown/independent semantics remain
   distinct. Prior shortcut hashes remain bound to favorites, aliases, recents
-  and hidden state, including fallback to a surviving Shell identity.
+  and hidden state, including fallback to a surviving Shell identity. A merged
+  file row retains its proved Shell counterpart in memory for a file-only
+  refresh, so removing the link does not remove the surviving namespace row.
+- Referenced legacy preference hashes are bound to their proved canonical hash
+  in bounded `identity_links` settings (at most 650 pairs). No names, paths or
+  catalog are stored by this binding. Existing evidence is never silently
+  redirected to a repurposed shortcut. The settings adapter saves a binding
+  before treating it as persistent; failure preserves the previous file/config
+  and shows a warning. Restart with only the Shell source restores all four
+  preference kinds. Unreferenced bindings are pruned on a later scan.
 
 ## Verification boundary
 
@@ -61,9 +70,14 @@ permission variants. Native fixtures check Known Folder output ownership,
 IShellItem2 property-key ABI and cached PIDL parent rejection/read-only shortcut
 bytes. A minimal Store diagnostic using the production metadata routine returns
 both English and Chinese matches; it does not activate Store or enumerate peers.
+Persistence regressions cover shortcut removal followed by a file-only refresh,
+restart with only Shell, all four preference kinds, rejected chained/retargeted
+bindings and a simulated settings replacement failure with unchanged bytes.
 
 Actual Store launch, the private screenshot examples and broad native desktop
 appearance/input remain unverified; synthetic tests do not pass those gates.
+Ordinary desktop EXE shortcuts without a proved AppsFolder PIDL relation may
+remain separate from namespace entries; broad name/target merging is not claimed.
 
 ZTools comparison: its public TS layer defaults UWP discovery on, uses a shallow
 desktop scope and name-based uninstall patterns. Its lnk key uses name+target,

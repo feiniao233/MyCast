@@ -5,6 +5,10 @@ preserved), fixes bare-AUMID filtering/activation and Chinese Store search,
 uses actual Known Folders with shallow default desktops, filters proved uninstall
 actions and adds conservative PIDL-based cross-provider identity association.
 See [findings, compatibility and verification](STORE_SOURCE_FIX.md).
+The review follow-up persists bounded hash-only legacy preference bindings and
+retains a proved Shell counterpart during file-only refresh. Restart/source-loss
+and failed-save regressions pass; ordinary unproved desktop duplicates remain
+distinct. Full local Go 1.27.2 verify/test/vet/GUI build passed for this change.
 
 `0.1.0-alpha` is published at `5512e940e4693aabb56e02ac2cd0517e5f47dd26`.
 The next candidate is **0.2.0-alpha.1**, developed on `feat/0.2-applications`.

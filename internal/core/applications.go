@@ -19,6 +19,8 @@ import (
 
 // Application is an indexed, local application or Windows shortcut.
 type Application struct {
+	// Successful namespace counterpart, memory-only and without nested fallback.
+	ShellFallback *Application
 	// ShellID is populated only by the configured AppsFolder provider. Path is
 	// empty for virtual items; file adapters must never consume ShellID.
 	ShellID     string

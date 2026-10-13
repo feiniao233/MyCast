@@ -14,6 +14,9 @@ recents, aliases, hidden identity hashes and ordinary preferences may be saved
 in MyCast's own settings file after user actions. Source details may reveal local
 paths/arguments on screen; they are not logged, exported or saved as screenshots
 by the application. Tests/previews contain dedicated synthetic data only.
+For already saved preferences, a proved shortcut/Shell association may persist
+as a bounded hash-only identity relation in settings. It includes no application
+name, path, launch arguments or inventory and only links referenced preferences.
 
 Clipboard recording starts disabled every session. Opt-in establishes a fresh
 sequence baseline and collects only future bounded plain text. It does not import

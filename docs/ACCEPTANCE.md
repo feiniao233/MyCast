@@ -11,6 +11,12 @@ uninstall-action counterexamples, provider deadline/capacity isolation and legac
 identity preference regressions pass locally. Native Known Folder/property/PIDL
 fixtures and full verify/test/vet/Windows GUI build pass. Private attachment
 pixels were unavailable and are not claimed reviewed. See [details](STORE_SOURCE_FIX.md).
+The preference persistence follow-up passes removal/file-only refresh and restart
+with only Shell: favorites, recents, aliases and hidden hashes stay bound. A
+simulated failed replacement leaves disk/config unchanged and reports the missing
+persistence. Bound maps reject chains and conflicting retargets. Full dependency
+verification, tests, vet and Windows GUI build pass locally. Actual application
+activation and unproved desktop-EXE/namespace duplicate coverage remain open.
 
 ## 0.2.0-alpha.1 stage 1
 

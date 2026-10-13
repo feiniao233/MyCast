@@ -17,23 +17,31 @@ const MaxFileBytes = 128 * 1024
 const DefaultHotkey = "Ctrl+Alt+Space"
 
 type Settings struct {
-	Startup    bool                `json:"startup,omitempty"`
-	Hidden     []string            `json:"hidden,omitempty"`
-	AppsFolder bool                `json:"apps_folder"`
-	Version    int                 `json:"version"`
-	Hotkey     string              `json:"hotkey"`
-	Theme      string              `json:"theme"`
-	IndexRoots []string            `json:"index_roots,omitempty"`
-	Favorites  []string            `json:"favorites,omitempty"`
-	Recents    []string            `json:"recents,omitempty"`
-	Aliases    map[string][]string `json:"aliases,omitempty"`
-	QuickLinks []core.QuickLink    `json:"quick_links,omitempty"`
+	IdentityLinks map[string]string   `json:"identity_links,omitempty"`
+	Startup       bool                `json:"startup,omitempty"`
+	Hidden        []string            `json:"hidden,omitempty"`
+	AppsFolder    bool                `json:"apps_folder"`
+	Version       int                 `json:"version"`
+	Hotkey        string              `json:"hotkey"`
+	Theme         string              `json:"theme"`
+	IndexRoots    []string            `json:"index_roots,omitempty"`
+	Favorites     []string            `json:"favorites,omitempty"`
+	Recents       []string            `json:"recents,omitempty"`
+	Aliases       map[string][]string `json:"aliases,omitempty"`
+	QuickLinks    []core.QuickLink    `json:"quick_links,omitempty"`
 }
 
 func Defaults() Settings {
 	return Settings{Version: SchemaVersion, Hotkey: DefaultHotkey, Theme: "dark", AppsFolder: true}
 }
 func (s Settings) Clone() Settings {
+	if s.IdentityLinks != nil {
+		links := make(map[string]string, len(s.IdentityLinks))
+		for old, current := range s.IdentityLinks {
+			links[old] = current
+		}
+		s.IdentityLinks = links
+	}
 	s.Hidden = append([]string(nil), s.Hidden...)
 	s.IndexRoots = append([]string(nil), s.IndexRoots...)
 	s.Favorites = append([]string(nil), s.Favorites...)
@@ -97,6 +105,17 @@ func NormalizeHotkey(value string) (string, error) {
 }
 
 func (s Settings) Validated() (Settings, error) {
+	if len(s.IdentityLinks) > 650 {
+		return Settings{}, fmt.Errorf("too many application identity bindings")
+	}
+	for old, current := range s.IdentityLinks {
+		if !validID(old) || !validID(current) || old == current {
+			return Settings{}, fmt.Errorf("invalid application identity binding")
+		}
+		if _, nested := s.IdentityLinks[current]; nested {
+			return Settings{}, fmt.Errorf("chained application identity bindings are unsupported")
+		}
+	}
 	if s.Version != SchemaVersion {
 		return Settings{}, fmt.Errorf("unsupported settings version")
 	}
