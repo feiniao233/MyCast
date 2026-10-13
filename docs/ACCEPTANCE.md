@@ -13,6 +13,27 @@ Module verification, full tests, vet and release-style build are required on
 the stage commit. Actual AppsFolder activation, installed-app naming/icons and
 native input remain **not tested**. See [candidate notes](NEXT_ALPHA.md).
 
+## 0.2.0-alpha.1 stage 2
+
+Local Go 1.27.2 dependency verification, full tests, vet and GUI build passed.
+Native directory-notification fixtures use only a temporary local directory,
+verify signal/rearm/close and reject network/file watches. Automatic event tests
+send 50 requests during one blocked scan: it is not cancelled, publishes, and
+runs exactly one follow-up. Mixed partial-source tests retain an unknown/offline
+entry while removing confirmed missing entries and roots explicitly removed by
+the user. Existing publication-time query/viewport/selection, deletion guards,
+rapid root changes, IME and 100%/150% harness regressions still pass.
+Actual install/uninstall notification latency, disk disconnect/reconnect and
+native typing/scrolling during refresh are **not tested**. Filesystem watches
+cannot guarantee package-change delivery; the bounded 30-second configured-source
+refresh covers this separately. A blocked native call remains cooperatively
+cancellable only after it returns. First-stage exact-commit CI is tracked
+separately from local checks; a failed run is not a local pass. The first-stage
+CI failed its fixture string-equality assertion because Shell canonicalized the
+runner's temporary directory name. The assertion now requires `os.SameFile`
+against the owned directory, preserving the exact-file requirement across
+Windows spelling/short-name differences rather than skipping the test.
+
 ## Alpha verification boundary
 
 Native IME, successful automatic paste, tray/hotkey, high-DPI and multi-monitor

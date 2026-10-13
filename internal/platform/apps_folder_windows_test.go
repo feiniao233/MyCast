@@ -44,8 +44,13 @@ func TestNativeShellItemNamesEnumerationAndIcon(t *testing.T) {
 			t.Fatalf("display name %q: %v", name, err)
 		}
 		parse, err := shellDisplayName(item, 0x80028000)
-		if err != nil || parse != directory {
-			t.Fatalf("parse name %q: %v", parse, err)
+		if err != nil {
+			t.Fatal(err)
+		}
+		parsedInfo, parsedErr := os.Stat(parse)
+		fixtureInfo, fixtureErr := os.Stat(directory)
+		if parsedErr != nil || fixtureErr != nil || !os.SameFile(parsedInfo, fixtureInfo) {
+			t.Fatal("Shell parse name did not identify the owned fixture directory")
 		}
 		if im := shellItemIcon(item); im == nil || im.Bounds().Dx() != 32 || im.Bounds().Dy() != 32 {
 			t.Fatal("Shell icon bitmap ABI/copy failed")

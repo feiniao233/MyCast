@@ -123,6 +123,7 @@ func (s *launcher) saveSettings() {
 	s.status = "设置已保存。"
 	s.closeSettings()
 	if changedRoots {
+		s.restartSourceWatch()
 		// Old scan completions are ignored; the new worker captures its own roots.
 		s.scan()
 	}

@@ -18,6 +18,9 @@ import (
 )
 
 type launcher struct {
+	autoDirty                                      bool
+	watchEpoch                                     uint64
+	watchCancel                                    context.CancelFunc
 	scanShellWork                                  func(context.Context) ([]core.Application, map[string]*ui.Bitmap, []error)
 	launchShellApplication                         func(string) error
 	presentation                                   uint64
@@ -176,6 +179,9 @@ func (s *launcher) ready() {
 	s.persistPreferences = s.saveOrdinarySettings
 	mygo.App.OnWillQuit(func(*mygo.QuitEvent) {
 		close(s.stop)
+		if s.watchCancel != nil {
+			s.watchCancel()
+		}
 		if s.scanCancel != nil {
 			s.scanCancel()
 		}
@@ -185,6 +191,7 @@ func (s *launcher) ready() {
 			s.tray.Destroy()
 		}
 	})
+	s.restartSourceWatch()
 	s.scan()
 	go s.pollClipboard()
 	s.show(false)
@@ -251,6 +258,7 @@ func (s *launcher) scan() {
 		return
 	}
 	s.scanning = true
+	s.autoDirty = false
 	s.scanProgress = "正在扫描应用…"
 	if s.win != nil {
 		s.win.Invalidate()
@@ -266,8 +274,11 @@ func (s *launcher) scan() {
 	shellEnabled, shellWork := s.config.AppsFolder, s.scanShellWork
 	go func() {
 		apps, icons, errs := s.scanWork(ctx, roots)
+		filePartial := len(errs) > 0
+		shellPartial := false
 		if shellEnabled && shellWork != nil && ctx.Err() == nil {
 			virtual, virtualIcons, virtualErrs := shellWork(ctx)
+			shellPartial = len(virtualErrs) > 0
 			apps = append(apps, virtual...)
 			if icons == nil {
 				icons = map[string]*ui.Bitmap{}
@@ -277,9 +288,22 @@ func (s *launcher) scan() {
 			}
 			errs = append(errs, virtualErrs...)
 		}
+		if len(apps) > 5000 {
+			apps = apps[:5000]
+			errs = append(errs, core.ErrScanBudget)
+			filePartial, shellPartial = true, shellEnabled
+		}
 		var missing map[string]bool
-		if len(apps) == 0 && len(errs) > 0 && probeMissing != nil && ctx.Err() == nil {
+		if filePartial && probeMissing != nil && ctx.Err() == nil {
 			missing = probeMissing(ctx, previousApps)
+		}
+		if (filePartial || shellPartial) && ctx.Err() == nil {
+			apps = core.RetainUnconfirmed(apps, previousApps, missing, func(app core.Application) bool {
+				if app.ShellID != "" {
+					return shellEnabled && shellPartial
+				}
+				return filePartial && core.PathInApplicationRoots(app.Path, roots)
+			}, 5000)
 		}
 		workerErr := ctx.Err()
 		cancel()
@@ -298,6 +322,9 @@ func (s *launcher) scan() {
 			}
 			s.scanProgress = ""
 			s.completeScan(apps, icons, errs, workerErr, missing)
+			if s.autoDirty {
+				s.automaticRefresh()
+			}
 		})
 	}()
 }
