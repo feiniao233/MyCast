@@ -12,6 +12,8 @@ is in MANIFEST/BUILDINFO/SHA256SUMS and the accompanying vendored source archive
 | Default-off cache and explicit setting/clear | Temporary-store and 100%/150% synthetic controls; actual user opt-in/restart/clear not tested |
 | Cached rows cannot launch, open Explorer, grant equivalence or alter preferences | Effect-refusal regression; cached format has no paths/arguments/proofs |
 | Partial/offline/unknown-source discovery | Pending rows remain unverified; complete-source-only writes and generation/config tests |
+| Initial partial scan followed by independent source recovery | One serialized full review converges stale display rows; no inferred uninstall or launch permission before review |
+| Slow snapshot write followed by clear and normal exit | Autonomous serial clear survives missing UI callbacks; at most 750 ms wait, explicit failure if not finished |
 | Missing, corrupt, oversized, unknown/old format, stale/future time and failed cache replacement | Bounded temporary fixtures, original preservation and cleanup tests |
 | Selection/query/viewport through verification | Stable-ID replacement and existing current-state refresh regressions |
 | Read-only matching field, identity policy, current adapter and source batch diagnostics | Actual matcher evidence and memory-bound tests; 100%/150% synthetic panel |

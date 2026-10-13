@@ -413,4 +413,9 @@ bounded memory, Esc layers and 100%/150% focus tests pass. Owned hidden subclass
 and real hidden MyGoSurface repeat/IME pass-through/cleanup fixtures pass.
 Full verify/test/vet/GUI build passes; new actual desktop keyboard/IME/pointer
 acceptance is not claimed. The 0.2 candidate remains independently available.
+Snapshot review regressions pass for initial partial -> independently recovered
+sources -> full review -> missing pending removal without launch authority, and
+slow write -> clear -> normal shutdown without UI dispatch. Clear timeout returns
+an explicit bounded failure; abrupt termination/deletion on arbitrary filesystems
+is not guaranteed.
 

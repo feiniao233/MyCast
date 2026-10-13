@@ -14,6 +14,10 @@ Full local checks and synthetic DPI controls pass. Read-only actual matching/
 identity/source diagnostics and an owned native repeat-key guard are implemented,
 with 100%/150% focus/layer tests and a real hidden MyGoSurface fixture.
 New actual desktop keyboard/IME/pointer acceptance is not claimed.
+Independent snapshot review follow-up converges pending rows after separately
+recovered sources through one serialized complete review, and drains queued clear
+without exit-time UI callbacks. Slow-write/clear/quit and scoped-recovery tests
+pass; shutdown clear waits are bounded and timeout is reported honestly.
 
 The independent review follow-up separates AUMIDs during file scanning, keeps
 property failures distinct from successful empty values, and gives each Tab-focus

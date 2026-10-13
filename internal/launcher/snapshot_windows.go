@@ -7,7 +7,6 @@ import (
 	"github.com/egoist/mygo/ui"
 	"github.com/feiniao233/MyCast/internal/core"
 	"github.com/feiniao233/MyCast/internal/settings"
-	"time"
 )
 
 type snapshotJob struct {
@@ -44,45 +43,40 @@ func (s *launcher) drawSnapshotSettings(c *ui.Context) {
 	})
 }
 
-// At most one active disk operation and one replaceable queued snapshot.
 func (s *launcher) queueSnapshot(job snapshotJob) {
 	if s.snapshotStore == nil || s.uiUpdate == nil {
 		return
 	}
-	if s.snapshotBusy {
-		s.snapshotNext = &job
-		return
-	}
-	s.snapshotBusy = true
-	store := s.snapshotStore
-	go func() {
-		var err error
-		if job.clear {
-			err = store.Clear()
-		} else {
-			err = store.Save(job.value, true, job.epoch, time.Now())
-		}
-		s.uiUpdate(func() {
-			s.snapshotBusy = false
-			if job.clear {
-				s.snapshotClearing = false
-			}
-			if !s.quitting && job.epoch == store.Epoch() {
+	if s.snapshotWorker == nil {
+		s.snapshotWorker = &snapshotWorker{store: s.snapshotStore, notify: func(job snapshotJob, err error) {
+			s.uiUpdate(func() {
+				if s.quitting {
+					return
+				}
+				if job.epoch != s.snapshotStore.Epoch() {
+					return
+				}
+				if job.clear {
+					s.snapshotClearing = false
+				}
 				if err != nil {
-					s.snapshotStatus = "快照操作未完成；应用发现继续运行。"
+					if job.clear {
+						s.snapshotStatus = "清除未完成；原缓存可能保留，可重试。"
+					} else {
+						s.snapshotStatus = "快照操作未完成；应用发现继续运行。"
+					}
 				} else if job.clear {
 					s.snapshotStatus = "本地启动快照已清除。"
 				} else {
 					s.snapshotStatus = "已保存完整来源的显示快照。"
 				}
-			}
-			next := s.snapshotNext
-			s.snapshotNext = nil
-			if next != nil && !s.quitting {
-				s.queueSnapshot(*next)
-			}
-		})
-	}()
+			})
+		}}
+	}
+	if !s.snapshotWorker.submit(job) && job.clear {
+		s.snapshotClearing = false
+		s.snapshotStatus = "退出期间未接受新的清除；原缓存可能保留。"
+	}
 }
 func (s *launcher) clearStartupSnapshot() {
 	if s.snapshotStore == nil {
@@ -91,7 +85,6 @@ func (s *launcher) clearStartupSnapshot() {
 	}
 	s.snapshotStore.Invalidate()
 	s.snapshotClearing = true
-	s.snapshotNext = nil
 	s.pendingApps = nil
 	s.invalidateApplicationSearch()
 	s.queueSnapshot(snapshotJob{clear: true, epoch: s.snapshotStore.Epoch()})
@@ -127,6 +120,37 @@ func (s *launcher) adoptApplications(apps []core.Application, icons map[string]*
 		s.pendingApps = pending
 	}
 	s.pendingComplete = false
+	if len(s.pendingApps) == 0 {
+		s.pendingReviewQueued = false
+	}
 	s.apps, s.icons = apps, icons
 	s.invalidateApplicationSearch()
+}
+
+// Cache entries deliberately have no source-path proof. Independently healthy
+// configured sources therefore trigger a fresh full review rather than deleting
+// an unobserved row by attribution guessed from its cached name/hash.
+func (s *launcher) needsPendingSnapshotReview(roots []string, shell bool) bool {
+	if len(s.pendingApps) == 0 {
+		return false
+	}
+	complete := func(source string) bool {
+		for _, state := range s.sourceDiagnostics {
+			if state.source == source {
+				return !state.partial
+			}
+		}
+		return false
+	}
+	for _, root := range roots {
+		if !complete(root) {
+			s.pendingReviewQueued = false
+			return false
+		}
+	}
+	if shell && !complete("AppsFolder") {
+		s.pendingReviewQueued = false
+		return false
+	}
+	return !s.pendingReviewQueued
 }

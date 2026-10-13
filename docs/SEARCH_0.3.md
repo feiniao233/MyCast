@@ -155,6 +155,29 @@ The pending display can apply already saved hash-only preference bindings to
 retain favorite/alias search while waiting. The cache creates no new binding or
 provider proof and never adds a launch path; effect refusal remains in place.
 
+Independent cache review found two recovery gaps, repaired before delivery:
+
+- If the first full scan was partial, independently successful root/provider
+  retries previously could leave deleted display rows pending forever. Accepted
+  per-source batch evidence now triggers one budgeted complete review when all
+  currently configured sources have recovered. Until that review succeeds,
+  unobserved rows stay pending and cannot launch. A partial review waits for a
+  new recovery transition before another review; the existing serialized scan
+  queue/cancellation/generation protections remain in use.
+- An immediate clear queued behind a slow write previously depended on a UI
+  completion callback which normal exit could abandon. A bounded autonomous
+  disk worker now drains one pending job, prioritizing clear and dropping
+  intermediate notifications. Shutdown invalidates saves, rejects later jobs,
+  preserves queued clear, and waits up to 750 ms for requested clearing. Failed
+  or timed-out clearing returns an explicit error that data may remain; arbitrary
+  filesystem latency and abrupt process termination are not guarantees of deletion.
+
+Regressions cover partial first scan -> separate root and Shell recovery ->
+automatic full review -> removed pending row, with zero launch effects; repeated
+recovery gating; slow save -> clear -> quit without UI dispatch; rejection of
+late saves and bounded timeout failure. The earlier `9951218` package is an
+intermediate build and will not be delivered as the reviewed candidate.
+
 Diagnostics/repeat stage: full local verify/test/vet/GUI build passes, with actual
 field provenance, bounded source records, 100%/150% menu/source/Esc focus tests,
 native ownership/repeat/IME/cleanup fixture and real hidden MyGoSurface verifier.

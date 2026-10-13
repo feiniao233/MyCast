@@ -6,6 +6,7 @@ package launcher
 
 import (
 	"context"
+	"errors"
 	"image"
 	"os"
 	"path/filepath"
@@ -25,12 +26,13 @@ type launcher struct {
 	paletteComposing  bool
 	sourceDiagnostics []sourceDiagnostic
 
-	snapshotOpen                                                       bool
-	snapshotStore                                                      *settings.SnapshotStore
-	snapshotAttempted, snapshotBusy, snapshotClearing, pendingComplete bool
-	snapshotNext                                                       *snapshotJob
-	snapshotStatus                                                     string
-	pendingApps                                                        []core.Application
+	snapshotOpen                                         bool
+	snapshotStore                                        *settings.SnapshotStore
+	snapshotAttempted, snapshotClearing, pendingComplete bool
+	snapshotWorker                                       *snapshotWorker
+	snapshotStatus                                       string
+	pendingApps                                          []core.Application
+	pendingReviewQueued                                  bool
 
 	appSearch                                      applicationSearch
 	autoRoots                                      []string
@@ -153,9 +155,19 @@ func Run() error {
 			handleSecondInvocation(args, func() { s.show(false) })
 		}
 	})
-	mygo.App.OnBeforeQuit(func(*mygo.QuitEvent) { s.quitting = true })
+	mygo.App.OnBeforeQuit(func(*mygo.QuitEvent) {
+		s.quitting = true
+		if s.snapshotWorker != nil {
+			s.snapshotWorker.beginShutdown()
+		}
+	})
 	mygo.App.WhenReady(s.ready)
-	return mygo.App.Run()
+	runErr := mygo.App.Run()
+	if s.snapshotWorker != nil {
+		s.snapshotWorker.beginShutdown()
+		return errors.Join(runErr, s.snapshotWorker.waitForClear(750*time.Millisecond))
+	}
+	return runErr
 }
 
 func (s *launcher) ready() {
@@ -523,6 +535,13 @@ func (s *launcher) scanSourcesWithRoots(sources uint8, requestedRoots []string) 
 			}
 			if sources&scanFiles != 0 && workerErr != context.Canceled {
 				s.recordFileScanCompletion(scanRoots, filePartial)
+			}
+			if workerErr != context.Canceled && s.needsPendingSnapshotReview(roots, shellEnabled) {
+				// One serialized full review per recovery transition. A partial
+				// review resets readiness and waits for new source recovery.
+				s.pendingReviewQueued = true
+				s.scan()
+				return
 			}
 			if s.autoDirty {
 				s.automaticRefreshRoots(s.autoSources, s.autoRoots)
