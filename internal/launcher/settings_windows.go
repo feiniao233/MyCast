@@ -112,7 +112,7 @@ func (s *launcher) saveSettings() {
 		s.settingsNote = "保存失败，当前设置与热键保留。" + err.Error()
 		return
 	}
-	changedRoots := !slices.Equal(s.config.IndexRoots, value.IndexRoots)
+	changedRoots := !slices.Equal(s.config.IndexRoots, value.IndexRoots) || s.config.AppsFolder != value.AppsFolder
 	s.config = value.Clone()
 	if s.syncNativeTheme != nil {
 		s.syncNativeTheme(value.Theme)
@@ -165,6 +165,7 @@ func (s *launcher) drawSettings(c *ui.Context) {
 			ui.Text(c, "外观").FontSize(12).TextColor(p.Secondary)
 			ui.Select(c.Key("settings-theme"), &s.themeText, []string{"深色", "浅色", "跟随系统"}).Width(210).Height(32).Label("主题设置")
 		})
+		ui.Checkbox(c.Key("settings-appsfolder"), &s.settingsDraft.AppsFolder, "AppsFolder 系统应用（含 UWP）").Label("AppsFolder 来源")
 		ui.Text(c, "应用目录 · 每行一个绝对本地路径；留空使用系统应用目录").FontSize(12).TextColor(p.Secondary)
 		roots := ui.TextAreaBase(c.Key("settings-roots"), &s.rootsText).FillWidth().Height(56).Shrink(0).Padding(6, 10).Radius(8).Background(p.Control).Border(1, p.Border).FontSize(12).Label("应用目录设置")
 		ui.Text(c, "仅索引 .lnk / .exe，不跟随符号链接，不读取文档内容。").FontSize(11).TextColor(p.Secondary)

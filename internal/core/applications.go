@@ -19,6 +19,9 @@ import (
 
 // Application is an indexed, local application or Windows shortcut.
 type Application struct {
+	// ShellID is populated only by the configured AppsFolder provider. Path is
+	// empty for virtual items; file adapters must never consume ShellID.
+	ShellID     string
 	Name        string
 	Path        string
 	Launch      LaunchIdentity
@@ -44,6 +47,9 @@ type LaunchIdentity struct {
 }
 
 func (a Application) Identity() string {
+	if a.ShellID != "" {
+		return "appsfolder:" + a.ShellID
+	}
 	if a.Launch.Target == "" || a.Launch.Independent {
 		return pathKey(a.Path)
 	}
@@ -56,6 +62,9 @@ func (a Application) ItemID() string {
 
 // Subtitle distinguishes namesakes without changing how the original link runs.
 func (a Application) Subtitle() string {
+	if a.ShellID != "" {
+		return "AppsFolder · " + strings.TrimPrefix(a.ShellID, AppsFolderParsingPrefix)
+	}
 	target := a.Launch.Target
 	if target == "" {
 		target = a.Path
@@ -289,7 +298,7 @@ func SearchApplicationsRanked(applications []Application, query string, limit in
 	for _, match := range matches {
 		// Empty paths are useful in callers' transient lists, and do not
 		// establish identity between otherwise distinct applications.
-		if match.app.Path != "" {
+		if match.app.Path != "" || match.app.ShellID != "" {
 			key := match.app.Identity()
 			if seen[key] {
 				continue
@@ -397,7 +406,10 @@ func applicationLess(a, b Application) bool {
 	if a.Name != b.Name {
 		return a.Name < b.Name
 	}
-	return a.Path < b.Path
+	if a.Path != b.Path {
+		return a.Path < b.Path
+	}
+	return a.Identity() < b.Identity()
 }
 
 func pathKey(path string) string {

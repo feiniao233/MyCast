@@ -17,6 +17,7 @@ const MaxFileBytes = 128 * 1024
 const DefaultHotkey = "Ctrl+Alt+Space"
 
 type Settings struct {
+	AppsFolder bool                `json:"apps_folder,omitempty"`
 	Version    int                 `json:"version"`
 	Hotkey     string              `json:"hotkey"`
 	Theme      string              `json:"theme"`

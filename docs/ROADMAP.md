@@ -1,4 +1,12 @@
-# Windows 0.1.0 alpha roadmap
+# Windows alpha roadmap
+
+`0.1.0-alpha` is published at `5512e940e4693aabb56e02ac2cd0517e5f47dd26`.
+The next candidate is **0.2.0-alpha.1**, developed on `feat/0.2-applications`.
+Stage 1 adds an explicit AppsFolder source, stable Shell identities, localized
+Shell names/icons and default-action activation; synthetic and native fixture
+checks cover adapters. See [scope and compatibility](NEXT_ALPHA.md). Automatic
+refresh, hide/source/location and opt-in startup are the next stages. Native
+packaged/desktop activation remains a new-version acceptance blocker.
 
 The first public alpha should be useful and predictable on Windows 10/11 before
 adding other platforms or broad integrations. A phase is complete only when its

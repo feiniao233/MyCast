@@ -1,5 +1,18 @@
 # Acceptance evidence and current status
 
+## 0.2.0-alpha.1 stage 1
+
+AppsFolder identities are separate from file paths. Pure tests cover input
+validation, display-name changes, distinct shortcuts and source opt-in migration.
+A real Shell COM fixture over a dedicated temporary directory repeatedly checks
+normal/parse names, enumeration and 32-pixel icon copy/resource cleanup; no user's
+installed app inventory is enumerated by tests. Headless 100%/150% tests route
+virtual activation through a mock identity adapter and retain favorites, aliases
+and recents after rename. Source configuration is captured by the worker.
+Module verification, full tests, vet and release-style build are required on
+the stage commit. Actual AppsFolder activation, installed-app naming/icons and
+native input remain **not tested**. See [candidate notes](NEXT_ALPHA.md).
+
 ## Alpha verification boundary
 
 Native IME, successful automatic paste, tray/hotkey, high-DPI and multi-monitor

@@ -18,6 +18,8 @@ import (
 )
 
 type launcher struct {
+	scanShellWork                                  func(context.Context) ([]core.Application, map[string]*ui.Bitmap, []error)
+	launchShellApplication                         func(string) error
 	presentation                                   uint64
 	scanMissing                                    func(context.Context, []core.Application) map[string]bool
 	scanLastStatus, scanDiagnostic                 string
@@ -82,6 +84,7 @@ type launcher struct {
 
 func Run() error {
 	s := &launcher{history: core.NewHistory(50, 64*1024), stop: make(chan struct{}), config: settings.Defaults(), launchApplication: platform.Launch, copyText: platform.WriteClipboardText, openURL: platform.OpenHTTPURL}
+	s.launchShellApplication = platform.LaunchShellApplication
 	mygo.App.SetName("MyCast")
 	if !mygo.App.RequestSingleInstanceLock() {
 		return nil
@@ -128,6 +131,7 @@ func (s *launcher) ready() {
 	s.requestClose = s.win.Close
 	s.uiUpdate = s.win.Update
 	s.scanWork = s.readApps
+	s.scanShellWork = readShellApps
 	s.scanMissing = func(ctx context.Context, previous []core.Application) map[string]bool {
 		missing := map[string]bool{}
 		for _, app := range previous {
@@ -259,8 +263,20 @@ func (s *launcher) scan() {
 	}
 	previousApps := append([]core.Application(nil), s.apps...)
 	probeMissing := s.scanMissing
+	shellEnabled, shellWork := s.config.AppsFolder, s.scanShellWork
 	go func() {
 		apps, icons, errs := s.scanWork(ctx, roots)
+		if shellEnabled && shellWork != nil && ctx.Err() == nil {
+			virtual, virtualIcons, virtualErrs := shellWork(ctx)
+			apps = append(apps, virtual...)
+			if icons == nil {
+				icons = map[string]*ui.Bitmap{}
+			}
+			for id, icon := range virtualIcons {
+				icons[id] = icon
+			}
+			errs = append(errs, virtualErrs...)
+		}
 		var missing map[string]bool
 		if len(apps) == 0 && len(errs) > 0 && probeMissing != nil && ctx.Err() == nil {
 			missing = probeMissing(ctx, previousApps)
@@ -413,16 +429,20 @@ func (s *launcher) activate(apps []core.Application, clips []string, copyOnly bo
 		if s.selected < 0 || s.selected >= len(apps) {
 			return
 		}
-		if s.launchApplication == nil {
+		app := apps[s.selected]
+		launch, identity := s.launchApplication, app.Path
+		if app.ShellID != "" {
+			launch, identity = s.launchShellApplication, app.ShellID
+		}
+		if launch == nil {
 			s.status = "启动接口不可用。"
 			return
 		}
-		app := apps[s.selected]
 		if s.appNeedsSelection {
 			s.status = "原应用已移除，请重新选择。"
 			return
 		}
-		if err := s.launchApplication(app.Path); err != nil {
+		if err := launch(identity); err != nil {
 			s.status = "启动失败：" + err.Error()
 			s.scanFailure = s.status
 			// Launch errors do not prove deletion. Refresh metadata through the

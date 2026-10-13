@@ -2,9 +2,9 @@
 
 受 [Tinycast](https://github.com/abue-ammar/tinycast) 启发的 Windows 常驻启动器首版。采用 [MyGo](https://github.com/egoist/mygo) 的原生 Go UI，不使用 Electron、HTML 或 WebView 页面。
 
-> 当前为可审查的 alpha 候选版本。自动化检查与实机验收分别记录；中文输入法、成功回填、托盘/热键、高 DPI 和多屏尚未全部验证，首版 alpha 保留这些已知限制。编译通过不等于实机验收。
+> 已发布版本：[0.1.0-alpha](https://github.com/feiniao233/MyCast/releases/tag/v0.1.0-alpha)，对应提交 `5512e940e4693aabb56e02ac2cd0517e5f47dd26`。本分支开发 **0.2.0-alpha.1** 候选版，尚未合并 main、打新标签或发布 Release。
 
-Windows 0.1.0 alpha 正在完成图标和体验收尾，最终审查、精确提交 CI 和发布操作尚待完成。参见 [roadmap](docs/ROADMAP.md)、[验收状态与最少人工步骤](docs/ACCEPTANCE.md)、[发布检查](docs/RELEASE_CHECKLIST.md) 和 [贡献约定](AGENTS.md)。
+新版增加可单独开启的 AppsFolder 系统应用来源、系统名称/图标与稳定身份激活；后续阶段加入已配置来源自动刷新、来源/位置/隐藏管理与默认关闭的开机启动。[新版范围与兼容性](docs/NEXT_ALPHA.md)、[验收证据](docs/ACCEPTANCE.md) 分别记录自动化、受控原生夹具和实际桌面检查。0.1 已接受的实机覆盖限制仍不是通过记录；新增功能需要增量验收。
 
 ## 界面预览
 
