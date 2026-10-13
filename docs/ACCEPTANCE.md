@@ -425,6 +425,8 @@ Actual desktop Shift+F10/IME acceptance remains not tested.
 # 0.4 development evidence
 
 Compact/expanded scope and compatibility design: [COMPACT_0.4.md](COMPACT_0.4.md).
-New pure/native-fixture/DPI checks are pending. Actual multi-monitor/work-area/
+Pure state truth table/transitions and old-config/opt-in/opt-out temporary-store
+tests pass, as do full local verify/test/vet/Windows GUI build. Native/DPI checks
+are pending. Actual multi-monitor/work-area/
 IME behavior remains not tested; no display configuration is changed.
 

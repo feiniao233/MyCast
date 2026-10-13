@@ -75,3 +75,9 @@ build and exact-commit CI before final source/license/privacy/hash/offline packa
 verification. New checks are pending; actual multi-monitor/work-area/IME behavior
 is not tested. No native screen-control surface is currently exposed; controlled
 windows and synthetic images will not be described as desktop screenshots.
+
+Stage 1: `core.DecidePanelLayout` and default-off `compact_on_show` ordinary
+preference are implemented. The 64-case pure state truth table and typed/explicit/
+required-panel/reopen transitions pass; temporary-store old-config/opt-in/opt-out
+round trips pass. Full Go 1.27.2 verify/test/vet/Windows GUI build passes locally.
+Runtime sizing/visibility integration and new native/DPI acceptance remain pending.

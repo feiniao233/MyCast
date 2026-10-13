@@ -17,6 +17,8 @@ const MaxFileBytes = 128 * 1024
 const DefaultHotkey = "Ctrl+Alt+Space"
 
 type Settings struct {
+	CompactOnShow bool `json:"compact_on_show,omitempty"`
+
 	StartupSnapshot bool `json:"startup_snapshot,omitempty"`
 
 	IdentityLinks map[string]string   `json:"identity_links,omitempty"`

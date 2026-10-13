@@ -6,6 +6,9 @@ search identity, input/IME, stable results and the Windows material fallback.
 Default-off compatibility and state/geometry risks are recorded in
 [COMPACT_0.4.md](COMPACT_0.4.md). Implementation and new acceptance are pending;
 the separate 0.2/0.3 candidates and published main/tag remain preserved.
+The pure unified layout decision and backward-compatible default-off preference
+pass transition/temporary-store tests and full local verify/test/vet/GUI build.
+Native sizing and presentation integration are the next stage.
 
 `0.3.0-alpha.1` development starts from the reviewed 0.2 candidate
 `772885ed4c344baed8ce53cb32da1c4131be9fea` on `feat/0.3-search`.
