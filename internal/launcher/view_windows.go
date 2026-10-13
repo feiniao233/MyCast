@@ -126,6 +126,10 @@ func (s *launcher) runMenuTarget(key string, clipboard bool, action string) {
 		s.status = "操作目标已移除，请重新选择。"
 		return
 	}
+	if !clipboard && apps[index].DisplayOnlyID != "" && action != "source" {
+		s.status = "快照入口待验证；暂不能执行此操作。"
+		return
+	}
 	s.selected = index
 	if !clipboard {
 		s.appNeedsSelection = false
@@ -172,6 +176,11 @@ func (s *launcher) rows(apps []core.Application, clips []string) []paletteRow {
 	} else {
 		for _, app := range apps {
 			row := paletteRow{title: app.Name, kind: "应用", key: app.ItemID(), bitmap: s.icons[app.ItemID()], height: palette.RowHeight}
+			if app.DisplayOnlyID != "" {
+				row.kind = "待验证"
+				row.subtitle = "本地显示快照；扫描验证前不能启动"
+				row.height = palette.DetailRowHeight
+			}
 			if app.Preferred(s.config.Favorites) {
 				row.kind = "★ 收藏"
 			} else if app.Preferred(s.config.Recents) {
@@ -245,6 +254,9 @@ func (s *launcher) menuItems(apps []core.Application, clips []string) []paletteM
 		}
 		if !s.clipboardMode && valid && len(boundApps) > 0 {
 			app := boundApps[index]
+			if app.DisplayOnlyID != "" {
+				return []paletteMenuItem{{"快照待验证", "…", true, nil}, {"查看来源", "↗", false, func() { s.runMenuTarget(key, clipboard, "source") }}}
+			}
 			favorite := "收藏应用"
 			if app.Preferred(s.config.Favorites) {
 				favorite = "取消收藏"
@@ -611,7 +623,11 @@ func (s *launcher) view(c *ui.Context) {
 			ui.Spacer(c)
 			ui.Row(c).Height(palette.MenuButton).Shrink(0).Padding(palette.ControlInset).Gap(palette.RowGap).Radius(palette.MenuButton/2).Background(palette.Control).Border(1, palette.Border).Children(func() {
 				label, _ := s.primaryLabels()
-				primary := barAction(c.Key(fmt.Sprintf("primary-action-%d", s.presentation)), label, count == 0 || s.menu != menuClosed || s.settingsOpen || selectionLost || s.clipNeedsSelection || (!s.clipboardMode && s.appNeedsSelection))
+				pending := !s.clipboardMode && s.selected >= 0 && s.selected < len(apps) && apps[s.selected].DisplayOnlyID != ""
+				if pending {
+					label = "等待验证"
+				}
+				primary := barAction(c.Key(fmt.Sprintf("primary-action-%d", s.presentation)), label, pending || count == 0 || s.menu != menuClosed || s.settingsOpen || selectionLost || s.clipNeedsSelection || (!s.clipboardMode && s.appNeedsSelection))
 				primary.Children(func() {
 					ui.Text(c, label).FontSize(palette.BodySize).FixedLineHeight(palette.ControlLine).SingleLine().Bold().Label("底栏主操作文字")
 					ui.Box(c).Size(palette.KeyCap, palette.KeyCap).Center().Radius(palette.KeyCapRadius).Background(palette.Control).Label("底栏快捷键胶囊").Children(func() {

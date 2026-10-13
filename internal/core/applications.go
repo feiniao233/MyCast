@@ -19,6 +19,9 @@ import (
 
 // Application is an indexed, local application or Windows shortcut.
 type Application struct {
+	// DisplayOnlyID identifies an untrusted startup-cache row. It grants no
+	// launch, source-path or provider association authority.
+	DisplayOnlyID string
 	// Read-only AppsFolder properties prove a non-packaged local EXE default
 	// entry, including a successful arguments read (VT_EMPTY is an empty value).
 	ShellDesktop bool
@@ -62,6 +65,9 @@ type LaunchIdentity struct {
 }
 
 func (a Application) Identity() string {
+	if a.DisplayOnlyID != "" {
+		return "display-only:" + a.DisplayOnlyID
+	}
 	if a.ShellID != "" {
 		return "appsfolder:" + a.ShellID
 	}
@@ -83,6 +89,9 @@ func (a Application) legacyTargetIdentity() string {
 }
 
 func (a Application) ItemID() string {
+	if a.DisplayOnlyID != "" {
+		return a.DisplayOnlyID
+	}
 	return fmt.Sprintf("app-%x", sha256.Sum256([]byte(a.Identity())))
 }
 

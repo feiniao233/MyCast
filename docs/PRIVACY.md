@@ -9,7 +9,17 @@ current-user AppsFolder source only when explicitly enabled. Network/unknown
 volumes and reparse ancestors are refused before filesystem indexing or watch
 subscription. No full-drive or document-content search is added.
 
-Names, icons and source details remain in memory. Favorites, successful-launch
+Names, icons and source details normally remain in memory. The new explicit
+`startup_snapshot` preference defaults off. When enabled, a separate bounded
+`startup-snapshot.json` in MyCast's own data directory may save display names and
+identity hashes, source-configuration fingerprint and timestamp. It contains no
+paths, launch arguments, clipboard, queries or equivalence proofs. Loaded rows
+are labeled pending and cannot launch or open a location until rediscovered.
+Disabling stops reads/writes; use Settings > startup snapshot options > clear to
+remove existing data immediately. Unknown formats are preserved until explicit
+clear. Only complete configured-source scans can update a snapshot.
+
+Favorites, successful-launch
 recents, aliases, hidden identity hashes and ordinary preferences may be saved
 in MyCast's own settings file after user actions. Source details may reveal local
 paths/arguments on screen; they are not logged, exported or saved as screenshots
@@ -34,4 +44,5 @@ outside Run/RunOnce and remove them; they do not enable the user's startup.
 
 Before moving/uninstalling, disable startup from the registered executable,
 quit, then remove the extracted app. Optional ordinary data removal concerns
-only `%APPDATA%\MyCast\settings.json`. Clipboard history has no disk file.
+only `%APPDATA%\MyCast\settings.json` and the optional
+`%APPDATA%\MyCast\startup-snapshot.json`. Clipboard history has no disk file.

@@ -8,6 +8,7 @@ import (
 	"context"
 	"image"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -20,6 +21,13 @@ import (
 )
 
 type launcher struct {
+	snapshotOpen                                                       bool
+	snapshotStore                                                      *settings.SnapshotStore
+	snapshotAttempted, snapshotBusy, snapshotClearing, pendingComplete bool
+	snapshotNext                                                       *snapshotJob
+	snapshotStatus                                                     string
+	pendingApps                                                        []core.Application
+
 	appSearch                                      applicationSearch
 	autoRoots                                      []string
 	autoAllFiles                                   bool
@@ -121,6 +129,7 @@ func Run() error {
 	}
 	if path, err := settings.DefaultPath(); err == nil {
 		s.store = &settings.Store{Path: path}
+		s.snapshotStore = &settings.SnapshotStore{Path: filepath.Join(filepath.Dir(path), "startup-snapshot.json")}
 		if value, err := s.store.Load(); err == nil {
 			s.config = value
 			if s.store.SourcesDefaulted {
@@ -340,7 +349,37 @@ func (s *launcher) scanSourcesWithRoots(sources uint8, requestedRoots []string) 
 	}
 	probeMissing := s.scanMissing
 	shellEnabled, shellWork := s.config.AppsFolder, s.scanShellWork
+	cacheEnabled, cacheStore := s.config.StartupSnapshot, s.snapshotStore
+	cacheRead := cacheEnabled && cacheStore != nil && !s.snapshotAttempted
+	if cacheRead {
+		s.snapshotAttempted = true
+	}
+	cacheEpoch := uint64(0)
+	if cacheStore != nil {
+		cacheEpoch = cacheStore.Epoch()
+	}
+	var shallow []string
+	if len(s.config.IndexRoots) == 0 {
+		shallow = platform.DefaultDesktopRoots()
+	}
+	cacheFingerprint := settings.SourceFingerprint(roots, shallow, shellEnabled)
 	go func() {
+		if cacheRead && ctx.Err() == nil {
+			value, loadErr := cacheStore.Load(cacheFingerprint, time.Now())
+			s.uiUpdate(func() {
+				if s.quitting || !s.scanQueue.Running || s.scanQueue.Generation != generation || cacheStore.Epoch() != cacheEpoch || !s.config.StartupSnapshot || len(s.apps) != 0 {
+					return
+				}
+				if loadErr != nil {
+					s.snapshotStatus = "未使用启动快照；正常发现应用。"
+					return
+				}
+				s.pendingApps = snapshotDisplayApplications(value, s.config.Aliases)
+				s.invalidateApplicationSearch()
+				s.appNeedsSelection = true
+				s.snapshotStatus = "快照显示待验证；验证前不能启动。"
+			})
+		}
 		var apps []core.Application
 		icons := map[string]*ui.Bitmap{}
 		var errs []error
@@ -457,7 +496,12 @@ func (s *launcher) scanSourcesWithRoots(sources uint8, requestedRoots []string) 
 			if workerErr != context.Canceled {
 				apps, bindingWarning = s.persistProvedIdentityLinks(apps)
 			}
+			completeSources := workerErr == nil && !filePartial && !shellPartial && len(errs) == 0 && sources&scanFiles != 0 && len(scanRoots) == len(roots) && (!shellEnabled || sources&scanShell != 0)
+			s.pendingComplete = completeSources
 			s.completeScan(apps, icons, errs, workerErr, scanCompletion{missing: missing, reconciled: true})
+			if completeSources && cacheEnabled && s.config.StartupSnapshot && cacheStore != nil && cacheEpoch == cacheStore.Epoch() && !s.snapshotClearing {
+				s.queueSnapshot(snapshotJob{epoch: cacheEpoch, value: settings.NewSnapshot(apps, cacheFingerprint, time.Now())})
+			}
 			if bindingWarning != "" {
 				s.status += "\n" + bindingWarning
 				s.scanLastStatus = s.status
@@ -604,6 +648,10 @@ func (s *launcher) activate(apps []core.Application, clips []string, copyOnly bo
 			return
 		}
 		app := apps[s.selected]
+		if app.DisplayOnlyID != "" {
+			s.status = "快照入口待验证；请等待来源扫描完成后重新选择。"
+			return
+		}
 		launch, identity := s.launchApplication, app.Path
 		if app.ShellID != "" {
 			launch, identity = s.launchShellApplication, app.ShellID

@@ -88,6 +88,7 @@ func (s *launcher) saveOrdinarySettings(candidate settings.Settings) (settings.S
 }
 
 func (s *launcher) openSettings() {
+	s.snapshotOpen = false
 	s.hiddenOpen = false
 	s.statusDetailsOpen, s.statusDetail = false, ""
 	s.utilityOpen, s.linkEditor = false, false
@@ -107,6 +108,7 @@ func (s *launcher) openSettings() {
 }
 
 func (s *launcher) closeSettings() {
+	s.snapshotOpen = false
 	s.hiddenOpen = false
 	s.statusDetailsOpen, s.statusDetail = false, ""
 	s.utilityOpen, s.linkEditor = false, false
@@ -135,6 +137,13 @@ func (s *launcher) saveSettings() {
 		return
 	}
 	changedRoots := !slices.Equal(s.config.IndexRoots, value.IndexRoots) || s.config.AppsFolder != value.AppsFolder
+	changedSnapshot := s.config.StartupSnapshot != value.StartupSnapshot
+	if (changedRoots || changedSnapshot) && s.snapshotStore != nil {
+		s.snapshotStore.Invalidate()
+		s.pendingApps = nil
+		s.snapshotAttempted = true
+		s.invalidateApplicationSearch()
+	}
 	s.config = value.Clone()
 	if s.syncNativeTheme != nil {
 		s.syncNativeTheme(value.Theme)
@@ -144,7 +153,7 @@ func (s *launcher) saveSettings() {
 	}
 	s.status = "设置已保存。"
 	s.closeSettings()
-	if changedRoots {
+	if changedRoots || changedSnapshot {
 		s.restartSourceWatch()
 		// Old scan completions are ignored; the new worker captures its own roots.
 		s.scan()
@@ -152,6 +161,10 @@ func (s *launcher) saveSettings() {
 }
 
 func (s *launcher) drawSettings(c *ui.Context) {
+	if s.snapshotOpen {
+		s.drawSnapshotSettings(c)
+		return
+	}
 	if s.hiddenOpen {
 		s.drawHiddenApplications(c)
 		return
@@ -194,11 +207,19 @@ func (s *launcher) drawSettings(c *ui.Context) {
 		})
 		ui.Checkbox(c.Key("settings-appsfolder"), &s.settingsDraft.AppsFolder, "AppsFolder 系统应用（含 UWP）").Label("AppsFolder 来源")
 		ui.Checkbox(c.Key("settings-startup"), &s.settingsDraft.Startup, "登录 Windows 后启动到托盘（默认关闭）").Label("开机启动")
-		restore := ui.ButtonBase(c.Key("settings-hidden")).Height(28).Shrink(0).Padding(4, 10).Radius(8).Background(p.Control).Label("管理隐藏入口")
-		restore.Children(func() { ui.Text(c, fmt.Sprintf("恢复隐藏入口（%d）", len(s.config.Hidden))).FontSize(12) })
-		if restore.Clicked() {
-			s.openHiddenApplications()
-		}
+		ui.Row(c.Key("settings-extra")).Height(28).Shrink(0).Gap(8).Children(func() {
+			restore := ui.ButtonBase(c.Key("settings-hidden")).Height(28).Padding(4, 10).Radius(8).Background(p.Control).Label("管理隐藏入口")
+			restore.Children(func() { ui.Text(c, fmt.Sprintf("恢复隐藏入口（%d）", len(s.config.Hidden))).FontSize(12) })
+			if restore.Clicked() {
+				s.openHiddenApplications()
+			}
+			cache := ui.ButtonBase(c.Key("settings-snapshot-options")).Height(28).Padding(4, 10).Radius(8).Background(p.Control).Label("启动快照选项")
+			cache.Children(func() { ui.Text(c, "启动快照选项").FontSize(12) })
+			if cache.Clicked() {
+				s.snapshotOpen = true
+				s.settingsNeedsFocus = true
+			}
+		})
 		ui.Text(c, "应用目录 · 每行一个绝对本地路径；留空使用系统应用目录").FontSize(12).TextColor(p.Secondary)
 		roots := ui.TextAreaBase(c.Key("settings-roots"), &s.rootsText).FillWidth().Height(56).Shrink(0).Padding(6, 10).Radius(8).Background(p.Control).Border(1, p.Border).FontSize(12).Label("应用目录设置")
 		ui.Text(c, "仅索引 .lnk / .exe，不跟随符号链接，不读取文档内容。").FontSize(11).TextColor(p.Secondary)

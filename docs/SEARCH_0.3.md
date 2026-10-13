@@ -19,14 +19,28 @@ limit, favorites, recents and hidden identities. It must replace the slot on any
 dependency change, including edits ending in whitespace. It must never search
 only the previous query's results. Selection and viewport remain independent.
 
-## Optional startup snapshot (second stage, not implemented yet)
+## Optional startup snapshot (second stage)
 
-Default off, separate bounded/versioned schema, source configuration fingerprint
+Implemented default off, separate bounded/versioned schema, source configuration fingerprint
 and timestamp, explicit clear action. Store only display metadata and identities,
 never clipboard/query history or another copy of launch arguments. Cached rows
 are pending revalidation and cannot authorize launch. Source changes, malformed
 paths, unknown formats and partial scans cannot silently grant authority or
 overwrite a complete snapshot. Failures must not block ordinary discovery.
+
+The schema stores only name/identity hashes, fingerprint and time: maximum
+1 MiB, 5,000 unique entries, 512 UTF-8 bytes/name and seven-day age (at most
+five minutes of future clock tolerance). JSON containing paths/unknown fields,
+unknown versions, invalid IDs/text or trailing data is rejected. Unknown/corrupt
+formats are preserved. An explicit clear can remove an oversized ordinary cache
+file too. Same-directory synchronized replacement has no copy/delete fallback.
+One active disk operation and one replaceable pending job keep writes bounded.
+Epoch and source fingerprint checks prevent stale setting/source publication.
+Partial scans keep unobserved rows pending, never as provider launch metadata.
+
+The settings subpanel explains persisted data and pending authority. Its switch
+is a draft until the ordinary Settings Save action; Cancel retains default off.
+Clear is explicitly immediate and leaves original applications/settings intact.
 
 ## Keyboard and diagnostics (third stage, not implemented yet)
 
@@ -80,3 +94,20 @@ The prepared catalog and one memo slot replace prior data rather than accumulati
 queries. Preparation is currently lazy on catalog replacement on the UI thread;
 the measured one-time cost is a known bound for this corpus, not a native-frame
 guarantee. Desktop keyboard/IME acceptance remains not tested.
+
+Snapshot stage: full local `mod verify / test ./... / vet ./... / GUI build`
+passes after adding the separate options subpanel. Tests cover missing,
+oversized, stale/future, corrupt/unknown format, invalid display IDs/paths,
+source changes/disable, incomplete scan, superseded read/write, replacement
+failure/temporary cleanup, explicit opt-in/restart/clear, pending effect refusal
+and selection-preserving verified replacement. 100%/150% controls/list previews
+are synthetic: [options 100%](previews/snapshot-settings-100.png),
+[options 150%](previews/snapshot-settings-150.png),
+[pending 100%](previews/snapshot-pending-100.png),
+[pending 150%](previews/snapshot-pending-150.png).
+
+A fresh test process with 512 dedicated synthetic files measured the first
+100-result path at 38.7652 ms for discovery/preparation versus 7.0944 ms for
+loading/preparing a display-only snapshot. OS file-cache state is uncontrolled;
+window/font startup, COM icons and an actual user inventory are excluded. This
+is fixture evidence, not a verified desktop cold-start latency promise.

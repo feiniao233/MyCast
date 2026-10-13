@@ -13,6 +13,8 @@ import (
 type applicationSearch struct {
 	catalog                    *core.SearchCatalog
 	first                      *core.Application
+	pendingFirst               *core.Application
+	pendingLength              int
 	length                     int
 	query                      string
 	favorites, recents, hidden []string
@@ -29,8 +31,13 @@ func (s *launcher) applicationResults() []core.Application {
 	if len(s.apps) > 0 {
 		first = &s.apps[0]
 	}
-	if m.catalog == nil || first != m.first || len(s.apps) != m.length {
-		*m = applicationSearch{catalog: core.NewSearchCatalog(s.apps), first: first, length: len(s.apps)}
+	var pendingFirst *core.Application
+	if len(s.pendingApps) > 0 {
+		pendingFirst = &s.pendingApps[0]
+	}
+	if m.catalog == nil || first != m.first || len(s.apps) != m.length || pendingFirst != m.pendingFirst || len(s.pendingApps) != m.pendingLength {
+		apps := append(append([]core.Application(nil), s.apps...), s.pendingApps...)
+		*m = applicationSearch{catalog: core.NewSearchCatalog(apps), first: first, length: len(s.apps), pendingFirst: pendingFirst, pendingLength: len(s.pendingApps)}
 	}
 	if !m.valid || m.query != s.query || !slices.Equal(m.favorites, s.config.Favorites) || !slices.Equal(m.recents, s.config.Recents) || !slices.Equal(m.hidden, s.config.Hidden) {
 		matches := m.catalog.Search(s.query, 100, s.config.Favorites, s.config.Recents, s.config.Hidden)
