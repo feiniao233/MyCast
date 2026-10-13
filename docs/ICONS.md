@@ -3,8 +3,10 @@
 The icon is original repo-native artwork: a compact geometric M with directional
 chevron folds, cyan-to-blue ink and a dark indigo rounded tile. The exterior is
 transparent. It contains no font, copied logo, desktop image or glass effect.
-The canonical source is [mycast.svg](../assets/brand/mycast.svg), licensed with
-the repository under AGPL-3.0-or-later.
+The canonical source is `assets/brand/mycast.svg` inside the bundled
+corresponding-source ZIP (extract that archive to browse the assets locally).
+Online source: [mycast.svg at the original icon commit](https://github.com/feiniao233/MyCast/blob/b98706c83891aa43daea238a585315c34d780b5a/assets/brand/mycast.svg).
+It is licensed with the repository under AGPL-3.0-or-later.
 
 ![Synthetic original icon, light/dark backgrounds and true pixel sizes](previews/mycast-icon.png)
 
@@ -59,7 +61,8 @@ each of the eight sizes. The image mapping is released after those checks.
 A separate dedicated hidden MyGo window (no tray, clipboard, app scanning or
 keyboard/mouse input) checks both WM_GETICON handles and valid 16/32 bitmap sizes
 at this host's DPI. Thirty-two replacements stay within a bounded USER-object
-count and restoring the application icon succeeds. This is native ABI/lifecycle
+count. Calling `SetIcon(nil)` to restore the application icon returns no error;
+the restored icon is not read back. This is native ABI/lifecycle
 evidence, **not visual taskbar acceptance**. Actual Explorer/taskbar/tray appearance,
 shell icon caching, high-DPI transitions and multi-monitor composition remain
 unverified locally because native desktop screenshot/input control is unavailable.
