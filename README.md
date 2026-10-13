@@ -1,13 +1,13 @@
 # MyCast
 
-0.3 候选新增完整目录预计算搜索、默认关闭的本地显示快照，以及只读匹配/身份/来源诊断。
-快照入口验证前不能启动；设置中明确说明保存内容并提供清除。
-[本版设计与测量证据](docs/SEARCH_0.3.md) · [增量验收](docs/INCREMENTAL_ACCEPTANCE_0.3.md)。
-0.2 的候选分支仍独立保留；发布状态仍为 0.1.0-alpha。
+0.4 候选新增默认关闭的紧凑呼出：空查询先显示搜索与操作栏，输入或按 ↓ 展开结果；紧凑状态 Enter 不启动隐藏条目。
+搜索控件保持挂载，展开保持顶边并约束到当前窗口工作区；设置、菜单和剪贴板使用完整面板。
+[本版设计与验证证据](docs/COMPACT_0.4.md) · [增量验收](docs/INCREMENTAL_ACCEPTANCE_0.4.md)。
+0.2／0.3 候选分支与包仍独立保留；发布状态仍为 0.1.0-alpha。
 
 受 [Tinycast](https://github.com/abue-ammar/tinycast) 启发的 Windows 常驻启动器首版。采用 [MyGo](https://github.com/egoist/mygo) 的原生 Go UI，不使用 Electron、HTML 或 WebView 页面。
 
-> 已发布版本：[0.1.0-alpha](https://github.com/feiniao233/MyCast/releases/tag/v0.1.0-alpha)，对应提交 `5512e940e4693aabb56e02ac2cd0517e5f47dd26`。本分支开发 **0.3.0-alpha.1** 候选版，尚未合并 main、打新标签或发布 Release。
+> 已发布版本：[0.1.0-alpha](https://github.com/feiniao233/MyCast/releases/tag/v0.1.0-alpha)，对应提交 `5512e940e4693aabb56e02ac2cd0517e5f47dd26`。本分支开发 **0.4.0-alpha.1** 候选版，尚未合并 main、打新标签或发布 Release。
 
 新版默认包含 AppsFolder 系统应用来源、系统名称/图标与稳定身份激活；已实现已配置来源自动刷新、来源/位置/隐藏管理与默认关闭的开机启动。[新版范围与兼容性](docs/NEXT_ALPHA.md)、[验收证据](docs/ACCEPTANCE.md) 分别记录自动化、受控原生夹具和实际桌面检查。0.1 已接受的实机覆盖限制仍不是通过记录；新增功能需要增量验收。
 
@@ -19,7 +19,7 @@
 
 本轮标准面板为 750×475 DIP，页头 44、页脚 52；图标、间距、字号与色阶统一在 `internal/launcher/palette_tokens_windows.go`。搜索与结果名称列对齐，页头/页脚浮在完整滚动列表上，不使用硬分隔条。左侧圆菜单和右侧操作胶囊使用轻量半透明填充与细描边，不模拟 Apple Liquid Glass 折射。主面板请求 Windows Acrylic，同时检查 MyGo 材质可用性及 DWM 属性调用/回读；不支持时使用纯色。客户区填满，由 Windows 负责真实窗口圆角，避免额外的透明角洞。应用主题同步到原生窗口，设置弹层使用正常的不透明主题色。详见 [实机反馈修复](docs/UI_FEEDBACK.md)。
 
-渐隐采用 MyGo 已支持的逐行透明度近似，不是 Tinycast 的逐像素渐变遮罩；键盘选择会避开浮动栏，滚轮滚动不会被自动拉回。同窗口菜单关闭后恢复搜索焦点，并消费点击外部的整次点击。真实 Windows 的 Acrylic 显示、原生窗口圆角裁剪和透明边角仍未实机验证，不能由离屏图推断。compact/expanded 窗口状态留待后续迭代。
+渐隐采用 MyGo 已支持的逐行透明度近似，不是 Tinycast 的逐像素渐变遮罩；键盘选择会避开浮动栏，滚轮滚动不会被自动拉回。同窗口菜单关闭后恢复搜索焦点，并消费点击外部的整次点击。真实 Windows 的 Acrylic 显示、原生窗口圆角裁剪和透明边角仍未实机验证，不能由离屏图推断。0.4 增加可选的 750×108 DIP 紧凑状态；100%／150%／200% 合成预览见 [来源说明](docs/previews/COMPACT_PROVENANCE.md)，真实多显示器与 IME 尺寸切换仍未实测。
 
 ![100% DPI 合成数据离屏预览](docs/previews/feedback-footer-dark-true-100.png)
 

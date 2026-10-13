@@ -33,6 +33,18 @@ The 0.3 search changes use independently implemented behavioral references:
 references are copied, translated or bundled for 0.3. Existing ZTools/Tinycast
 license notices above remain applicable to prior references.
 
+## 0.4 behavioral references
+
+Compact/expanded behavior references Tinycast at
+`144727d2bb75b2e36d000b9f0f5563d359944463` (AGPL-3.0-or-later):
+[state/explicit expansion](https://github.com/abue-ammar/tinycast/blob/144727d2bb75b2e36d000b9f0f5563d359944463/Tinycast/Palette/PaletteCoordinator.swift#L139-L155),
+[hidden sizing/top anchor](https://github.com/abue-ammar/tinycast/blob/144727d2bb75b2e36d000b9f0f5563d359944463/Tinycast/Palette/PaletteWindowController.swift#L473-L492),
+and [collapsed Return guard](https://github.com/abue-ammar/tinycast/blob/144727d2bb75b2e36d000b9f0f5563d359944463/Tinycast/Palette/RootPaletteView.swift#L1482-L1489).
+The locked UI specification is reused as a design reference. MyCast independently
+implements the Go state decision and Windows own-window geometry; no Swift is
+copied or translated and no new dependency/native binary is bundled. Existing
+Tinycast license notices apply. See [design and evidence](docs/COMPACT_0.4.md).
+
 ## MyGo dependency
 
 - Source: https://github.com/egoist/mygo

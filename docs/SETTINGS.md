@@ -23,6 +23,11 @@ bindings cannot be silently redirected by reusing a shortcut path.
 - Appearance: dark, light or system. High contrast uses opaque surfaces and full
   text contrast. Native Acrylic availability and system changes require desktop
   validation; synthetic renderer evidence does not prove OS composition.
+- Compact on show: default off, including old files without `compact_on_show`.
+  Save keeps this call full and applies the preference on the next call. An empty
+  application query can then show search/footer at 108 DIP; type or press Down
+  to expand. Compact Enter cannot launch invisible rows. See
+  [0.4 behavior and acceptance](INCREMENTAL_ACCEPTANCE_0.4.md).
 - Application roots: at most 32 absolute local paths, one per line. Empty means
   the usual Windows application directories. Only `.lnk` and `.exe` are indexed,
   without following symlinks or reading document content. Root changes start a new

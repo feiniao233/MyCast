@@ -14,6 +14,11 @@ same mounted search editor, pre-Show dimensions, pending-geometry action guards
 and scrollable constrained settings/menus. Full local checks, controlled native
 64-cycle geometry/resource fixtures and 100%/150%/200% synthetic focus/input/
 visibility/work-area regressions pass; new actual desktop acceptance remains open.
+Integration commit `07a7d3a8a0ac15b73713a4faa3ba6026e358411c` also passes
+[exact Windows CI](https://github.com/feiniao233/MyCast/actions/runs/38464300823).
+Final candidate source/license/checksum/privacy/offline verification remains
+required. [Incremental acceptance](INCREMENTAL_ACCEPTANCE_0.4.md) separates
+controlled automation from actual desktop checks.
 
 `0.3.0-alpha.1` development starts from the reviewed 0.2 candidate
 `772885ed4c344baed8ce53cb32da1c4131be9fea` on `feat/0.3-search`.

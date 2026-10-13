@@ -11,7 +11,7 @@ checkout/account path. The packaging helper rejects a checkout-path leak.
 PowerShell 7:
 
 ```powershell
-./scripts/package-windows.ps1 -GoExe 'C:\path\to\official-go1.27.2\bin\go.exe' -Version 0.3.0-alpha.1
+./scripts/package-windows.ps1 -GoExe 'C:\path\to\official-go1.27.2\bin\go.exe' -Version 0.4.0-alpha.1
 ```
 
 The output is a version/commit-named ZIP and adjacent SHA256 text under `dist`.
@@ -45,10 +45,10 @@ separately if desired. Clipboard history has no disk file. Startup is default of
 if explicitly enabled, disable it from the registered executable before moving
 or uninstalling, removing only the owned MyCast.Launcher value.
 
-For the current development candidate use `-Version 0.3.0-alpha.1`. Its incremental
-acceptance guide is [INCREMENTAL_ACCEPTANCE_0.3.md](INCREMENTAL_ACCEPTANCE_0.3.md).
+For the current development candidate use `-Version 0.4.0-alpha.1`. Its incremental
+acceptance guide is [INCREMENTAL_ACCEPTANCE_0.4.md](INCREMENTAL_ACCEPTANCE_0.4.md).
 The optional display snapshot also lives at `%APPDATA%\MyCast\startup-snapshot.json`;
 disable/clear it in Settings before optional own-data cleanup or a downgrade.
-The published 0.1 artifact and separate 0.2 candidate remain unchanged; a new candidate ZIP is not a tag,
+The published 0.1 artifact and separate 0.2/0.3 candidates remain unchanged; a new candidate ZIP is not a tag,
 main merge or Release publication. New Windows interactions remain unverified
 until the user records their results on the exact candidate.

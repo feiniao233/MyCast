@@ -426,13 +426,18 @@ Actual desktop Shift+F10/IME acceptance remains not tested.
 
 Compact/expanded scope and compatibility design: [COMPACT_0.4.md](COMPACT_0.4.md).
 Pure state truth table/transitions and old-config/opt-in/opt-out temporary-store
-tests pass, as do full local verify/test/vet/Windows GUI build. Native/DPI checks
-are pending. Actual multi-monitor/work-area/
+tests pass, as do full local verify/test/vet/Windows GUI build. Stage 2 native/DPI
+fixture evidence follows. Actual multi-monitor/work-area/
 IME behavior remains not tested; no display configuration is changed.
 Integrated compact/expanded, hidden/transition Enter, first Down selection,
 mounted search focus/composition, layer access/Esc/reopen, stable refresh, and
 320-DIP settings/menu/first-last result tests pass at synthetic 100%/150%/200%.
-Owned hidden window/real MyGo geometry and 64-cycle GDI/input checks pass;
+Owned hidden window/real MyGo geometry and 64-cycle USER/GDI/input checks pass;
 full local verify/test/vet/GUI build passes. Native DPI matrix and actual
 multi-monitor/work-area/IME interaction remains not tested.
+
+Integration commit `07a7d3a8a0ac15b73713a4faa3ba6026e358411c` passed
+[exact Windows CI](https://github.com/feiniao233/MyCast/actions/runs/38464300823),
+including owned native size/icon/key fixtures and packaging. Final candidate
+verification remains separate; use [0.4 incremental acceptance](INCREMENTAL_ACCEPTANCE_0.4.md).
 
