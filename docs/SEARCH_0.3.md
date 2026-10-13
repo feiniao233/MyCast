@@ -68,6 +68,13 @@ immediate `MyGoSurface` refuses repeated Enter/Esc/menu/F10 actions outside
 composition, preserving first presses, navigation/text repeats, key releases and
 system-key handling. IMM notifications and active UI-field composition pass
 through. No global hook, keyboard injection or foreign-window subclass exists.
+
+Review follow-up covers F10's real `WM_SYSKEYDOWN` delivery too: repeated F10
+with no Alt context (including Shift+F10) is consumed outside composition.
+The Alt-context flag, first press, all other system keys (including Alt+F4) and
+IME pass through. Both the owned native receiver and actual hidden MyGoSurface
+fixture now send `WM_SYSKEYDOWN`, rather than assuming F10 is only `WM_KEYDOWN`.
+See the [system-key message contract](https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-syskeydown).
 Only the System32 `comctl32.dll` is loaded; numeric ownership tokens keep Go
 pointers out of native reference data, and explicit removal/WM_NCDESTROY clean up.
 Failure retains the original input path and displays an unavailable warning.

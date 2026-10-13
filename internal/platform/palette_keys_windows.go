@@ -145,7 +145,16 @@ func (g *PaletteKeyGuard) Close() bool {
 	return true
 }
 func suppressPaletteRepeat(message, key, flags uintptr, composing bool) bool {
-	return message == 0x100 && flags&(1<<30) != 0 && !composing && (key == 0x0d || key == 0x1b || key == 0x5d || key == 0x79)
+	if flags&(1<<30) == 0 || composing {
+		return false
+	}
+	if message == 0x104 {
+		// F10 (including Shift+F10) is also delivered as WM_SYSKEYDOWN.
+		// Bit 29 denotes Alt context: preserve Alt+F10 and every other
+		// system key, including Alt+F4. No global modifier/key injection.
+		return key == 0x79 && flags&(1<<29) == 0
+	}
+	return message == 0x100 && (key == 0x0d || key == 0x1b || key == 0x5d || key == 0x79)
 }
 func paletteKeySubclass(hwnd, message, wp, lp, id, reference uintptr) uintptr {
 	keyGuardMu.Lock()

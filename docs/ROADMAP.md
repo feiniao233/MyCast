@@ -18,6 +18,8 @@ Independent snapshot review follow-up converges pending rows after separately
 recovered sources through one serialized complete review, and drains queued clear
 without exit-time UI callbacks. Slow-write/clear/quit and scoped-recovery tests
 pass; shutdown clear waits are bounded and timeout is reported honestly.
+F10 review follow-up also protects its native WM_SYSKEYDOWN repeat path, retaining
+Alt/system-key and IME handling, with real message-type/native MyGo fixtures.
 
 The independent review follow-up separates AUMIDs during file scanning, keeps
 property failures distinct from successful empty values, and gives each Tab-focus

@@ -418,4 +418,7 @@ sources -> full review -> missing pending removal without launch authority, and
 slow write -> clear -> normal shutdown without UI dispatch. Clear timeout returns
 an explicit bounded failure; abrupt termination/deletion on arbitrary filesystems
 is not guaranteed.
+F10 repeat checks include native WM_SYSKEYDOWN and the real hidden MyGo surface;
+first press, Alt+F10/other system keys, Alt+F4 and composing messages pass through.
+Actual desktop Shift+F10/IME acceptance remains not tested.
 

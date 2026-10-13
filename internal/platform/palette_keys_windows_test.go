@@ -12,8 +12,16 @@ import (
 
 func TestPaletteRepeatClassification(t *testing.T) {
 	for _, key := range []uintptr{0x0d, 0x1b, 0x5d, 0x79} {
-		if !suppressPaletteRepeat(0x100, key, 1<<30, false) || suppressPaletteRepeat(0x100, key, 0, false) || suppressPaletteRepeat(0x101, key, 1<<30, false) || suppressPaletteRepeat(0x104, key, 1<<30, false) || suppressPaletteRepeat(0x100, key, 1<<30, true) {
+		if !suppressPaletteRepeat(0x100, key, 1<<30, false) || suppressPaletteRepeat(0x100, key, 0, false) || suppressPaletteRepeat(0x101, key, 1<<30, false) || suppressPaletteRepeat(0x100, key, 1<<30, true) {
 			t.Fatal("repeat/IME classification", key)
+		}
+	}
+	if !suppressPaletteRepeat(0x104, 0x79, 1<<30, false) || suppressPaletteRepeat(0x104, 0x79, (1<<30)|(1<<29), false) || suppressPaletteRepeat(0x104, 0x79, 0, false) || suppressPaletteRepeat(0x104, 0x79, 1<<30, true) {
+		t.Fatal("system F10 repeat/Alt/first/IME classification")
+	}
+	for _, key := range []uintptr{0x0d, 0x1b, 0x5d, 0x73, 0x41} {
+		if suppressPaletteRepeat(0x104, key, 1<<30, false) || suppressPaletteRepeat(0x104, key, (1<<30)|(1<<29), false) {
+			t.Fatal("other system key changed", key)
 		}
 	}
 	for _, key := range []uintptr{0x26, 0x28, 0x08, 0x20, 0x41} {
@@ -71,9 +79,16 @@ func TestPaletteRepeatNativeSubclassOwnershipAndCleanup(t *testing.T) {
 		}
 	}
 	before := count
+	send.Call(hwnd, 0x104, 0x79, 0)
+	send.Call(hwnd, 0x104, 0x79, 1<<30)
+	send.Call(hwnd, 0x104, 0x79, (1<<30)|(1<<29))
+	if count != before+2 {
+		t.Fatal("real system F10 message bypassed repeat or blocked Alt/first")
+	}
+	before = count
 	send.Call(hwnd, 0x100, 0x28, 1<<30)
 	send.Call(hwnd, 0x101, 0x0d, 1<<30)
-	send.Call(hwnd, 0x104, 0x73, 1<<30)
+	send.Call(hwnd, 0x104, 0x73, (1<<30)|(1<<29)) // Alt+F4 system context.
 	if count != before+3 {
 		t.Fatal("navigation/release/system keys changed")
 	}
@@ -89,6 +104,13 @@ func TestPaletteRepeatNativeSubclassOwnershipAndCleanup(t *testing.T) {
 	send.Call(hwnd, 0x100, 0x1b, 1<<30)
 	if count != before+1 {
 		t.Fatal("UI composing key consumed")
+	}
+	guard.SetComposing(false)
+	guard.SetComposing(true)
+	before = count
+	send.Call(hwnd, 0x104, 0x79, 1<<30)
+	if count != before+1 {
+		t.Fatal("composing system F10 was consumed")
 	}
 	guard.SetComposing(false)
 	if !guard.Close() || !guard.Close() {

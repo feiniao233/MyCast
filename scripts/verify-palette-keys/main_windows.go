@@ -43,9 +43,15 @@ func main() {
 			failure = fmt.Errorf("repeated actions reached owned MyGo surface")
 			return
 		}
+		send.Call(surface, 0x104, 0x79, 1<<30) // Real WM_SYSKEYDOWN F10, no Alt context.
+		if guard.SuppressedCount() != 5 {
+			failure = fmt.Errorf("repeated system F10 reached MyGo surface")
+			return
+		}
 		guard.SetComposing(true)
 		send.Call(surface, 0x100, 0x0d, 1<<30)
-		if guard.SuppressedCount() != 4 {
+		send.Call(surface, 0x104, 0x79, 1<<30)
+		if guard.SuppressedCount() != 5 {
 			failure = fmt.Errorf("composing key was consumed")
 			return
 		}
