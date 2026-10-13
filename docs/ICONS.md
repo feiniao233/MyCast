@@ -5,7 +5,7 @@ chevron folds, cyan-to-blue ink and a dark indigo rounded tile. The exterior is
 transparent. It contains no font, copied logo, desktop image or glass effect.
 The canonical source is `assets/brand/mycast.svg` inside the bundled
 corresponding-source ZIP (extract that archive to browse the assets locally).
-Online source: [mycast.svg at the original icon commit](https://github.com/feiniao233/MyCast/blob/b98706c83891aa43daea238a585315c34d780b5a/assets/brand/mycast.svg).
+Online source: [mycast.svg at the original icon commit](https://github.com/feiniao233/MyCast/blob/ea391781268bcb5ce6f80aa1b5da80fa5ba91e5c/assets/brand/mycast.svg).
 It is licensed with the repository under AGPL-3.0-or-later.
 
 ![Synthetic original icon, light/dark backgrounds and true pixel sizes](previews/mycast-icon.png)

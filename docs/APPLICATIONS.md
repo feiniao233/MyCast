@@ -142,12 +142,37 @@ If the selected application disappears, a nearby valid item is highlighted;
 activation requires explicit selection/navigation so a pending old Enter/primary
 action cannot launch its replacement. Result rows keep stable identity keys.
 
+When zero new applications coincide with a failed root, the background worker
+rechecks prior known source paths and freshly readable ordinary shortcut metadata.
+The UI retains unknown entries but removes IDs whose absence was confirmed; an
+unrelated failed root cannot restore those deleted targets. No cached target alone
+is treated as proof, and cancelled generations still do not publish.
+
+An explicit new show session resets the deleted-selection guard with the default
+query/selection. Row, primary and action widgets use presentation-specific keys
+so a held pointer release cannot transfer from the prior session. Fresh Enter
+after the new presentation is tested; native cross-session OS key queues are not
+claimed verified. Within the same presentation, the lost-selection guard remains.
+
+The results scroll viewport is clipped between the fixed header and footer.
+Content padding preserves row positions and scroll extent; neither fixed bar can
+show result ink behind its text. The overall Acrylic/scrim and widget semantic
+theme surfaces remain unchanged.
+
 Dedicated COM shortcuts and inert executables test final-file/ancestor deletion,
 source deletion, unchanged shortcut bytes, special semantics and stale preferences.
 Headless 100%/150% tests cover scrolling/typing during a worker, mode changes,
 changed row heights, deleted anchors/selections, old pointer releases, empty
 results, cancel/error/budget feedback and serialized rapid requests. These are
 synthetic fixtures, not a scan of any user's installed applications.
+Keyboard coverage sends Enter after refresh; it does not directly exercise a
+native same-frame queued key boundary. Held pointer releases are exercised across
+both refresh and explicit hide/show, and raster comparisons check that changing
+result text cannot alter header/footer pixels at 100%/150%.
+The COM metadata wrapper declares its uintptr-pointer escape contract and passes
+output buffers directly, preserving heap/liveness through wrapper stack growth.
+Native repeated flags/persistence/read-only/deletion fixtures exercise that ABI;
+missing interface outputs become errors rather than nil-pointer dereferences.
 Previews: [scanning 100%](previews/rescan-progress-100.png),
 [150%](previews/rescan-progress-150.png),
 [completed 100%](previews/rescan-complete-100.png),

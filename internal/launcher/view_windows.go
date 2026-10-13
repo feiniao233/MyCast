@@ -385,8 +385,8 @@ func (s *launcher) view(c *ui.Context) {
 		} else {
 			s.selected = max(0, min(s.selected, count-1))
 		}
-		ui.Scroll(c.Key("results")).Fill().TrackScroll(&s.scroll).Children(func() {
-			ui.Column(c).FillWidth().Shrink(0).Padding(palette.Header+palette.Inset, palette.Inset, palette.Footer+palette.Inset).Gap(palette.RowGap).Children(func() {
+		ui.Scroll(c.Key("results")).Fill().Margin(palette.Header, 0, palette.Footer).Clip().TrackScroll(&s.scroll).Children(func() {
+			ui.Column(c).FillWidth().Shrink(0).Padding(palette.Inset).Gap(palette.RowGap).Children(func() {
 				ui.Row(c).Height(palette.SectionHeight-palette.RowGap).Shrink(0).Padding(0, palette.RowInset).Children(func() {
 					label := "应用"
 					if s.query != "" {
@@ -415,7 +415,7 @@ func (s *launcher) view(c *ui.Context) {
 				}
 				for i, row := range rows {
 					index, item := i, row
-					button := ui.ButtonBase(c.Key(item.key)).FillWidth().Height(item.height).Shrink(0).Padding(palette.RowPaddingY, palette.RowInset).Gap(palette.Gap).Justify(ui.Start).AlignItems(ui.Center).Radius(palette.RowRadius).Label("结果：" + item.title).Disabled(s.menu != menuClosed || s.settingsOpen || menuLost)
+					button := ui.ButtonBase(c.Key(fmt.Sprintf("presentation-%d-%s", s.presentation, item.key))).FillWidth().Height(item.height).Shrink(0).Padding(palette.RowPaddingY, palette.RowInset).Gap(palette.Gap).Justify(ui.Start).AlignItems(ui.Center).Radius(palette.RowRadius).Label("结果：" + item.title).Disabled(s.menu != menuClosed || s.settingsOpen || menuLost)
 					if !c.Preferences().HighContrast {
 						button.Opacity(rowOpacity(item.top-s.scroll.Y, item.height, height, s.scroll.Y, s.scroll.MaxY-s.scroll.Y))
 					}
@@ -538,7 +538,7 @@ func (s *launcher) view(c *ui.Context) {
 			ui.Spacer(c)
 			ui.Row(c).Height(palette.MenuButton).Shrink(0).Padding(palette.ControlInset).Gap(palette.RowGap).Radius(palette.MenuButton/2).Background(palette.Control).Border(1, palette.Border).Children(func() {
 				label, _ := s.primaryLabels()
-				primary := barAction(c.Key("primary-action"), label, count == 0 || s.menu != menuClosed || s.settingsOpen || selectionLost || s.clipNeedsSelection || (!s.clipboardMode && s.appNeedsSelection))
+				primary := barAction(c.Key(fmt.Sprintf("primary-action-%d", s.presentation)), label, count == 0 || s.menu != menuClosed || s.settingsOpen || selectionLost || s.clipNeedsSelection || (!s.clipboardMode && s.appNeedsSelection))
 				primary.Children(func() {
 					ui.Text(c, label).FontSize(palette.BodySize).FixedLineHeight(palette.ControlLine).SingleLine().Bold().Label("底栏主操作文字")
 					ui.Box(c).Size(palette.KeyCap, palette.KeyCap).Center().Radius(palette.KeyCapRadius).Background(palette.Control).Label("底栏快捷键胶囊").Children(func() {
@@ -548,7 +548,7 @@ func (s *launcher) view(c *ui.Context) {
 				if primary.Clicked() {
 					s.activate(apps, clips, false)
 				}
-				action := barAction(c.Key("actions-toggle"), "操作", s.settingsOpen || selectionLost || s.clipNeedsSelection || (!s.clipboardMode && s.appNeedsSelection))
+				action := barAction(c.Key(fmt.Sprintf("actions-toggle-%d", s.presentation)), "操作", s.settingsOpen || selectionLost || s.clipNeedsSelection || (!s.clipboardMode && s.appNeedsSelection))
 				action.Children(func() {
 					ui.Text(c, "操作").FontSize(palette.BodySize).FixedLineHeight(palette.ControlLine).SingleLine().TextColor(palette.Secondary).Label("底栏操作文字")
 				})

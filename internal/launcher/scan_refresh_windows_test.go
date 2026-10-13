@@ -8,12 +8,15 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/egoist/mygo/ui"
 	"github.com/feiniao233/MyCast/internal/core"
+	"github.com/feiniao233/MyCast/internal/platform"
 	"github.com/feiniao233/MyCast/internal/settings"
 )
 
@@ -349,5 +352,132 @@ func TestSuccessfulRescanKeepsImportantDiagnosticWithoutGrowingHistory(t *testin
 	s.completeScan(s.apps, nil, nil, nil)
 	if !strings.Contains(s.status, "Dedicated newer user feedback") || strings.Contains(s.status, "Dedicated startup hotkey unavailable") {
 		t.Fatal("scan restored old feedback over a newer action")
+	}
+}
+
+func TestZeroResultsWithAnotherFailedRootDoesNotReviveConfirmedMissingApp(t *testing.T) {
+	root := t.TempDir()
+	links := filepath.Join(root, "links")
+	if err := os.Mkdir(links, 0700); err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(links, "PicGo.lnk")
+	target := filepath.Join(root, "PicGo.exe")
+	for _, path := range []string{link, target} {
+		if err := os.WriteFile(path, []byte("dedicated inert fixture"), 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	launch := core.LaunchIdentity{Target: target}
+	options := core.DefaultScanOptions()
+	options.AllowPath = platform.LocalAppPath
+	options.IncludeResolvedTarget = platform.IncludeApplicationTarget
+	roots := []string{links, filepath.Join(root, "UnavailableRoot")}
+	resolve := func(string) (core.LaunchIdentity, error) { return launch, nil }
+	first, _ := core.IndexApplicationsWithOptions(context.Background(), roots, resolve, options)
+	if len(first) != 1 {
+		t.Fatal("initial dedicated application missing")
+	}
+	if err := os.Remove(target); err != nil {
+		t.Fatal(err)
+	}
+	s := syntheticLauncher()
+	s.apps = first
+	s.config = settings.Defaults()
+	s.config.IndexRoots = roots
+	callbacks := make(chan func(), 1)
+	s.uiUpdate = func(fn func()) { callbacks <- fn }
+	s.scanWork = func(ctx context.Context, roots []string) ([]core.Application, map[string]*ui.Bitmap, []error) {
+		apps, errs := core.IndexApplicationsWithOptions(ctx, roots, resolve, options)
+		if len(apps) != 0 || len(errs) == 0 {
+			t.Error("mixed-root zero result not reproduced")
+		}
+		return apps, nil, errs
+	}
+	s.scanMissing = func(ctx context.Context, previous []core.Application) map[string]bool {
+		missing := map[string]bool{}
+		for _, app := range previous {
+			if !platform.IncludeApplicationTarget(launch) {
+				missing[app.ItemID()] = true
+			}
+		}
+		return missing
+	}
+	s.scan()
+	awaitScanUI(t, callbacks)
+	if len(s.apps) != 0 || !strings.Contains(s.status, "移除 1 个") || !strings.Contains(s.status, "无法读取") {
+		t.Fatal("failed secondary root revived confirmed missing application")
+	}
+	// No absence proof means an unavailable source stays cached.
+	s.apps = first
+	s.completeScan(nil, nil, []error{errors.New("dedicated access denied")}, nil, map[string]bool{})
+	if len(s.apps) != 1 {
+		t.Fatal("unconfirmed permission failure erased cached entry")
+	}
+}
+
+func TestExplicitShowResetsSelectionGuardAndDiscardsOldPointerSession(t *testing.T) {
+	s := syntheticLauncher()
+	var launched []string
+	s.launchApplication = func(path string) error { launched = append(launched, path); return nil }
+	tester := newPaletteTester(s, 1)
+	s.selected = 2
+	s.refreshApplications(append(append([]core.Application{}, s.apps[:2]...), s.apps[3:]...), nil)
+	if !s.appNeedsSelection {
+		t.Fatal("deleted selection guard missing")
+	}
+	s.hide()
+	s.show(false)
+	tester.Frame()
+	tester.Key(0, ui.KeyEnter)
+	if s.appNeedsSelection || len(launched) != 1 || launched[0] != s.apps[0].Path {
+		t.Fatal("fresh explicit presentation kept prior deleted-selection guard")
+	}
+	r, ok := tester.Find("打开应用")
+	if !ok {
+		t.Fatal("primary absent")
+	}
+	tester.Press(r.X+r.W/2, r.Y+r.H/2)
+	s.hide()
+	s.show(false)
+	tester.Frame()
+	tester.Release(r.X+r.W/2, r.Y+r.H/2)
+	if len(launched) != 1 {
+		t.Fatal("held pointer activation crossed presentation session")
+	}
+}
+
+func TestResultInkCannotPaintUnderHeaderOrFooterDPI(t *testing.T) {
+	for _, scale := range []float32{1, 1.5} {
+		t.Run(fmt.Sprintf("dpi-%03d", int(scale*100)), func(t *testing.T) {
+			s := syntheticLauncher()
+			s.query = "Synthetic"
+			s.scanning = true
+			s.scroll.Y = 400
+			tester := newPaletteTester(s, scale)
+			before := tester.Image()
+			pixels := append([]byte(nil), before.Pix...)
+			for i := range s.apps {
+				s.apps[i].Name = fmt.Sprintf("Alternate label %02d", i)
+				s.apps[i].Aliases = []string{"Synthetic"}
+			}
+			tester.Frame()
+			after := tester.Image()
+			headerEnd := int(palette.Header*scale) - 2
+			footerStart := after.Bounds().Dy() - int(palette.Footer*scale) + 2
+			for y := 0; y < after.Bounds().Dy(); y++ {
+				if y >= headerEnd && y < footerStart {
+					continue
+				}
+				for x := 0; x < after.Bounds().Dx(); x++ {
+					off := y*after.Stride + x*4
+					for channel := 0; channel < 4; channel++ {
+						if pixels[off+channel] != after.Pix[off+channel] {
+							t.Fatalf("result ink painted under fixed bar at %d,%d", x, y)
+						}
+					}
+				}
+			}
+		})
 	}
 }

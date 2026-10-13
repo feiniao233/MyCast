@@ -80,6 +80,38 @@ func TestNativeRescanDropsDeletedExeAndShortcutWithoutRepair(t *testing.T) {
 	}
 }
 
+func TestMissingFallbackUsesFreshLinkAndRetainsSpecialSource(t *testing.T) {
+	root := t.TempDir()
+	target := filepath.Join(root, "Live.exe")
+	link := filepath.Join(root, "Fixture.lnk")
+	if err := os.WriteFile(target, nil, 0600); err != nil {
+		t.Fatal(err)
+	}
+	launch := core.LaunchIdentity{Target: target, ShowCommand: 1}
+	createTestShortcut(t, link, launch)
+	app := core.Application{Path: link, Launch: core.LaunchIdentity{Target: filepath.Join(root, "OldGone.exe")}}
+	if ConfirmedMissingApplication(app) {
+		t.Fatal("cached missing target overrode freshly readable live link")
+	}
+	if err := os.Remove(target); err != nil {
+		t.Fatal(err)
+	}
+	if !ConfirmedMissingApplication(app) {
+		t.Fatal("fresh ordinary missing target not proven")
+	}
+	launch.LinkFlags = 0x2000
+	createTestShortcut(t, link, launch)
+	if ConfirmedMissingApplication(app) {
+		t.Fatal("special source was mistaken for missing")
+	}
+	if err := os.Remove(link); err != nil {
+		t.Fatal(err)
+	}
+	if !ConfirmedMissingApplication(app) {
+		t.Fatal("confirmed deleted source not proven")
+	}
+}
+
 func TestPresenceMissingLeafAndAncestorStopBeforeChild(t *testing.T) {
 	for _, missingErr := range []error{syscall.ERROR_FILE_NOT_FOUND, syscall.ERROR_PATH_NOT_FOUND} {
 		for _, missing := range []string{`C:\Fixture\PicGo.exe`, `C:\Fixture`} {

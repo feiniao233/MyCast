@@ -1,5 +1,11 @@
 # Windows UI feedback repair
 
+The rescan follow-up clips the result viewport between the header and footer.
+This removes the low-alpha result text previously showing behind fixed-bar text
+in synthetic renders, while retaining the overall native Acrylic/scrim behavior.
+100%/150% pixel regressions prove that changing result ink does not change pixels
+inside those bars; these are renderer checks, not desktop screenshots.
+
 Review branch: `fix/windows-ui-feedback`, based on
 `9017fade4a975a7addbfae3e05a0975eb60f4dc3`.
 

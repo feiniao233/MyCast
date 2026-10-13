@@ -9,7 +9,32 @@ import (
 	"strings"
 	"syscall"
 	"unsafe"
+
+	"github.com/feiniao233/MyCast/internal/core"
 )
+
+// ConfirmedMissingApplication probes only the known indexed source and, for
+// an ordinary readable shortcut, its freshly read executable metadata. Cached
+// targets cannot prove absence after a link has been edited. No Resolve/repair.
+func ConfirmedMissingApplication(app core.Application) bool {
+	ext := filepath.Ext(app.Path)
+	if !strings.EqualFold(ext, ".lnk") && !strings.EqualFold(ext, ".exe") {
+		return false
+	}
+	state, _ := localApplicationPresence(app.Path)
+	if state == applicationMissing {
+		return true
+	}
+	if state != applicationPresent || !strings.EqualFold(ext, ".lnk") {
+		return false
+	}
+	launch, err := ShortcutIdentity(app.Path)
+	if err != nil || launch.Independent || !filepath.IsAbs(launch.Target) || (launch.WorkingDirectory != "" && !filepath.IsAbs(launch.WorkingDirectory)) || !strings.EqualFold(filepath.Ext(launch.Target), ".exe") {
+		return false
+	}
+	state, _ = localApplicationPresence(launch.Target)
+	return state == applicationMissing
+}
 
 type applicationPresence uint8
 

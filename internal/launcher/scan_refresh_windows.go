@@ -26,7 +26,7 @@ func (s *launcher) statusMessage() string {
 	return progress
 }
 
-func (s *launcher) completeScan(apps []core.Application, icons map[string]*ui.Bitmap, problems []error, workerErr error) {
+func (s *launcher) completeScan(apps []core.Application, icons map[string]*ui.Bitmap, problems []error, workerErr error, missingSets ...map[string]bool) {
 	// Retain important/newer diagnostics without appending old scan summaries.
 	if s.status != s.scanLastStatus {
 		s.scanDiagnostic = s.status
@@ -41,8 +41,28 @@ func (s *launcher) completeScan(apps []core.Application, icons map[string]*ui.Bi
 	switch {
 	case cancelled:
 		summary = "扫描已取消，保留当前结果。"
-	case len(apps) == 0 && len(problems) > 0 && !budget:
-		summary = fmt.Sprintf("扫描失败：%d 个位置无法读取，保留当前结果。", len(problems))
+	case len(apps) == 0 && (len(problems) > 0 || budget):
+		var missing map[string]bool
+		if len(missingSets) > 0 {
+			missing = missingSets[0]
+		}
+		retained := make([]core.Application, 0, len(s.apps))
+		removed := 0
+		for _, app := range s.apps {
+			if missing[app.ItemID()] {
+				removed++
+				continue
+			}
+			retained = append(retained, app)
+		}
+		if removed > 0 {
+			s.refreshApplications(retained, s.icons)
+			summary = fmt.Sprintf("扫描部分完成：移除 %d 个已确认失效入口；%d 个位置无法读取，保留未确认项。", removed, len(problems))
+		} else if budget {
+			summary = "扫描达到数量或时限预算，保留当前结果。"
+		} else {
+			summary = fmt.Sprintf("扫描失败：%d 个位置无法读取，保留当前结果。", len(problems))
+		}
 	default:
 		s.refreshApplications(core.WithUserAliases(apps, s.config.Aliases), icons)
 		summary = fmt.Sprintf("扫描完成：索引 %d 个应用。", len(apps))

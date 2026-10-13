@@ -233,9 +233,14 @@ reparse/unknown states and prove no deeper access after a refused/missing ancest
 
 Headless 100%/150% tests preserve the publication-time query, selected ID, visible
 anchor/offset and search focus while a worker runs. They cover subtitle height
-changes, missing anchors/selection, queued old Enter/primary/pointer events,
+changes, missing anchors/selection, Enter/primary actions after refresh and held pointer releases,
 clipboard/app mode switches, empty results and cancel/error/partial/budget status.
 One-worker rapid-request regression remains in place. Launch failures request a
 fresh scan and do not blindly delete unconfirmed targets. See [details/previews](APPLICATIONS.md#confirmed-removed-executables-and-rescanning).
 Actual installed-app/UI screenshot versions and target metadata are not inferred
 from reported images; these tests do not prove a particular user's desktop rescan.
+Additional regressions cover zero results plus a failed secondary root without
+reviving a confirmed missing target, fresh shortcut metadata in fallback probes,
+explicit hide/show guard reset, old held-pointer session isolation and list ink
+clipping away from header/footer. Keyboard input after refresh is tested; a
+native same-frame queued Enter boundary is not directly tested.

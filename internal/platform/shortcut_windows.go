@@ -28,7 +28,15 @@ var (
 	shellLinkDataInterface   = comGUID{0x45e2b4ae, 0xb1c3, 0x11d0, [8]byte{0xb9, 0x2f, 0, 0xa0, 0xc9, 3, 0x12, 0xe1}}
 )
 
+// uintptr arguments can carry Go output/string pointers. Match the syscall
+// wrapper's contract so the compiler keeps those pointees on the heap/alive
+// across stack growth in this wrapper and the native call.
+//
+//go:uintptrescapes
 func (o *comObject) call(index int, args ...uintptr) uintptr {
+	if o == nil || o.methods == nil || index < 0 || index >= len(o.methods) || o.methods[index] == 0 {
+		return uintptr(0x80004003)
+	} // E_POINTER
 	params := append([]uintptr{uintptr(unsafe.Pointer(o))}, args...)
 	result, _, _ := syscall.SyscallN(o.methods[index], params...)
 	runtime.KeepAlive(o)
@@ -58,10 +66,16 @@ func ShortcutIdentity(path string) (core.LaunchIdentity, error) {
 	if err := comError("create shortcut reader", hr); err != nil {
 		return core.LaunchIdentity{}, err
 	}
+	if link == nil {
+		return core.LaunchIdentity{}, fmt.Errorf("shortcut reader returned no interface")
+	}
 	defer link.call(2)
 	var file *comObject
 	if err := comError("query shortcut persistence", link.call(0, uintptr(unsafe.Pointer(&persistFileInterface)), uintptr(unsafe.Pointer(&file)))); err != nil {
 		return core.LaunchIdentity{}, err
+	}
+	if file == nil {
+		return core.LaunchIdentity{}, fmt.Errorf("shortcut persistence returned no interface")
 	}
 	defer file.call(2)
 	encoded, err := syscall.UTF16PtrFromString(path)
@@ -74,11 +88,15 @@ func ShortcutIdentity(path string) (core.LaunchIdentity, error) {
 	runtime.KeepAlive(encoded)
 	read := func(index int, pathFlags bool) (string, error) {
 		buffer := make([]uint16, 32768)
-		args := []uintptr{uintptr(unsafe.Pointer(&buffer[0])), uintptr(len(buffer))}
+		var result uintptr
 		if pathFlags {
-			args = append(args, 0, 4)
-		} // SLGP_RAWPATH; do not resolve.
-		err := comError("read shortcut metadata", link.call(index, args...))
+			result = link.call(index, uintptr(unsafe.Pointer(&buffer[0])), uintptr(len(buffer)), 0, 4)
+		} else {
+			result = link.call(index, uintptr(unsafe.Pointer(&buffer[0])), uintptr(len(buffer)))
+		}
+		// SLGP_RAWPATH; direct conversions honor the uintptr escape contract.
+		runtime.KeepAlive(buffer)
+		err := comError("read shortcut metadata", result)
 		if buffer[len(buffer)-1] != 0 || buffer[len(buffer)-2] != 0 {
 			return "", fmt.Errorf("shortcut metadata exceeds reader limit")
 		}
@@ -104,6 +122,9 @@ func ShortcutIdentity(path string) (core.LaunchIdentity, error) {
 	var data *comObject
 	if err := comError("query shortcut launch flags", link.call(0, uintptr(unsafe.Pointer(&shellLinkDataInterface)), uintptr(unsafe.Pointer(&data)))); err != nil {
 		return core.LaunchIdentity{}, err
+	}
+	if data == nil {
+		return core.LaunchIdentity{}, fmt.Errorf("shortcut flags returned no interface")
 	}
 	defer data.call(2)
 	var flags uint32

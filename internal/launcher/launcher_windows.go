@@ -18,6 +18,8 @@ import (
 )
 
 type launcher struct {
+	presentation                                   uint64
+	scanMissing                                    func(context.Context, []core.Application) map[string]bool
 	scanLastStatus, scanDiagnostic                 string
 	appNeedsSelection                              bool
 	scanProgress, scanFailure                      string
@@ -126,6 +128,18 @@ func (s *launcher) ready() {
 	s.requestClose = s.win.Close
 	s.uiUpdate = s.win.Update
 	s.scanWork = s.readApps
+	s.scanMissing = func(ctx context.Context, previous []core.Application) map[string]bool {
+		missing := map[string]bool{}
+		for _, app := range previous {
+			if ctx.Err() != nil {
+				break
+			}
+			if platform.ConfirmedMissingApplication(app) {
+				missing[app.ItemID()] = true
+			}
+		}
+		return missing
+	}
 	s.win.OnClose(func(e *mygo.CloseEvent) {
 		if !s.quitting && s.tray != nil {
 			e.PreventDefault()
@@ -189,6 +203,8 @@ func (s *launcher) hide() {
 
 // Only a hotkey activation captures a paste target. Tray clicks never guess one.
 func (s *launcher) show(captureTarget bool) {
+	s.presentation++
+	s.appNeedsSelection = false
 	s.searchWasComposing = false
 	s.statusDetailsOpen, s.statusDetail = false, ""
 	if captureTarget {
@@ -241,8 +257,14 @@ func (s *launcher) scan() {
 	if len(roots) == 0 {
 		roots = platform.DefaultAppRoots()
 	}
+	previousApps := append([]core.Application(nil), s.apps...)
+	probeMissing := s.scanMissing
 	go func() {
 		apps, icons, errs := s.scanWork(ctx, roots)
+		var missing map[string]bool
+		if len(apps) == 0 && len(errs) > 0 && probeMissing != nil && ctx.Err() == nil {
+			missing = probeMissing(ctx, previousApps)
+		}
 		workerErr := ctx.Err()
 		cancel()
 		s.uiUpdate(func() {
@@ -259,7 +281,7 @@ func (s *launcher) scan() {
 				return
 			}
 			s.scanProgress = ""
-			s.completeScan(apps, icons, errs, workerErr)
+			s.completeScan(apps, icons, errs, workerErr, missing)
 		})
 	}()
 }

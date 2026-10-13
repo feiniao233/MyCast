@@ -29,6 +29,9 @@ func createTestShortcut(t *testing.T, path string, launch core.LaunchIdentity) {
 	if err := comError("create fixture", hr); err != nil {
 		t.Fatal(err)
 	}
+	if link == nil {
+		t.Fatal("fixture returned no link")
+	}
 	defer link.call(2)
 	for _, field := range []struct {
 		method int
@@ -55,6 +58,9 @@ func createTestShortcut(t *testing.T, path string, launch core.LaunchIdentity) {
 		if err := comError("query fixture flags", link.call(0, uintptr(unsafe.Pointer(&shellLinkDataInterface)), uintptr(unsafe.Pointer(&data)))); err != nil {
 			t.Fatal(err)
 		}
+		if data == nil {
+			t.Fatal("fixture returned no flags interface")
+		}
 		defer data.call(2)
 		var flags uint32
 		if err := comError("read fixture flags", data.call(6, uintptr(unsafe.Pointer(&flags)))); err != nil {
@@ -67,6 +73,9 @@ func createTestShortcut(t *testing.T, path string, launch core.LaunchIdentity) {
 	var file *comObject
 	if err := comError("persist fixture", link.call(0, uintptr(unsafe.Pointer(&persistFileInterface)), uintptr(unsafe.Pointer(&file)))); err != nil {
 		t.Fatal(err)
+	}
+	if file == nil {
+		t.Fatal("fixture returned no persistence interface")
 	}
 	defer file.call(2)
 	value, _ := syscall.UTF16PtrFromString(path)
