@@ -6,12 +6,12 @@ code, regression tests, build and stated manual checks have evidence.
 
 | Phase | Scope | Acceptance | Current state |
 | --- | --- | --- | --- |
-| 0 — Native foundation | Palette, tray, hotkey, keyboard/IME protection, shortcut identity, bounded in-memory clipboard | Build/test/vet; synthetic DPI/scroll/menu tests; actual Windows checks below | Code and local automated checks pass. UI alignment commit `0ec65e58a56e41ce96e79c8bf4c12bfd8491a546`; desktop interactions remain untested |
+| 0 — Native foundation | Palette, tray, hotkey, keyboard/IME protection, shortcut identity, bounded in-memory clipboard | Build/test/vet; synthetic DPI/scroll/menu tests; scoped actual Windows evidence | Code and local automated checks pass; Windows UI follow-ups and original taskbar/EXE icon are implemented. remaining native checks are accepted as deferred for this alpha |
 | 1 — Settings | Validated settings storage with same-directory replacement; configurable hotkey, dark/light/system theme, application roots | Invalid/corrupt settings recover safely; failed hotkey change retains access; no clipboard import or startup registration | Implemented with storage/rollback and headless DPI/input/theme tests; desktop hotkey conflict and native appearance remain untested. See [settings](SETTINGS.md) |
 | 2 — Finding applications | Favorites, successful-launch recents, stable ranking, aliases and offline pinyin search | No namesake or launch-semantic merging; repeated scans stay bounded; metadata saved only in app data | Implemented with identity/ranking/pinyin, bounded persistence and headless alias editor tests. See [applications](APPLICATIONS.md); actual app launch remains untested |
 | 3 — Clipboard usability | Full bounded text preview, individual/whole-history cleanup, optional memory retention controls | Recording disabled on session start; only future opt-in text; clearing and expiry remove memory entries | Implemented with deterministic expiry and synthetic DPI/scroll/copy/delete/selection tests. See [clipboard](CLIPBOARD.md); actual desktop collection/paste remains untested |
 | 4 — Small utilities | Safe local arithmetic and user-created HTTP(S) quicklinks | No code/shell evaluation; explicit copy/open actions; validated bounded input | Implemented with bounded parser/URL/storage and synthetic keyboard/DPI/mock-effect tests. See [utilities](UTILITIES.md); actual browser/copy remains untested |
-| 5 — Alpha hardening | Error recovery, settings migration, packaging, notices, checksums, docs and manual validation | Release checklist has no unresolved mandatory failures or untested items | Clean-commit package/checksums extracted and checked; vendored source rebuilt offline; full history and pinned notices checked. Public readiness remains blocked on actual Windows interaction evidence and final owner review |
+| 5 — Alpha hardening | Error recovery, settings migration, packaging, notices, checksums, docs and manual validation | Exact-commit checks pass; known untested limits explicitly accepted; owner reviews final artifact | Clean-commit packaging/checksums, offline vendored-source build and full history checks are in place. User accepted deferred Windows checks on 2026-10-13; final icon/experience review, exact-commit CI and coordinated publication remain |
 
 File-content search, window management, AI/network services, API keys and Raycast
 extension compatibility are outside the alpha requirements. Compact/expanded
@@ -31,9 +31,9 @@ DWM owns the outer corners, and footer glyphs use vectors with tested text ink.
 See [UI feedback evidence](UI_FEEDBACK.md). Synthetic validation cannot close the
 actual native material/corner and Microsoft Pinyin acceptance gates.
 
-The next small follow-up adds reliable full-status details and removes the unused
+The completed status follow-up adds reliable full-status details and removes the unused
 native caption-menu style on the palette, with explicit normal Alt+F4 close routing.
-Chinese display-name enhancement will follow in a separate change.
+Chinese display-name enhancement was implemented in a separate change.
 
 The independent Chinese-name follow-up reads bounded desktop.ini/resource data
 only for indexed application sources, prioritizes available Han display names,
@@ -46,3 +46,11 @@ limits long-query scattered matches, including polyphonic pinyin false positives
 It retains executable/CLI and unknown/special entrances without changing launch
 identity. GUI-only filtering and wrapper-argument interpretation are separate
 product decisions, not inferred from screenshots.
+
+The original Windows-icon follow-up adds the SVG/ICO/PE resource and MyGo
+small/large window icons, with the same artwork on the tray. See [icon evidence](ICONS.md).
+Native taskbar appearance is untested, rather than inferred from PE/ABI checks.
+
+The first alpha accepts the documented unverified native limitations after
+experience cleanup. This release decision does not convert untested checks into
+passes. Icon/experience review precedes coordinated publication.

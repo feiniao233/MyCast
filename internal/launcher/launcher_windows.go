@@ -5,18 +5,15 @@
 package launcher
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
-	"image"
-	"image/color"
-	"image/png"
 	"strings"
 	"time"
 
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
+	"github.com/feiniao233/MyCast/internal/branding"
 	"github.com/feiniao233/MyCast/internal/core"
 	"github.com/feiniao233/MyCast/internal/platform"
 	"github.com/feiniao233/MyCast/internal/settings"
@@ -116,6 +113,9 @@ func (s *launcher) ready() {
 		DisableResize: true, DisableMaximize: true, DisableMinimize: true,
 		SkipTaskbar: true, AlwaysOnTop: true, Content: ui.View(s.view),
 	})
+	if err := s.win.SetIcon(branding.WindowPNG()); err != nil {
+		s.status = "窗口图标加载失败：" + err.Error()
+	}
 	s.nativeCaptionRemoved = platform.RemovePaletteSystemMenu(s.win.NativeHandle())
 	appearance := platform.ConfigurePaletteWindow(s.win.NativeHandle())
 	s.appearanceChecked, s.nativeAcrylic = true, appearance.Acrylic
@@ -131,7 +131,7 @@ func (s *launcher) ready() {
 		}
 	})
 	var err error
-	s.tray, err = mygo.NewTray(mygo.TrayOptions{Icon: icon(), ToolTip: "MyCast · " + s.config.Hotkey})
+	s.tray, err = mygo.NewTray(mygo.TrayOptions{Icon: branding.TrayPNG(), ToolTip: "MyCast · " + s.config.Hotkey})
 	if err != nil {
 		// Keep a discoverable window if the tray cannot be created.
 		s.win.SetSkipTaskbar(false)
@@ -407,20 +407,4 @@ func (s *launcher) activate(apps []core.Application, clips []string, copyOnly bo
 		s.keepApplicationSelected(app.ItemID())
 		s.hide()
 	}
-}
-
-func icon() []byte {
-	im := image.NewNRGBA(image.Rect(0, 0, 32, 32))
-	for y := 3; y < 29; y++ {
-		for x := 3; x < 29; x++ {
-			ink := color.NRGBA{R: 87, G: 82, B: 232, A: 255}
-			if (x >= 8 && x <= 10) || (x >= 21 && x <= 23) || (y >= 8 && y <= 11 && x >= 10 && x <= 21) || (x >= 14 && x <= 17 && y >= 10 && y <= 18) {
-				ink = color.NRGBA{R: 255, G: 255, B: 255, A: 255}
-			}
-			im.SetNRGBA(x, y, ink)
-		}
-	}
-	var b bytes.Buffer
-	_ = png.Encode(&b, im)
-	return b.Bytes()
 }

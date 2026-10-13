@@ -30,8 +30,13 @@ compressed executable distribution. The corresponding-source ZIP is intentional.
 No tag, Release, repository visibility or main branch is changed by the helper.
 
 Windows 10/11 x64 are the intended alpha targets. The current build is unsigned.
-The actual keyboard/IME/tray/focus/clipboard/native material pass in ACCEPTANCE.md
-remains required before public readiness. Extract to an ordinary user-writable
+Remaining native checks are accepted limitations for this first alpha; preserve
+the unverified limits in ACCEPTANCE.md.
+Original-icon/experience review, exact-commit CI and owner publication remain.
+To prepare the owner's reviewed alpha candidate, use `-Version 0.1.0-alpha`;
+the helper still does not publish or declare native acceptance. It also verifies
+the EXE's group and eight icon PNGs against the canonical ICO before packaging.
+Extract to an ordinary user-writable
 directory and run without elevation. Quit before replacing/deleting the app.
 Ordinary data lives in `%APPDATA%\MyCast\settings.json`; remove only that own file
 separately if desired. No startup entry or clipboard-history file is installed.

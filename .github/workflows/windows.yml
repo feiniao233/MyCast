@@ -20,11 +20,17 @@ jobs:
         run: go test ./...
       - name: Vet
         run: go vet ./...
+      - name: Verify generated original icon
+        run: go run ./scripts/generate-icon -check
       - name: Build native Windows executable
         env:
           CGO_ENABLED: '0'
           GOARCH: amd64
         run: go build -trimpath -tags mygo_noinspector -ldflags '-H windowsgui -s -w' -o dist/MyCast.exe ./cmd/mycast
+      - name: Verify embedded PE icon sizes and content
+        run: go run ./scripts/verify-icon -exe dist/MyCast.exe
+      - name: Check MyGo native window icon ABI
+        run: go run -tags mygo_noinspector ./scripts/verify-window-icon
       - name: Package source notices and executable
         id: package
         shell: pwsh

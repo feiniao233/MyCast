@@ -2,6 +2,12 @@
 
 This checklist is a gate, not a claim that the alpha is ready.
 
+User decision on 2026-10-13: existing actual-Windows testing is sufficient for
+this first alpha after experience cleanup. Remaining IME/paste/tray/hotkey/DPI/
+multi-monitor coverage is explicitly accepted as deferred; preserve its partial
+or untested result. Final original-icon review and exact-commit automated/CI,
+privacy, license and package checks still apply. The owner coordinates publication.
+
 - [ ] All mandatory roadmap phases are implemented and reviewed.
 - [ ] Windows dependency verification, tests, vet and release-style build pass
       on the exact clean release commit; CI agrees.

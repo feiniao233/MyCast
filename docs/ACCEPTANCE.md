@@ -1,5 +1,22 @@
 # Acceptance evidence and current status
 
+## Alpha verification boundary
+
+Native IME, successful automatic paste, tray/hotkey, high-DPI and multi-monitor
+checks remain unverified or incomplete. These are accepted first-alpha limits,
+not passes. Exact-commit automated/CI/privacy/license/package checks and final
+owner review remain required before publication.
+
+## Original Windows icon
+
+The [original SVG, synthetic previews and reproducible pipeline](ICONS.md) cover
+eight transparent PNG/ICO sizes. The EXE verifier requires RT_GROUP_ICON and all
+eight RT_ICON payloads to match the source ICO. A dedicated hidden MyGo window
+checks valid small/large native handles and bitmap sizes, repeated replacement
+and restoration; it does not scan apps or touch clipboard/input. Local taskbar,
+Explorer/tray appearance, shell cache and DPI transitions are **not visually
+tested**, and are recorded separately from resource/ABI evidence.
+
 ## UI foundation
 
 Runtime/UI alignment commit: `0ec65e58a56e41ce96e79c8bf4c12bfd8491a546`.

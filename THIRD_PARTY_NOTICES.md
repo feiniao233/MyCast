@@ -2,6 +2,11 @@
 
 MyCast is distributed under GNU Affero General Public License version 3 or, at your option, any later version (AGPL-3.0-or-later). Copyright (C) 2026 MyCast contributors. See LICENSE.
 
+The original MyCast SVG/icon artwork and its generated assets are part of this
+repository under the same AGPL-3.0-or-later license. They contain no third-party
+logo or font. The synthetic preview labels use the existing x/image dependency;
+the actual icon has no lettering/font dependency.
+
 ## Tinycast
 
 - Source: https://github.com/abue-ammar/tinycast

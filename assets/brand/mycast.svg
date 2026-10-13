@@ -1,0 +1,15 @@
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later; original MyCast artwork. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="0" y2="32" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#304577"/>
+      <stop offset="1" stop-color="#182443"/>
+    </linearGradient>
+    <linearGradient id="mark" x1="0" y1="0" x2="0" y2="32" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#8af3ed"/>
+      <stop offset="1" stop-color="#38b9f3"/>
+    </linearGradient>
+  </defs>
+  <path fill="url(#tile)" d="M 9 2 L 23 2 Q 30 2 30 9 L 30 23 Q 30 30 23 30 L 9 30 Q 2 30 2 23 L 2 9 Q 2 2 9 2 Z"/>
+  <path fill="url(#mark)" d="M 7 23 L 7 9 L 11 9 L 16 14 L 21 9 L 25 9 L 25 23 L 21 23 L 21 16 L 16 21 L 11 16 L 11 23 Z"/>
+</svg>

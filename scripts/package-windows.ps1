@@ -13,6 +13,8 @@ if($LASTEXITCODE-ne 0 -or $taskGoVersion -notmatch '^go version go1\.27\.2 '){th
 $taskBinary=Join-Path $taskRepo 'dist\MyCast.exe'
 $taskMetadata=(& $GoExe version -m $taskBinary | Out-String)
 if($LASTEXITCODE-ne 0 -or $taskMetadata -notmatch '(?m)^.+:\s+go1\.27\.2\s*$' -or $taskMetadata -notmatch "vcs.revision=$taskCommit" -or $taskMetadata -notmatch 'vcs.modified=false' -or $taskMetadata -notmatch 'CGO_ENABLED=0' -or $taskMetadata -notmatch 'GOOS=windows' -or $taskMetadata -notmatch 'GOARCH=amd64' -or $taskMetadata -notmatch 'mygo_noinspector' -or $taskMetadata -notmatch 'github.com/egoist/mygo\s+v0\.4\.6'){throw 'Binary metadata must match the clean Windows amd64 commit and locked runtime'}
+& $GoExe run ./scripts/verify-icon -exe $taskBinary | Out-Host
+if($LASTEXITCODE-ne 0){throw 'Packaged executable icon differs from canonical source ICO'}
 $taskOutput=Join-Path $taskRepo 'dist'
 $taskStage=Join-Path $taskOutput ('package-stage-'+[guid]::NewGuid().ToString('N'))
 $taskPackage=Join-Path $taskStage 'package'

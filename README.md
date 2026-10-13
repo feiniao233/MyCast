@@ -2,11 +2,13 @@
 
 受 [Tinycast](https://github.com/abue-ammar/tinycast) 启发的 Windows 常驻启动器首版。采用 [MyGo](https://github.com/egoist/mygo) 的原生 Go UI，不使用 Electron、HTML 或 WebView 页面。
 
-> 当前为可审查的早期版本。Windows 原生交互、中文输入法、托盘及回填仍需在实际 Windows 10/11 桌面验证；编译通过不等于实机验收。
+> 当前为可审查的 alpha 候选版本。自动化检查与实机验收分别记录；中文输入法、成功回填、托盘/热键、高 DPI 和多屏尚未全部验证，首版 alpha 保留这些已知限制。编译通过不等于实机验收。
 
-Windows 0.1.0 alpha 按阶段推进，当前尚未宣称达到公开发布质量。参见 [roadmap](docs/ROADMAP.md)、[验收状态与最少人工步骤](docs/ACCEPTANCE.md)、[发布检查](docs/RELEASE_CHECKLIST.md) 和 [贡献约定](AGENTS.md)。
+Windows 0.1.0 alpha 正在完成图标和体验收尾，最终审查、精确提交 CI 和发布操作尚待完成。参见 [roadmap](docs/ROADMAP.md)、[验收状态与最少人工步骤](docs/ACCEPTANCE.md)、[发布检查](docs/RELEASE_CHECKLIST.md) 和 [贡献约定](AGENTS.md)。
 
 ## 界面预览
+
+原创任务栏/窗口/EXE/托盘图标采用深靛蓝底与青蓝几何 M。其 [浅深背景及小尺寸预览](docs/previews/mycast-icon.png) 是合成图；[SVG、资源生成与验证说明](docs/ICONS.md) 记录了八个尺寸和原生接口证据，真实任务栏显示仍未目视验证。
 
 以下图片由 MyGo 离屏渲染器生成，分别对应 100% 和 150% DPI。应用名称、路径与图标均为合成测试数据，不含用户真实应用清单；它们不是实机截图，也不代表真实桌面的热键、IME、托盘、焦点或回填已验收。
 
@@ -48,8 +50,10 @@ Windows PowerShell：
 go mod download
 go test ./...
 go vet ./...
+go run ./scripts/generate-icon -check
 $env:CGO_ENABLED = '0'
 go build -trimpath -tags mygo_noinspector -ldflags '-H windowsgui -s -w' -o dist/MyCast.exe ./cmd/mycast
+go run ./scripts/verify-icon -exe dist/MyCast.exe
 .\dist\MyCast.exe
 ```
 
