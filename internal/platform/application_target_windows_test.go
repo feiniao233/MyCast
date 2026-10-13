@@ -73,7 +73,7 @@ func TestApplicationTargetTypesWithoutNameBlacklist(t *testing.T) {
 	for _, test := range []struct {
 		name string
 		keep bool
-	}{{"Manual.exe", true}, {"Gui.html", false}, {"notes.txt", false}, {"CLI.exe", true}, {"script.cmd", true}, {"profile.ovpn", true}, {"Configuration", false}, {"Missing.exe", true}} {
+	}{{"Manual.exe", true}, {"Gui.html", false}, {"notes.txt", false}, {"CLI.exe", true}, {"script.cmd", true}, {"profile.ovpn", true}, {"Configuration", false}, {"Missing.exe", false}} {
 		if got := IncludeApplicationTarget(core.LaunchIdentity{Target: filepath.Join(root, test.name)}); got != test.keep {
 			t.Fatalf("target %s keep=%v", test.name, got)
 		}

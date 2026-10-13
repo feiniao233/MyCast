@@ -39,6 +39,7 @@ var menuGlyph = ui.MustParseSVG([]byte(`<svg xmlns="http://www.w3.org/2000/svg" 
 var returnGlyph = ui.MustParseSVG([]byte(`<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14"><path d="M11 3V8H3M6 5L3 8L6 11" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></svg>`))
 
 func (s *launcher) resetResults() {
+	s.appNeedsSelection = false
 	s.selected, s.lastScroll = 0, 0
 	s.scroll.X, s.scroll.Y = 0, 0
 	s.clipSelection = ""
@@ -111,6 +112,9 @@ func (s *launcher) runMenuTarget(key string, clipboard bool, action string) {
 		return
 	}
 	s.selected = index
+	if !clipboard {
+		s.appNeedsSelection = false
+	}
 	switch action {
 	case "primary":
 		s.activate(apps, clips, false)
@@ -331,6 +335,7 @@ func (s *launcher) view(c *ui.Context) {
 	c.SetTheme(launcherTheme(palette, dark))
 	c.Root().Background(ui.Transparent)
 	_, height := c.Size()
+	s.viewportHeight = height
 	background := palette.Fallback
 	if c.Vibrancy() && (!s.appearanceChecked || s.nativeAcrylic) {
 		background = palette.Scrim
@@ -439,8 +444,9 @@ func (s *launcher) view(c *ui.Context) {
 						ui.Text(c, item.kind).FontSize(palette.CaptionSize).TextColor(palette.Tertiary).Shrink(0)
 					})
 					if button.Clicked() {
-						needsSelection := s.clipboardMode && s.clipNeedsSelection
+						needsSelection := (s.clipboardMode && s.clipNeedsSelection) || (!s.clipboardMode && s.appNeedsSelection)
 						s.clipNeedsSelection = false
+						s.appNeedsSelection = false
 						s.selected = index
 						if !needsSelection {
 							s.activate(apps, clips, false)
@@ -498,10 +504,11 @@ func (s *launcher) view(c *ui.Context) {
 			}
 			if changed {
 				s.clipNeedsSelection = false
+				s.appNeedsSelection = false
 				s.reveal(rows, height)
 				s.lastScroll = s.selected
 			}
-			if !s.statusControl.Focused(c) && !selectionLost && !s.clipNeedsSelection && (field.Submitted() || c.Shortcut(0, ui.KeyEnter)) {
+			if !s.statusControl.Focused(c) && !selectionLost && !s.clipNeedsSelection && !s.appNeedsSelection && (field.Submitted() || c.Shortcut(0, ui.KeyEnter)) {
 				s.activate(apps, clips, false)
 			}
 		}
@@ -518,13 +525,10 @@ func (s *launcher) view(c *ui.Context) {
 			if s.clipboardMode {
 				mode = "剪贴板"
 			}
-			if s.scanning {
-				mode += " · 扫描中"
+			if message := s.statusMessage(); message != "" {
+				mode = message
 			}
-			if s.status != "" {
-				mode = s.status
-			}
-			status := ui.ButtonBase(c.Key("status-details-trigger")).Width(palette.StatusWidth).MinWidth(0).Shrink(1).Height(palette.MenuButton).Padding(0).Justify(ui.Start).Clip().Label("状态详情").Tooltip("查看完整状态详情").Bind(&s.statusControl).Disabled(s.status == "" || s.settingsOpen || s.menu != menuClosed || menuLost || field.Composing())
+			status := ui.ButtonBase(c.Key("status-details-trigger")).Width(palette.StatusWidth).MinWidth(0).Shrink(1).Height(palette.MenuButton).Padding(0).Justify(ui.Start).Clip().Label("状态详情").Tooltip("查看完整状态详情").Bind(&s.statusControl).Disabled(s.statusMessage() == "" || s.settingsOpen || s.menu != menuClosed || menuLost || field.Composing())
 			status.Children(func() {
 				ui.Text(c, mode).Grow(1).MinWidth(0).FontSize(palette.CaptionSize).FixedLineHeight(palette.ControlLine).TextColor(palette.Secondary).SingleLine()
 			})
@@ -534,7 +538,7 @@ func (s *launcher) view(c *ui.Context) {
 			ui.Spacer(c)
 			ui.Row(c).Height(palette.MenuButton).Shrink(0).Padding(palette.ControlInset).Gap(palette.RowGap).Radius(palette.MenuButton/2).Background(palette.Control).Border(1, palette.Border).Children(func() {
 				label, _ := s.primaryLabels()
-				primary := barAction(c.Key("primary-action"), label, count == 0 || s.menu != menuClosed || s.settingsOpen || selectionLost || s.clipNeedsSelection)
+				primary := barAction(c.Key("primary-action"), label, count == 0 || s.menu != menuClosed || s.settingsOpen || selectionLost || s.clipNeedsSelection || (!s.clipboardMode && s.appNeedsSelection))
 				primary.Children(func() {
 					ui.Text(c, label).FontSize(palette.BodySize).FixedLineHeight(palette.ControlLine).SingleLine().Bold().Label("底栏主操作文字")
 					ui.Box(c).Size(palette.KeyCap, palette.KeyCap).Center().Radius(palette.KeyCapRadius).Background(palette.Control).Label("底栏快捷键胶囊").Children(func() {
@@ -544,7 +548,7 @@ func (s *launcher) view(c *ui.Context) {
 				if primary.Clicked() {
 					s.activate(apps, clips, false)
 				}
-				action := barAction(c.Key("actions-toggle"), "操作", s.settingsOpen || selectionLost || s.clipNeedsSelection)
+				action := barAction(c.Key("actions-toggle"), "操作", s.settingsOpen || selectionLost || s.clipNeedsSelection || (!s.clipboardMode && s.appNeedsSelection))
 				action.Children(func() {
 					ui.Text(c, "操作").FontSize(palette.BodySize).FixedLineHeight(palette.ControlLine).SingleLine().TextColor(palette.Secondary).Label("底栏操作文字")
 				})

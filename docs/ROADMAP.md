@@ -51,6 +51,13 @@ The original Windows-icon follow-up adds the SVG/ICO/PE resource and MyGo
 small/large window icons, with the same artwork on the tray. See [icon evidence](ICONS.md).
 Native taskbar appearance is untested, rather than inferred from PE/ABI checks.
 
+The removed-target/rescan follow-up omits only confirmed missing ordinary local
+executables, adds immediate/completion feedback and preserves the current query,
+stable selection and visible anchor during publication. Launch errors queue a
+conservative refresh. Dedicated deletion/unknown-state and 100%/150% UI regressions
+cover the behavior; actual installed-app verification remains separate. Publication
+is paused until this experience follow-up and approved documentation cleanup are reviewed.
+
 The first alpha accepts the documented unverified native limitations after
 experience cleanup. This release decision does not convert untested checks into
 passes. Icon/experience review precedes coordinated publication.

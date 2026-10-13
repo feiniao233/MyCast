@@ -112,3 +112,43 @@ with a GUI executable, known HTML/text/directory links and the supplied SoftEthe
 name now returns only OpenVPN GUI for `openvpn`, while `vpncmd` still finds the
 CLI executable. This is synthetic evidence; executable wrapper links and actual
 user target coverage require a rescan/user check, not inference from label text.
+
+## Confirmed removed executables and rescanning
+
+Ordinary absolute `.exe` shortcut targets have a separate three-state metadata
+probe: present, confirmed missing, or unknown. The probe checks local volume
+type before path access, requires an available non-reparse directory root, then
+checks ancestors in order. Only FILE_NOT_FOUND/PATH_NOT_FOUND under confirmed
+fixed local storage establishes absence; it stops at a missing ancestor. Access
+denial, not-ready/invalid-drive states, network/unconfirmed volumes and reparse
+paths remain unknown. Unavailable removable/optical media is retained. The strict
+LocalAppPath adapter used by other indexing/resource callers is unchanged.
+
+A fresh index omits confirmed missing ordinary executable targets. Special,
+virtual, relative and unreadable launch semantics are preserved. Rescanning
+replaces the current catalog; favorites/recents rank present items only and cannot
+recreate a removed source/target. Original shortcuts/files are never repaired or
+deleted. A launch error alone does not establish absence: it queues the same
+serialized metadata refresh rather than deleting the failed row immediately.
+
+The footer shows scanning immediately ahead of existing diagnostic text and
+reports completion, partial/budget results, cancellation or failure accurately.
+Repeated requests coalesce through one worker; stale generations never publish.
+Publication uses the current UI query/mode/selection and visible stable-ID anchor,
+including intra-row offsets and changed duplicate/subtitle heights. It does not
+call keyboard navigation/reveal, reset scroll to zero or restore input focus.
+An application refresh leaves the clipboard viewport/selection/query alone.
+If the selected application disappears, a nearby valid item is highlighted;
+activation requires explicit selection/navigation so a pending old Enter/primary
+action cannot launch its replacement. Result rows keep stable identity keys.
+
+Dedicated COM shortcuts and inert executables test final-file/ancestor deletion,
+source deletion, unchanged shortcut bytes, special semantics and stale preferences.
+Headless 100%/150% tests cover scrolling/typing during a worker, mode changes,
+changed row heights, deleted anchors/selections, old pointer releases, empty
+results, cancel/error/budget feedback and serialized rapid requests. These are
+synthetic fixtures, not a scan of any user's installed applications.
+Previews: [scanning 100%](previews/rescan-progress-100.png),
+[150%](previews/rescan-progress-150.png),
+[completed 100%](previews/rescan-complete-100.png),
+[150%](previews/rescan-complete-150.png).

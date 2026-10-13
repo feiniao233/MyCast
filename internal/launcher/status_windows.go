@@ -6,11 +6,11 @@ package launcher
 import "github.com/egoist/mygo/ui"
 
 func (s *launcher) openStatusDetails() {
-	if s.status == "" {
+	if s.statusMessage() == "" {
 		return
 	}
 	s.openSettings()
-	s.statusDetail = s.status // A stable in-memory snapshot, never persisted/logged.
+	s.statusDetail = s.statusMessage() // Stable in-memory snapshot, never persisted/logged.
 	s.statusDetailsOpen = true
 	s.statusDetailScroll.X, s.statusDetailScroll.Y = 0, 0
 }

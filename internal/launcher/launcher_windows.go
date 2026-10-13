@@ -6,8 +6,6 @@ package launcher
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"strings"
 	"time"
 
@@ -20,6 +18,10 @@ import (
 )
 
 type launcher struct {
+	scanLastStatus, scanDiagnostic                 string
+	appNeedsSelection                              bool
+	scanProgress, scanFailure                      string
+	viewportHeight                                 float32
 	nativeCaptionRemoved                           bool
 	searchWasComposing                             bool
 	statusControl                                  ui.Handle
@@ -219,12 +221,20 @@ func (s *launcher) scan() {
 	}
 	generation, start := s.scanQueue.Request()
 	if !start {
+		s.scanProgress = "正在扫描应用…（已合并重扫请求）"
 		if s.scanCancel != nil {
 			s.scanCancel()
+		}
+		if s.win != nil {
+			s.win.Invalidate()
 		}
 		return
 	}
 	s.scanning = true
+	s.scanProgress = "正在扫描应用…"
+	if s.win != nil {
+		s.win.Invalidate()
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	s.scanCancel = cancel
 	roots := append([]string(nil), s.config.IndexRoots...)
@@ -233,6 +243,7 @@ func (s *launcher) scan() {
 	}
 	go func() {
 		apps, icons, errs := s.scanWork(ctx, roots)
+		workerErr := ctx.Err()
 		cancel()
 		s.uiUpdate(func() {
 			publish, restart := s.scanQueue.Finish(generation)
@@ -247,22 +258,8 @@ func (s *launcher) scan() {
 			if !publish {
 				return
 			}
-			selectedID := s.selectedApplicationID()
-			s.apps, s.scanning = core.WithUserAliases(apps, s.config.Aliases), false
-			s.icons = icons
-			s.scroll.X, s.scroll.Y, s.lastScroll = 0, 0, 0
-			if !s.clipboardMode {
-				s.keepApplicationSelected(selectedID)
-			}
-			if len(errs) > 0 {
-				s.status = fmt.Sprintf("已索引 %d 个应用；%d 个位置无法读取。", len(apps), len(errs))
-				for _, err := range errs {
-					if errors.Is(err, core.ErrScanBudget) || errors.Is(err, context.DeadlineExceeded) {
-						s.status = fmt.Sprintf("扫描达到数量或时限预算，显示 %d 个应用；可缩小索引目录。", len(apps))
-						break
-					}
-				}
-			}
+			s.scanProgress = ""
+			s.completeScan(apps, icons, errs, workerErr)
 		})
 	}()
 }
@@ -399,8 +396,16 @@ func (s *launcher) activate(apps []core.Application, clips []string, copyOnly bo
 			return
 		}
 		app := apps[s.selected]
+		if s.appNeedsSelection {
+			s.status = "原应用已移除，请重新选择。"
+			return
+		}
 		if err := s.launchApplication(app.Path); err != nil {
 			s.status = "启动失败：" + err.Error()
+			s.scanFailure = s.status
+			// Launch errors do not prove deletion. Refresh metadata through the
+			// existing serialized worker and its conservative target probe.
+			s.scan()
 			return
 		}
 		s.recordRecent(app.ItemID())

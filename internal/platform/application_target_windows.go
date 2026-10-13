@@ -17,6 +17,10 @@ import (
 // associations and unavailable targets remain discoverable. Special/virtual
 // links bypass this callback in core. Locality is checked before target stat.
 func IncludeApplicationTarget(launch core.LaunchIdentity) bool {
+	if !launch.Independent && filepath.IsAbs(launch.Target) && strings.EqualFold(filepath.Ext(launch.Target), ".exe") {
+		state, attrs := localApplicationPresence(launch.Target)
+		return state != applicationMissing && !(state == applicationPresent && attrs&0x10 != 0)
+	}
 	return includeApplicationTarget(launch.Target, LocalAppPath, os.Lstat)
 }
 

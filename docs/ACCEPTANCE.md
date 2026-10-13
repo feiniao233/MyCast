@@ -222,3 +222,20 @@ and English aliases, short initials, cancellation and locality guards are retain
 An integrated inert-file fixture returns only OpenVPN GUI for `openvpn` and keeps
 the CLI searchable by `vpncmd`. No actual user shortcut target was read or changed;
 the screenshot alone cannot establish the types of the user's six extra entries.
+
+## Removed-target and rescan regressions
+
+Native tests use only dedicated COM shortcuts/inert executable files. Both a
+removed final executable and a removed target directory are omitted after a
+fresh scan; deleted source links do not survive, special links remain, and
+shortcut bytes are unchanged. Pure probes retain permission/not-ready/network/
+reparse/unknown states and prove no deeper access after a refused/missing ancestor.
+
+Headless 100%/150% tests preserve the publication-time query, selected ID, visible
+anchor/offset and search focus while a worker runs. They cover subtitle height
+changes, missing anchors/selection, queued old Enter/primary/pointer events,
+clipboard/app mode switches, empty results and cancel/error/partial/budget status.
+One-worker rapid-request regression remains in place. Launch failures request a
+fresh scan and do not blindly delete unconfirmed targets. See [details/previews](APPLICATIONS.md#confirmed-removed-executables-and-rescanning).
+Actual installed-app/UI screenshot versions and target metadata are not inferred
+from reported images; these tests do not prove a particular user's desktop rescan.
