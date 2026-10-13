@@ -178,7 +178,17 @@ resource is English, invalid/oversized metadata fallback, strict local resource
 syntax, mapped-remote/reparse refusal before reads, cached results, cancellation,
 directory/byte/resource budgets and independent launch variants. Pure identity
 tests retain arguments/working directory/flags and favorite/recent bindings.
-An official Windows DLL resource is read only in data/image-resource mode to
-check native ABI; its actual string is not printed or shared. Headless localized
+A generated PE containing only resources is read in data/image-resource mode to
+check native ABI against its known exact synthetic string. It has no code section,
+entrypoint or imports, checked separately with the standard PE reader. The earlier
+system-resource check could accept any error and did not prove ABI success; it
+has been replaced by this mandatory successful-read assertion. Headless localized
 name previews use synthetic applications only. Actual installed-app naming and
 locale-specific resource coverage await a user check. See [applications](APPLICATIONS.md).
+
+Review correction: a one-character double-quote resource path previously reached
+an invalid slice. Quoting is now validated for pairing, nonempty minimum length
+and embedded/extra quotes before slicing. Malformed-reference table tests verify
+original-name/identity fallback with zero resource opens; bounded pure-parser
+fuzzing checks for panic and unsafe successful parses. No real user metadata is
+used by these checks.

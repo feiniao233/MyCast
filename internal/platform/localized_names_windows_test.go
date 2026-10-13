@@ -187,13 +187,15 @@ func TestLocalizedININativeBoundedReadAndResourceABI(t *testing.T) {
 	if localizedResourceFlags != 0x60 {
 		t.Fatal("resource mapping can initialize executable code")
 	}
-	// Only an official Windows resource file, no third-party DLL or app.
-	module := filepath.Join(localizedWindowsDirectory(), "System32", "shell32.dll")
-	if LocalAppPath(module) != nil {
-		t.Skip("system resource unavailable; names fall back")
+	// A generated resource-only PE: no code, entrypoint, imports or third-party
+	// program. Its known string makes ABI failures fail rather than silently pass.
+	module := filepath.Join(root, "synthetic-resources.dll")
+	want := "Dedicated synthetic 资源 ABI"
+	if err := os.WriteFile(module, localizedResourcePEFixture(want), 0600); err != nil {
+		t.Fatal(err)
 	}
-	name, err := readLocalizedResource(module, 22067)
-	if err == nil && len(name) == 0 {
-		t.Fatal("native string ABI returned empty success")
+	name, err := readLocalizedResource(module, 1)
+	if err != nil || name != want {
+		t.Fatalf("native resource string ABI: got %q err=%v", name, err)
 	}
 }

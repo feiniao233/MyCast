@@ -215,7 +215,7 @@ func parseLocalizedINI(data []byte) (map[string]string, error) {
 
 func parseLocalizedResourceReference(value, windowsDirectory string) (string, uint32, error) {
 	bad := errors.New("unsupported localized resource reference")
-	if len(value) > 2048 || !strings.HasPrefix(value, "@") || strings.ContainsAny(value, "\x00\r\n") {
+	if len(value) > 2048 || !utf8.ValidString(value) || !strings.HasPrefix(value, "@") || strings.ContainsAny(value, "\x00\r\n") {
 		return "", 0, bad
 	}
 	comma := strings.LastIndex(value, ",")
@@ -232,7 +232,12 @@ func parseLocalizedResourceReference(value, windowsDirectory string) (string, ui
 		}
 	}
 	path := strings.TrimSpace(value[1:comma])
-	if strings.HasPrefix(path, "\"") && strings.HasSuffix(path, "\"") {
+	if strings.ContainsRune(path, '"') {
+		// Validate before slicing: one quote and an empty quoted path are
+		// malformed, not a pair. Embedded/extra quotes are never filenames.
+		if len(path) < 3 || path[0] != '"' || path[len(path)-1] != '"' || strings.ContainsRune(path[1:len(path)-1], '"') {
+			return "", 0, bad
+		}
 		path = path[1 : len(path)-1]
 	}
 	for _, prefix := range []string{"%SystemRoot%", "%windir%"} {

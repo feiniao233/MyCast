@@ -80,6 +80,8 @@ The behavior was independently implemented after reading the public ZTools
 scanner/reference script; its native implementation is not claimed known and
 its binary is not used. See [notices](../THIRD_PARTY_NOTICES.md).
 The actual user app list remains untested by this agent; synthetic mapping,
-encoding/guard/budget/identity tests and an official Windows resource ABI fixture
-provide automated evidence. Dedicated localized previews: [100%](previews/localized-applications-100.png),
+encoding/guard/budget/identity tests and a generated resource-only PE fixture
+provide automated evidence. The native string test must return the fixture's
+known exact string without error; an unavailable or broken reader cannot silently
+pass it. Dedicated localized previews: [100%](previews/localized-applications-100.png),
 [150%](previews/localized-applications-150.png).
