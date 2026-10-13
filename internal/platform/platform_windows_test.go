@@ -21,11 +21,16 @@ func TestGUIThreadInfoABI(t *testing.T) {
 }
 
 func TestDefaultAppRoots(t *testing.T) {
-	t.Setenv("APPDATA", `C:\Users\Tester\AppData\Roaming`)
-	t.Setenv("PROGRAMDATA", `C:\ProgramData`)
-	t.Setenv("USERPROFILE", `C:\Users\Tester`)
-	t.Setenv("PUBLIC", `C:\Users\Public`)
-	roots := DefaultAppRoots()
+	paths := []string{`C:\Synthetic\UserStart`, `C:\Synthetic\CommonStart`, `C:\Synthetic\RedirectedDesktop`, `C:\Synthetic\PublicDesktop`}
+	resolve := func(id *comGUID) string {
+		for i, source := range defaultSourceIDs {
+			if *id == source.id {
+				return paths[i]
+			}
+		}
+		return ""
+	}
+	roots, shallow := defaultApplicationSources(resolve)
 	if len(roots) != 4 {
 		t.Fatalf("got %d roots", len(roots))
 	}
@@ -34,10 +39,20 @@ func TestDefaultAppRoots(t *testing.T) {
 			t.Fatalf("relative app root: %s", root)
 		}
 	}
-	t.Setenv("APPDATA", "")
-	t.Setenv("PROGRAMDATA", "relative")
-	t.Setenv("PUBLIC", `C:\Users\Tester`)
-	if roots := DefaultAppRoots(); len(roots) != 1 {
-		t.Fatalf("empty, relative, or duplicate roots retained: %v", roots)
+	if len(shallow) != 2 || shallow[0] != paths[2] {
+		t.Fatal("redirected desktop was not shallow")
+	}
+	paths = []string{"", "relative", `C:\Synthetic\Shared`, `C:\Synthetic\Shared`}
+	if roots, _ := defaultApplicationSources(resolve); len(roots) != 1 {
+		t.Fatal("empty/relative/duplicate default roots retained")
+	}
+}
+
+func TestNativeKnownFolderPathOutputOwnership(t *testing.T) {
+	for i := 0; i < 16; i++ {
+		path := defaultKnownFolderPath(&defaultSourceIDs[2].id)
+		if path == "" || !filepath.IsAbs(path) {
+			t.Fatal("native Known Folder path lookup failed")
+		}
 	}
 }

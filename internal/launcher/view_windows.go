@@ -6,7 +6,6 @@ package launcher
 import (
 	"crypto/sha256"
 	"fmt"
-	"slices"
 	"strings"
 
 	"github.com/egoist/mygo"
@@ -157,9 +156,9 @@ func (s *launcher) rows(apps []core.Application, clips []string) []paletteRow {
 	} else {
 		for _, app := range apps {
 			row := paletteRow{title: app.Name, kind: "应用", key: app.ItemID(), bitmap: s.icons[app.ItemID()], height: palette.RowHeight}
-			if slices.Contains(s.config.Favorites, app.ItemID()) {
+			if app.Preferred(s.config.Favorites) {
 				row.kind = "★ 收藏"
-			} else if slices.Contains(s.config.Recents, app.ItemID()) {
+			} else if app.Preferred(s.config.Recents) {
 				row.kind = "最近"
 			}
 			if names[strings.ToLower(app.Name)] > 1 {
@@ -231,7 +230,7 @@ func (s *launcher) menuItems(apps []core.Application, clips []string) []paletteM
 		if !s.clipboardMode && valid && len(boundApps) > 0 {
 			app := boundApps[index]
 			favorite := "收藏应用"
-			if slices.Contains(s.config.Favorites, app.ItemID()) {
+			if app.Preferred(s.config.Favorites) {
 				favorite = "取消收藏"
 			}
 			items = append(items, paletteMenuItem{favorite, "★", false, func() { s.runMenuTarget(key, clipboard, "favorite") }}, paletteMenuItem{"编辑搜索别名", "✎", false, func() { s.runMenuTarget(key, clipboard, "alias") }})
@@ -424,9 +423,24 @@ func (s *launcher) view(c *ui.Context) {
 						label = "暂无文本历史"
 						hint = "在菜单中开启后，仅记录新复制的文本；退出即清空。"
 					}
-					ui.Column(c).FillWidth().Height(2*palette.RowHeight).Shrink(0).Padding(palette.Inset, palette.RowInset).Gap(palette.Inset).Children(func() {
+					sourceDisabled := !s.clipboardMode && !s.config.AppsFolder && !s.scanning
+					if sourceDisabled {
+						hint = "系统应用来源已关闭；在设置中开启后可搜索商店应用。"
+					}
+					emptyHeight := 2 * palette.RowHeight
+					if sourceDisabled {
+						emptyHeight = 3 * palette.RowHeight
+					}
+					ui.Column(c).FillWidth().Height(emptyHeight).Shrink(0).Padding(palette.Inset, palette.RowInset).Gap(palette.Inset).Children(func() {
 						ui.Text(c, label).FontSize(palette.BodySize).TextColor(palette.Secondary)
 						ui.Text(c, hint).FontSize(palette.CaptionSize).TextColor(palette.Tertiary)
+						if sourceDisabled {
+							button := ui.ButtonBase(c.Key("empty-system-source")).Height(palette.ActionHeight).Padding(0, palette.Inset).Radius(palette.RowRadius).Background(palette.Control).Label("设置系统应用来源")
+							button.Children(func() { ui.Text(c, "设置系统应用来源").FontSize(palette.CaptionSize) })
+							if button.Clicked() {
+								s.openSettings()
+							}
+						}
 					})
 				}
 				for i, row := range rows {

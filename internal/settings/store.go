@@ -10,14 +10,16 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"unicode/utf8"
 )
 
 type Store struct {
-	Path           string
-	readOnly       bool
-	loaded, exists bool
-	digest         [32]byte
+	SourcesDefaulted bool
+	Path             string
+	readOnly         bool
+	loaded, exists   bool
+	digest           [32]byte
 }
 
 func DefaultPath() (string, error) {
@@ -66,7 +68,7 @@ func (s *Store) Load() (Settings, error) {
 	}
 	decoder := json.NewDecoder(bytes.NewReader(data))
 	decoder.DisallowUnknownFields()
-	var value Settings
+	value := Settings{AppsFolder: true}
 	if err := decoder.Decode(&value); err != nil {
 		s.readOnly = true
 		return Defaults(), fmt.Errorf("settings are invalid; original file is preserved")
@@ -80,6 +82,15 @@ func (s *Store) Load() (Settings, error) {
 	if err != nil {
 		s.readOnly = true
 		return Defaults(), err
+	}
+	var fields map[string]json.RawMessage
+	if json.Unmarshal(data, &fields) == nil {
+		s.SourcesDefaulted = true
+		for key := range fields {
+			if strings.EqualFold(key, "apps_folder") {
+				s.SourcesDefaulted = false
+			}
+		}
 	}
 	s.loaded, s.exists, s.digest = true, true, sha256.Sum256(data)
 	return value, nil

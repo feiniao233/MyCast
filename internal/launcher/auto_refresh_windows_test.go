@@ -65,6 +65,7 @@ func TestAutoEventsDoNotCancelRunningScanAndCoalesceOneFollowup(t *testing.T) {
 func TestMixedPartialScanKeepsOfflineEntryButDropsConfirmedAndRemovedRoot(t *testing.T) {
 	s := syntheticLauncher()
 	s.config = settings.Defaults()
+	s.config.AppsFolder = false
 	s.config.IndexRoots = []string{`C:\Synthetic\Kept`}
 	fresh := core.Application{Name: "A", Path: `C:\Synthetic\Kept\A.exe`}
 	offline := core.Application{Name: "B", Path: `C:\Synthetic\Kept\B.exe`}
@@ -145,6 +146,7 @@ func TestFileSuccessAndShellFailureOrDeadlineRetainOnlyShellUntilRecovery(t *tes
 func TestEmptyPartialSnapshotCannotReviveRemovedRootsOrDisabledShell(t *testing.T) {
 	s := syntheticLauncher()
 	s.config = settings.Defaults()
+	s.config.AppsFolder = false
 	s.config.IndexRoots = []string{`C:\Synthetic\New`}
 	s.apps = []core.Application{{Name: "Removed root", Path: `C:\Synthetic\Old\Fixture.exe`}, {Name: "Disabled Shell", ShellID: core.AppsFolderParsingPrefix + "Synthetic!App"}}
 	done := make(chan func(), 1)

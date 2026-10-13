@@ -29,9 +29,16 @@ func (s *launcher) saveCatalog(candidate settings.Settings) bool {
 
 func (s *launcher) toggleFavorite(id string) {
 	candidate := s.config.Clone()
-	if index := slices.Index(candidate.Favorites, id); index >= 0 {
-		candidate.Favorites = slices.Delete(candidate.Favorites, index, index+1)
-	} else {
+	ids := s.applicationPreferenceIDs(id)
+	favorite := false
+	candidate.Favorites = slices.DeleteFunc(candidate.Favorites, func(value string) bool {
+		if slices.Contains(ids, value) {
+			favorite = true
+			return true
+		}
+		return false
+	})
+	if !favorite {
 		candidate.Favorites = append(candidate.Favorites, id)
 	}
 	if s.saveCatalog(candidate) {
@@ -42,9 +49,8 @@ func (s *launcher) toggleFavorite(id string) {
 
 func (s *launcher) recordRecent(id string) {
 	candidate := s.config.Clone()
-	if index := slices.Index(candidate.Recents, id); index >= 0 {
-		candidate.Recents = slices.Delete(candidate.Recents, index, index+1)
-	}
+	ids := s.applicationPreferenceIDs(id)
+	candidate.Recents = slices.DeleteFunc(candidate.Recents, func(value string) bool { return slices.Contains(ids, value) })
 	candidate.Recents = append([]string{id}, candidate.Recents...)
 	if len(candidate.Recents) > 50 {
 		candidate.Recents = candidate.Recents[:50]
@@ -55,12 +61,23 @@ func (s *launcher) recordRecent(id string) {
 func (s *launcher) openAliases(app core.Application) {
 	s.openSettings()
 	s.aliasID, s.aliasName = app.ItemID(), app.Name
-	s.aliasText = strings.Join(s.config.Aliases[s.aliasID], "\n")
+	var values []string
+	for _, id := range app.PreferenceIDs() {
+		for _, alias := range s.config.Aliases[id] {
+			if !slices.Contains(values, alias) {
+				values = append(values, alias)
+			}
+		}
+	}
+	s.aliasText = strings.Join(values, "\n")
 	s.settingsNote = "别名只用于搜索，不修改原快捷方式或启动参数。"
 }
 
 func (s *launcher) saveAliases() {
 	candidate := s.config.Clone()
+	for _, id := range s.applicationPreferenceIDs(s.aliasID) {
+		delete(candidate.Aliases, id)
+	}
 	if candidate.Aliases == nil {
 		candidate.Aliases = map[string][]string{}
 	}

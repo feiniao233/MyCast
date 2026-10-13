@@ -1,5 +1,10 @@
 # Finding applications
 
+The approved 0.2 follow-up includes system AppsFolder applications by default,
+fixes Store search/activation parsing, excludes proved uninstall actions and
+adds a conservative virtual-shortcut identity bridge. It retains different
+arguments, working directories and special modes. See [scope/evidence](STORE_SOURCE_FIX.md).
+
 The **操作** menu for the selected application offers favorite/unfavorite and
 search alias editing. Favorites come first for an empty query, followed by the
 most recent successful Shell launch calls, then name/path order. For a query,

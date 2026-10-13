@@ -35,7 +35,7 @@ jobs:
         id: package
         shell: pwsh
         run: |
-          ./scripts/package-windows.ps1 -LayoutOnly
+          ./scripts/package-windows.ps1 -LayoutOnly -Version 0.2.0-alpha.1
       - uses: actions/upload-artifact@v4
         with:
           name: MyCast-windows-amd64

@@ -120,6 +120,9 @@ func Run() error {
 		s.store = &settings.Store{Path: path}
 		if value, err := s.store.Load(); err == nil {
 			s.config = value
+			if s.store.SourcesDefaulted {
+				s.status = "已兼容旧配置：默认加入系统应用来源；可在设置中关闭。原文件未自动改写。"
+			}
 		} else {
 			s.status = "设置无效，暂按默认运行；原文件未覆盖。"
 		}
@@ -308,11 +311,12 @@ func (s *launcher) scanSourcesWithRoots(sources uint8, requestedRoots []string) 
 	if timeout <= 0 {
 		timeout = 15 * time.Second
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	ctx, cancel := context.WithCancel(context.Background())
 	s.scanCancel = cancel
 	roots := append([]string(nil), s.config.IndexRoots...)
 	if len(roots) == 0 {
 		roots = platform.DefaultAppRoots()
+		ctx = context.WithValue(ctx, defaultShallowRootsKey{}, platform.DefaultDesktopRoots())
 	}
 	scanRoots := append([]string(nil), roots...)
 	if len(requestedRoots) > 0 {
@@ -338,9 +342,14 @@ func (s *launcher) scanSourcesWithRoots(sources uint8, requestedRoots []string) 
 		icons := map[string]*ui.Bitmap{}
 		var errs []error
 		filePartial := false
+		fileCtx, fileCancel := context.WithTimeout(ctx, timeout)
+		defer fileCancel()
 		if sources&scanFiles != 0 {
-			apps, icons, errs = s.scanWork(ctx, scanRoots)
-			filePartial = len(errs) > 0 || ctx.Err() != nil
+			apps, icons, errs = s.scanWork(fileCtx, scanRoots)
+			filePartial = len(errs) > 0 || fileCtx.Err() != nil
+			if fileCtx.Err() != nil {
+				errs = append(errs, fileCtx.Err())
+			}
 			for _, app := range previousApps {
 				if app.ShellID == "" && core.PathInApplicationRoots(app.Path, roots) && !core.PathInApplicationRoots(app.Path, scanRoots) {
 					apps = append(apps, app)
@@ -353,6 +362,17 @@ func (s *launcher) scanSourcesWithRoots(sources uint8, requestedRoots []string) 
 				}
 			}
 		}
+		var missing map[string]bool
+		if filePartial && probeMissing != nil && fileCtx.Err() == nil && ctx.Err() == nil {
+			var prior []core.Application
+			for _, app := range previousApps {
+				if app.ShellID == "" && core.PathInApplicationRoots(app.Path, scanRoots) {
+					prior = append(prior, app)
+				}
+			}
+			missing = probeMissing(fileCtx, prior)
+		}
+		fileCancel()
 		shellPartial := shellEnabled && sources&scanShell != 0 && (shellWork == nil || ctx.Err() != nil)
 		if shellEnabled && sources&scanShell == 0 {
 			for _, app := range previousApps {
@@ -362,8 +382,13 @@ func (s *launcher) scanSourcesWithRoots(sources uint8, requestedRoots []string) 
 			}
 		}
 		if shellEnabled && sources&scanShell != 0 && shellWork != nil && ctx.Err() == nil {
-			virtual, virtualIcons, virtualErrs := shellWork(ctx)
-			shellPartial = len(virtualErrs) > 0 || ctx.Err() != nil
+			shellCtx, shellCancel := context.WithTimeout(ctx, timeout)
+			virtual, virtualIcons, virtualErrs := shellWork(shellCtx)
+			shellPartial = len(virtualErrs) > 0 || shellCtx.Err() != nil
+			if shellCtx.Err() != nil {
+				virtualErrs = append(virtualErrs, shellCtx.Err())
+			}
+			shellCancel()
 			apps = append(apps, virtual...)
 			if icons == nil {
 				icons = map[string]*ui.Bitmap{}
@@ -374,19 +399,9 @@ func (s *launcher) scanSourcesWithRoots(sources uint8, requestedRoots []string) 
 			errs = append(errs, virtualErrs...)
 		}
 		if len(apps) > 5000 {
-			apps = apps[:5000]
+			apps = core.FairProviderLimit(apps, previousApps, 5000)
 			errs = append(errs, core.ErrScanBudget)
 			filePartial, shellPartial = true, shellEnabled
-		}
-		var missing map[string]bool
-		if filePartial && probeMissing != nil && ctx.Err() == nil {
-			var prior []core.Application
-			for _, app := range previousApps {
-				if app.ShellID == "" && core.PathInApplicationRoots(app.Path, scanRoots) {
-					prior = append(prior, app)
-				}
-			}
-			missing = probeMissing(ctx, prior)
 		}
 		if (filePartial || shellPartial) && ctx.Err() != context.Canceled {
 			apps = core.RetainUnconfirmed(apps, previousApps, missing, func(app core.Application) bool {
@@ -397,6 +412,9 @@ func (s *launcher) scanSourcesWithRoots(sources uint8, requestedRoots []string) 
 			}, 5000)
 		}
 		workerErr := ctx.Err()
+		apps = core.MergeProviderApplications(core.FilterUninstallEntries(apps))
+		apps = core.CarryRelatedPreferenceIDs(apps, previousApps)
+		apps = core.PrepareSearchContext(ctx, apps)
 		if icons == nil {
 			icons = map[string]*ui.Bitmap{}
 		}
@@ -434,9 +452,13 @@ func (s *launcher) scanSourcesWithRoots(sources uint8, requestedRoots []string) 
 
 func (s *launcher) readApps(ctx context.Context, roots []string) ([]core.Application, map[string]*ui.Bitmap, []error) {
 	options := core.DefaultScanOptions()
+	if shallow, ok := ctx.Value(defaultShallowRootsKey{}).([]string); ok {
+		options.ShallowRoots = shallow
+	}
 	options.AllowPath = platform.LocalAppPath
 	options.IncludeResolvedTarget = platform.IncludeApplicationTarget
 	apps, errs := core.IndexApplicationsWithOptions(ctx, roots, platform.ShortcutIdentity, options)
+	apps = core.FilterUninstallEntries(apps)
 	apps = platform.LocalizedApplicationNames(ctx, apps)
 	apps = core.PrepareSearchContext(ctx, apps)
 	icons := map[string]*ui.Bitmap{}

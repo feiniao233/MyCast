@@ -1,5 +1,8 @@
 # 0.2.0-alpha.1 development candidate
 
+Current approved Store/source follow-up: AppsFolder defaults on; missing legacy fields migrate with notice, while explicit false remains off. Default desktop enumeration/watches are shallow and use actual Known Folder paths; custom roots remain recursive. File/Shell budgets are independent on one worker. See [current scope/evidence](STORE_SOURCE_FIX.md). Earlier off-by-default/shared-budget stage notes below are historical and superseded.
+
+
 Baseline: published [v0.1.0-alpha](https://github.com/feiniao233/MyCast/releases/tag/v0.1.0-alpha),
 commit `5512e940e4693aabb56e02ac2cd0517e5f47dd26`.
 Work stays on `feat/0.2-applications`; no main merge, new tag or Release is authorized.

@@ -1,5 +1,8 @@
 # Ordinary settings
 
+Current approved Store/source follow-up: AppsFolder defaults on; missing legacy fields migrate with notice, while explicit false remains off. Default desktop enumeration/watches are shallow and use actual Known Folder paths; custom roots remain recursive. File/Shell budgets are independent on one worker. See [current scope/evidence](STORE_SOURCE_FIX.md). Earlier off-by-default/shared-budget stage notes below are historical and superseded.
+
+
 Open **菜单 → 设置**. Save explicitly; Cancel or Escape discards the draft.
 IME candidate Escape/Enter is handled by the editor before launcher actions.
 

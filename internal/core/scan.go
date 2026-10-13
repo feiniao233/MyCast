@@ -13,6 +13,8 @@ import (
 var ErrScanBudget = errors.New("application scan reached its budget")
 
 type ScanOptions struct {
+	ShallowRoots                          []string
+	shallow                               bool
 	MaxEntries, MaxApplications, MaxDepth int
 	AllowPath                             func(string) error
 	// Ordinary resolved links can be classified without changing launch data.
@@ -51,6 +53,9 @@ func boundedWalk(ctx context.Context, path string, opts ScanOptions, visited *in
 		return err
 	}
 	if !entry.IsDir() || entry.Type()&fs.ModeSymlink != 0 {
+		return nil
+	}
+	if opts.shallow && depth > 0 {
 		return nil
 	}
 	if err := ctx.Err(); err != nil {

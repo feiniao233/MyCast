@@ -7,6 +7,7 @@ import (
 	"context"
 	"os"
 	"runtime"
+	"strings"
 	"syscall"
 	"time"
 	"unsafe"
@@ -26,6 +27,7 @@ type sourceSubscription struct {
 	info         os.FileInfo
 }
 type sourceWatchOptions struct {
+	shallowRoots       []string
 	fallback           time.Duration
 	subscribe          func(string) uintptr
 	tick, merge, retry time.Duration
@@ -33,6 +35,10 @@ type sourceWatchOptions struct {
 }
 
 func subscribeApplicationRoot(path string) uintptr {
+	return subscribeApplicationRootDepth(path, true)
+}
+
+func subscribeApplicationRootDepth(path string, recursive bool) uintptr {
 	if LocalAppPath(path) != nil {
 		return 0
 	}
@@ -44,7 +50,11 @@ func subscribeApplicationRoot(path string) uintptr {
 	if uint32(attrs) == 0xffffffff || uint32(attrs)&0x10 == 0 {
 		return 0
 	}
-	handle, _, _ := firstChangeNotification.Call(uintptr(unsafe.Pointer(wide)), 1, 0x1f)
+	subtree := uintptr(0)
+	if recursive {
+		subtree = 1
+	}
+	handle, _, _ := firstChangeNotification.Call(uintptr(unsafe.Pointer(wide)), subtree, 0x1f)
 	runtime.KeepAlive(wide)
 	if handle == ^uintptr(0) {
 		return 0
@@ -78,8 +88,12 @@ func sameSourceInfo(a, b os.FileInfo) bool {
 // Healthy directory roots are event-driven. Retry polls only root identity/file
 // metadata and attempts failed subscriptions, never a complete healthy tree.
 // Shell fallback is separate, enabled only for a configured AppsFolder source.
-func WatchApplicationSources(ctx context.Context, roots []string, shell bool, notify func(files, shell bool, roots []string)) {
-	watchApplicationSources(ctx, roots, shell, notify, sourceWatchOptions{tick: 250 * time.Millisecond, merge: 500 * time.Millisecond, retry: 30 * time.Second})
+func WatchApplicationSources(ctx context.Context, roots []string, shell bool, notify func(files, shell bool, roots []string), shallow ...[]string) {
+	options := sourceWatchOptions{tick: 250 * time.Millisecond, merge: 500 * time.Millisecond, retry: 30 * time.Second}
+	if len(shallow) > 0 {
+		options.shallowRoots = shallow[0]
+	}
+	watchApplicationSources(ctx, roots, shell, notify, options)
 }
 
 func watchApplicationSources(ctx context.Context, roots []string, shell bool, notify func(bool, bool, []string), options sourceWatchOptions) {
@@ -87,7 +101,15 @@ func watchApplicationSources(ctx context.Context, roots []string, shell bool, no
 		options.fallback = 2 * time.Minute
 	}
 	if options.subscribe == nil {
-		options.subscribe = subscribeApplicationRoot
+		options.subscribe = func(path string) uintptr {
+			recursive := true
+			for _, root := range options.shallowRoots {
+				if strings.EqualFold(path, root) {
+					recursive = false
+				}
+			}
+			return subscribeApplicationRootDepth(path, recursive)
+		}
 	}
 	subscriptions := make([]sourceSubscription, 0, min(len(roots), 32))
 	for i, path := range roots {

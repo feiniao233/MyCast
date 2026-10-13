@@ -19,7 +19,7 @@ const DefaultHotkey = "Ctrl+Alt+Space"
 type Settings struct {
 	Startup    bool                `json:"startup,omitempty"`
 	Hidden     []string            `json:"hidden,omitempty"`
-	AppsFolder bool                `json:"apps_folder,omitempty"`
+	AppsFolder bool                `json:"apps_folder"`
 	Version    int                 `json:"version"`
 	Hotkey     string              `json:"hotkey"`
 	Theme      string              `json:"theme"`
@@ -31,7 +31,7 @@ type Settings struct {
 }
 
 func Defaults() Settings {
-	return Settings{Version: SchemaVersion, Hotkey: DefaultHotkey, Theme: "dark"}
+	return Settings{Version: SchemaVersion, Hotkey: DefaultHotkey, Theme: "dark", AppsFolder: true}
 }
 func (s Settings) Clone() Settings {
 	s.Hidden = append([]string(nil), s.Hidden...)

@@ -9,7 +9,6 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -370,29 +369,4 @@ func Launch(path string) error {
 		return fmt.Errorf("Windows could not launch the application (ShellExecute code %d)", result)
 	}
 	return nil
-}
-
-// DefaultAppRoots returns conventional user/system Start Menu and Desktop
-// locations. Users may add redirected or custom locations through settings.
-func DefaultAppRoots() []string {
-	var roots []string
-	seen := make(map[string]bool)
-	for _, item := range []struct{ env, suffix string }{
-		{"APPDATA", `Microsoft\Windows\Start Menu\Programs`},
-		{"PROGRAMDATA", `Microsoft\Windows\Start Menu\Programs`},
-		{"USERPROFILE", "Desktop"},
-		{"PUBLIC", "Desktop"},
-	} {
-		base := os.Getenv(item.env)
-		if base == "" || !filepath.IsAbs(base) {
-			continue
-		}
-		path := filepath.Join(base, item.suffix)
-		key := strings.ToLower(path)
-		if !seen[key] {
-			seen[key] = true
-			roots = append(roots, path)
-		}
-	}
-	return roots
 }

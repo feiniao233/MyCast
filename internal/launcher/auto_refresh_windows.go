@@ -62,8 +62,10 @@ func (s *launcher) restartSourceWatch() {
 	ctx, cancel := context.WithCancel(context.Background())
 	s.watchCancel = cancel
 	roots := append([]string(nil), s.config.IndexRoots...)
+	var shallow []string
 	if len(roots) == 0 {
 		roots = platform.DefaultAppRoots()
+		shallow = platform.DefaultDesktopRoots()
 	}
 	update := s.uiUpdate
 	shellEnabled := s.config.AppsFolder
@@ -80,7 +82,7 @@ func (s *launcher) restartSourceWatch() {
 				s.automaticRefreshRoots(sources, roots)
 			}
 		})
-	})
+	}, shallow)
 }
 
 func (s *launcher) deliverSourceChange(epoch uint64, sources uint8) {

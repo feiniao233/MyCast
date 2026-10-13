@@ -140,7 +140,11 @@ func ShortcutIdentity(path string) (core.LaunchIdentity, error) {
 	// every unknown option keep their own shortcut identity. No link flags
 	// or show modes are modified by this reader.
 	const ordinaryFlags uint32 = 0xff | 0x200 | 0x4000
-	return core.LaunchIdentity{Target: expandShortcutPath(target), Arguments: arguments, WorkingDirectory: expandShortcutPath(directory), LinkFlags: flags, ShowCommand: show, Independent: flags & ^ordinaryFlags != 0 || show != 1}, nil
+	identity := core.LaunchIdentity{Target: expandShortcutPath(target), Arguments: arguments, WorkingDirectory: expandShortcutPath(directory), LinkFlags: flags, ShowCommand: show, Independent: flags & ^ordinaryFlags != 0 || show != 1}
+	if identity.Target == "" && identity.Arguments == "" && identity.WorkingDirectory == "" && !identity.Independent {
+		identity.ShellTarget = shortcutAppsFolderTarget(link)
+	}
+	return identity, nil
 }
 
 func expandShortcutPath(path string) string {

@@ -28,3 +28,32 @@ func TestShellApplicationIdentity(t *testing.T) {
 		t.Fatal("unproven Shell/shortcut equivalence merged")
 	}
 }
+
+func TestStoreBareShellIdentityAndActivationForm(t *testing.T) {
+	const leaf = "Microsoft.WindowsStore_8wekyb3d8bbwe!App"
+	id, err := AppsFolderChildIdentity(leaf)
+	if err != nil || id != AppsFolderParsingPrefix+leaf {
+		t.Fatal("bare AUMID rejected")
+	}
+	app := Application{Name: "Microsoft Store", ShellID: id, Aliases: SystemApplicationAliases(id)}
+	for _, query := range []string{"store", "微软商店", "weiruanshangdian"} {
+		if len(SearchApplications(PrepareSearch([]Application{app}), query, 10)) != 1 {
+			t.Fatal("Store search missing", query)
+		}
+	}
+	activation, err := ShellApplicationActivationName(id)
+	if err != nil || activation != `shell:AppsFolder\`+leaf {
+		t.Fatal("wrong Shell activation form")
+	}
+	if (Application{ShellID: AppsFolderParsingPrefix + leaf}).ItemID() != app.ItemID() {
+		t.Fatal("canonical preference identity changed")
+	}
+	for _, bad := range []string{`C:\Synthetic.exe`, `shell:Other`, leaf + `\Nested`, "", leaf + "\x00"} {
+		if _, err := AppsFolderChildIdentity(bad); err == nil {
+			t.Fatal("unsafe child accepted")
+		}
+	}
+	if len(SystemApplicationAliases(AppsFolderParsingPrefix+"Unrelated!App")) != 0 {
+		t.Fatal("aliases assigned by name")
+	}
+}

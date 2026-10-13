@@ -1,5 +1,8 @@
 # Privacy and configured-source boundaries
 
+Current approved Store/source follow-up: AppsFolder defaults on; missing legacy fields migrate with notice, while explicit false remains off. Default desktop enumeration/watches are shallow and use actual Known Folder paths; custom roots remain recursive. File/Shell budgets are independent on one worker. See [current scope/evidence](STORE_SOURCE_FIX.md). Earlier off-by-default/shared-budget stage notes below are historical and superseded.
+
+
 MyCast has no telemetry, online services, accounts, API keys or inventory upload.
 Application discovery is local: configured application directories, plus the
 current-user AppsFolder source only when explicitly enabled. Network/unknown

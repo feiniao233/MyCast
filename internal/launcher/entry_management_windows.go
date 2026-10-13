@@ -13,7 +13,7 @@ import (
 func (s *launcher) applicationResults() []core.Application {
 	visible := make([]core.Application, 0, len(s.apps))
 	for _, app := range s.apps {
-		if !slices.Contains(s.config.Hidden, app.ItemID()) {
+		if !app.Preferred(s.config.Hidden) {
 			visible = append(visible, app)
 		}
 	}
@@ -23,9 +23,16 @@ func (s *launcher) applicationResults() []core.Application {
 func (s *launcher) toggleHiddenApplication(id string) {
 	before := s.config.Clone()
 	candidate := before.Clone()
-	if index := slices.Index(candidate.Hidden, id); index >= 0 {
-		candidate.Hidden = slices.Delete(candidate.Hidden, index, index+1)
-	} else {
+	ids := s.applicationPreferenceIDs(id)
+	hidden := false
+	candidate.Hidden = slices.DeleteFunc(candidate.Hidden, func(value string) bool {
+		if slices.Contains(ids, value) {
+			hidden = true
+			return true
+		}
+		return false
+	})
+	if !hidden {
 		candidate.Hidden = append(candidate.Hidden, id)
 	}
 	if !s.saveCatalog(candidate) {
@@ -84,7 +91,7 @@ func (s *launcher) drawHiddenApplications(c *ui.Context) {
 			for _, id := range append([]string(nil), s.config.Hidden...) {
 				name := "暂不可用的入口 · " + id[4:16]
 				for _, app := range s.apps {
-					if app.ItemID() == id {
+					if app.HasPreferenceID(id) {
 						name = app.Name
 						break
 					}

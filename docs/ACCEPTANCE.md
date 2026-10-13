@@ -1,5 +1,17 @@
 # Acceptance evidence and current status
 
+## Store/source follow-up
+
+Read-only single-Store metadata diagnosis confirmed a registered Store, a bare
+AUMID incorrectly rejected by the old filter, and the usable shell:AppsFolder
+activation form. After correction, the production metadata routine matches both
+`store` and `微软商店`. No Store activation or complete app enumeration occurred.
+The approved default-source migration, explicit disable, shallow default desktop,
+uninstall-action counterexamples, provider deadline/capacity isolation and legacy
+identity preference regressions pass locally. Native Known Folder/property/PIDL
+fixtures and full verify/test/vet/Windows GUI build pass. Private attachment
+pixels were unavailable and are not claimed reviewed. See [details](STORE_SOURCE_FIX.md).
+
 ## 0.2.0-alpha.1 stage 1
 
 AppsFolder identities are separate from file paths. Pure tests cover input

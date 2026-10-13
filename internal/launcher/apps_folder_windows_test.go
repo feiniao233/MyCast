@@ -19,6 +19,7 @@ func TestShellApplicationLaunchUsesIdentityAndRetainsPreferences(t *testing.T) {
 			app := core.Application{Name: "Synthetic Shell App", ShellID: core.AppsFolderParsingPrefix + "Synthetic.Package!App"}
 			s := syntheticLauncher()
 			s.config = settings.Defaults()
+			s.config.AppsFolder = false
 			s.apps = []core.Application{app}
 			s.persistPreferences = func(v settings.Settings) (settings.Settings, error) { return v, nil }
 			s.config.Favorites = []string{app.ItemID()}

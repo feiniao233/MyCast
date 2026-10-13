@@ -101,9 +101,11 @@ func TestFileDeadlineBeforeShellPreservesBothProviders(t *testing.T) {
 		<-ctx.Done()
 		return nil, nil, []error{ctx.Err()}
 	}
-	s.scanShellWork = func(context.Context) ([]core.Application, map[string]*ui.Bitmap, []error) {
-		t.Error("Shell ran after file deadline")
-		return nil, nil, nil
+	s.scanShellWork = func(ctx context.Context) ([]core.Application, map[string]*ui.Bitmap, []error) {
+		if ctx.Err() != nil {
+			t.Error("Shell inherited exhausted file deadline")
+		}
+		return []core.Application{shell}, nil, nil
 	}
 	s.scan()
 	select {
@@ -112,7 +114,11 @@ func TestFileDeadlineBeforeShellPreservesBothProviders(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Fatal("deadline completion timeout")
 	}
-	if len(s.apps) != 2 || s.apps[0].ItemID() != file.ItemID() || s.apps[1].ItemID() != shell.ItemID() || s.retryTimer == nil {
+	ids := map[string]bool{}
+	for _, app := range s.apps {
+		ids[app.ItemID()] = true
+	}
+	if len(s.apps) != 2 || !ids[file.ItemID()] || !ids[shell.ItemID()] || s.retryTimer == nil {
 		t.Fatal("file deadline discarded providers or failed to retry")
 	}
 }

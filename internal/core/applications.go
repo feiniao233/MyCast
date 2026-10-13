@@ -22,6 +22,7 @@ type Application struct {
 	// ShellID is populated only by the configured AppsFolder provider. Path is
 	// empty for virtual items; file adapters must never consume ShellID.
 	ShellID     string
+	RelatedIDs  []string
 	Name        string
 	Path        string
 	Launch      LaunchIdentity
@@ -36,6 +37,9 @@ type Application struct {
 // LaunchIdentity is shortcut metadata, never a command to execute. Arguments
 // remain byte-for-byte intact: changing whitespace or case can change a launch.
 type LaunchIdentity struct {
+	// Only a proved immediate AppsFolder PIDL child with unchanged default
+	// shortcut semantics can populate this cross-provider identity bridge.
+	ShellTarget      string
 	Target           string
 	Arguments        string
 	WorkingDirectory string
@@ -49,6 +53,9 @@ type LaunchIdentity struct {
 func (a Application) Identity() string {
 	if a.ShellID != "" {
 		return "appsfolder:" + a.ShellID
+	}
+	if a.Launch.ShellTarget != "" && !a.Launch.Independent && a.Launch.Arguments == "" && a.Launch.WorkingDirectory == "" {
+		return "appsfolder:" + a.Launch.ShellTarget
 	}
 	if a.Launch.Target == "" || a.Launch.Independent {
 		return pathKey(a.Path)
@@ -131,7 +138,13 @@ func IndexApplicationsWithOptions(ctx context.Context, roots []string, resolve f
 			addProblem(fmt.Errorf("index %q: %w", root, err))
 			continue
 		}
-		err = boundedWalk(ctx, absolute, options, &visited, 0, func(path string, entry fs.DirEntry, walkErr error) error {
+		rootOptions := options
+		for _, shallow := range options.ShallowRoots {
+			if pathKey(absolute) == pathKey(shallow) {
+				rootOptions.shallow = true
+			}
+		}
+		err = boundedWalk(ctx, absolute, rootOptions, &visited, 0, func(path string, entry fs.DirEntry, walkErr error) error {
 			if walkErr != nil {
 				addProblem(fmt.Errorf("index %q: %w", path, walkErr))
 				return nil
@@ -185,8 +198,18 @@ func IndexApplicationsWithOptions(ctx context.Context, roots []string, resolve f
 					addProblem(fmt.Errorf("shortcut %q: %w", app.Path, err))
 				}
 				// Incomplete or relative identities cannot safely prove equivalence.
-				if err == nil && filepath.IsAbs(launch.Target) && (launch.WorkingDirectory == "" || filepath.IsAbs(launch.WorkingDirectory)) {
+				virtual := launch.ShellTarget != "" && !launch.Independent && launch.Arguments == "" && launch.WorkingDirectory == ""
+				if _, err := ValidateShellApplication(launch.ShellTarget); err != nil {
+					virtual = false
+				}
+				if err == nil && (virtual || filepath.IsAbs(launch.Target) && (launch.WorkingDirectory == "" || filepath.IsAbs(launch.WorkingDirectory))) {
+					if virtual {
+						app.RelatedIDs = []string{app.ItemID()}
+					}
 					app.Launch = launch
+					if virtual {
+						app.Aliases = append(app.Aliases, SystemApplicationAliases(launch.ShellTarget)...)
+					}
 					if ctx.Err() != nil {
 						addProblem(ctx.Err())
 						break
@@ -201,6 +224,7 @@ func IndexApplicationsWithOptions(ctx context.Context, roots []string, resolve f
 			}
 			key := app.Identity()
 			if index, found := identities[key]; found {
+				merged[index].RelatedIDs = append(merged[index].RelatedIDs, app.RelatedIDs...)
 				sources := append(append([]string(nil), merged[index].NamePaths...), app.NamePaths...)
 				merged[index].Aliases = append(merged[index].Aliases, app.Name)
 				// Prefer a shortcut to a bare executable, retaining shell launch semantics.
@@ -258,6 +282,14 @@ func SearchApplicationsRanked(applications []Application, query string, limit in
 	}
 	matches := make([]result, 0, len(applications))
 	for _, application := range applications {
+		for _, id := range application.RelatedIDs {
+			if favorite[id] {
+				favorite[application.ItemID()] = true
+			}
+			if recent[id] > recent[application.ItemID()] {
+				recent[application.ItemID()] = recent[id]
+			}
+		}
 		name := foldedRunes(application.Name)
 		score, ok := scoreMatch(name, queryRunes)
 		for _, alias := range application.Aliases {

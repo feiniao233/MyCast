@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"image"
 	"runtime"
+	"strings"
 	"syscall"
 	"unsafe"
 
@@ -56,6 +57,8 @@ func AppsFolderApplications(ctx context.Context, cachedIcons ...map[string]image
 }
 
 func enumerateShellApplications(ctx context.Context, folder *comObject, limit, iconLimit int, cachedIcons ...map[string]image.Image) ([]core.Application, map[string]image.Image, []error) {
+	root, rootErr := shellDisplayName(folder, 0x80028000)
+	verifiedFolder := rootErr == nil && strings.EqualFold(root, strings.TrimSuffix(core.AppsFolderParsingPrefix, `\`))
 	var cache map[string]image.Image
 	if len(cachedIcons) > 0 {
 		cache = cachedIcons[0]
@@ -95,15 +98,17 @@ func enumerateShellApplications(ctx context.Context, folder *comObject, limit, i
 			}
 			return apps, icons, append(problems, fmt.Errorf("invalid Shell enumeration output"))
 		}
-		name, nameErr := shellDisplayName(item, 0)
-		parse, parseErr := shellDisplayName(item, 0x80028000) // SIGDN_DESKTOPABSOLUTEPARSING
-		identity, idErr := core.ValidateShellApplication(parse)
-		if nameErr != nil || parseErr != nil || idErr != nil || name == "" {
+		app, metadataErr := readShellApplicationMetadata(item, verifiedFolder)
+		identity := app.ShellID
+		if metadataErr != nil {
 			if len(problems) < 128 {
 				problems = append(problems, fmt.Errorf("Shell application metadata unavailable"))
 			}
 		} else if !seen[identity] {
-			app := core.Application{Name: name, ShellID: identity}
+			if core.IsUninstallEntry(app) {
+				item.call(2)
+				continue
+			}
 			seen[identity] = true
 			apps = append(apps, app)
 			if n < iconLimit && ctx.Err() == nil {
@@ -117,6 +122,22 @@ func enumerateShellApplications(ctx context.Context, folder *comObject, limit, i
 		item.call(2)
 	}
 	return apps, icons, append(problems, core.ErrScanBudget)
+}
+
+func readShellApplicationMetadata(item *comObject, verifiedFolder bool) (core.Application, error) {
+	name, nameErr := shellDisplayName(item, 0)
+	parse, parseErr := shellDisplayName(item, 0x80028000)
+	identity, idErr := core.ValidateShellApplication(parse)
+	if verifiedFolder && parseErr == nil {
+		identity, idErr = core.AppsFolderChildIdentity(parse)
+	}
+	if nameErr != nil || parseErr != nil || idErr != nil || name == "" {
+		return core.Application{}, fmt.Errorf("Shell application metadata unavailable")
+	}
+	app := core.Application{Name: name, ShellID: identity, Aliases: core.SystemApplicationAliases(identity)}
+	app.Launch.Target, _ = shellStringProperty(item, &linkTargetKey)
+	app.Launch.Arguments, _ = shellStringProperty(item, &linkArgumentsKey)
+	return app, nil
 }
 
 func shellDisplayName(item *comObject, kind uint32) (string, error) {
@@ -213,7 +234,7 @@ type shellExecuteInfo struct {
 }
 
 func LaunchShellApplication(identity string) error {
-	value, err := core.ValidateShellApplication(identity)
+	value, err := core.ShellApplicationActivationName(identity)
 	if err != nil {
 		return err
 	}
