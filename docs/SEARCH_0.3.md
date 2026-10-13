@@ -42,7 +42,7 @@ Behavioral references, independently implemented in MyCast (no copied code):
 - [Wox prepared matching, GPL-3.0](https://github.com/Wox-launcher/Wox/blob/8a3c3f67dbdf8ebc3bc9f2b30cd4015de125dfe7/wox.core/util/fuzzymatch/fuzzy_match.go).
 - [Wox complete-catalog query behavior](https://github.com/Wox-launcher/Wox/blob/8a3c3f67dbdf8ebc3bc9f2b30cd4015de125dfe7/wox.core/plugin/system/app/app.go#L2254-L2304).
 - [ZTools cache completeness, MIT](https://github.com/ZToolsCenter/ZTools/blob/6c9dee8c998ed7b4e6d0a80ad4311d3d8d24f72c/src/main/api/renderer/commands.ts).
-- [Tinycast single-slot index memo, AGPL-3.0](https://github.com/abue-ammar/tinycast/tree/144727d2bb75b2e36d000b9f0f5563d359944463).
+- [Tinycast single-slot index memo, AGPL-3.0](https://github.com/abue-ammar/tinycast/blob/144727d2bb75b2e36d000b9f0f5563d359944463/Tinycast/Features/Launcher/Service/AppIndex.swift#L355-L378).
 
 Main risks are stale memo dependencies, accidental rank changes, loss of aliases
 on catalog replacement, and cached metadata being mistaken for launch proof.
@@ -55,3 +55,28 @@ restart are the only relevant user-confirmed 0.2 checks.
 
 Design recorded before runtime changes. Implementation, measured results,
 exact-commit CI and package provenance will be recorded per stage.
+
+Prepared-search stage: Go 1.27.2 `mod verify`, `test ./...`, `vet ./...` and
+the required CGO-disabled GUI build pass locally. Differential synthetic corpus
+covers 144 inputs, four limits, empty/preference modes, duplicate/empty identities,
+Unicode, Chinese/pinyin/mixed text, aliases and stable ordering. The growing-query
+sentinel recovers after an intermediate miss; actual Chinese pinyin still uses
+MyCast's original semantics, rather than adopting Wox's syllable matcher.
+UI single-slot regressions cover exact trailing-space input keys, in-place
+favorite changes, recents, hidden rows, alias removal and catalog replacement.
+
+Three one-second benchmark runs on this task machine (i5-10400, windows/amd64),
+5,000 synthetic entries and a rotating six-query batch:
+
+| Operation | Range | Bytes/query or preparation | Allocations |
+| --- | --- | --- | --- |
+| Existing search | 15.298–15.571 ms/query | about 5.95 MB | about 83,646 |
+| Prepared search | 1.457–1.482 ms/query | about 1.06 MB | 263 |
+| Catalog preparation | 13.857–13.980 ms/catalog | about 9.29 MB | about 107,942 |
+
+This supports using prepared fields without a ranking change. It is not an
+actual inventory or cold-start latency measurement; no universal speed promise.
+The prepared catalog and one memo slot replace prior data rather than accumulating
+queries. Preparation is currently lazy on catalog replacement on the UI thread;
+the measured one-time cost is a known bound for this corpus, not a native-frame
+guarantee. Desktop keyboard/IME acceptance remains not tested.

@@ -109,6 +109,7 @@ func (s *launcher) refreshApplications(apps []core.Application, icons map[string
 			s.config = configs[0].Clone()
 		}
 		s.apps, s.icons = apps, icons
+		s.invalidateApplicationSearch()
 		return
 	}
 	oldApps := s.applicationResults()
@@ -127,6 +128,7 @@ func (s *launcher) refreshApplications(apps []core.Application, icons map[string
 		}
 	}
 	s.apps, s.icons = apps, icons
+	s.invalidateApplicationSearch()
 	if len(configs) > 0 {
 		s.config = configs[0].Clone()
 	}

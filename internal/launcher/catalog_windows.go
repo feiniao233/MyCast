@@ -25,6 +25,7 @@ func (s *launcher) saveCatalog(candidate settings.Settings) bool {
 	}
 	s.config = value.Clone()
 	s.apps = core.WithUserAliases(s.apps, s.config.Aliases)
+	s.invalidateApplicationSearch()
 	return true
 }
 

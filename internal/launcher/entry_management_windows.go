@@ -10,16 +10,6 @@ import (
 	"slices"
 )
 
-func (s *launcher) applicationResults() []core.Application {
-	visible := make([]core.Application, 0, len(s.apps))
-	for _, app := range s.apps {
-		if !app.Preferred(s.config.Hidden) {
-			visible = append(visible, app)
-		}
-	}
-	return core.SearchApplicationsRanked(visible, s.query, 100, s.config.Favorites, s.config.Recents)
-}
-
 func (s *launcher) toggleHiddenApplication(id string) {
 	before := s.config.Clone()
 	candidate := before.Clone()

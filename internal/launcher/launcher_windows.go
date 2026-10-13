@@ -20,6 +20,7 @@ import (
 )
 
 type launcher struct {
+	appSearch                                      applicationSearch
 	autoRoots                                      []string
 	autoAllFiles                                   bool
 	retryTimer                                     *time.Timer

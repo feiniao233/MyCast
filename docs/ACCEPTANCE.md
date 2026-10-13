@@ -404,6 +404,8 @@ native same-frame queued Enter boundary is not directly tested.
 # 0.3 development evidence
 
 Scope and compatibility design: [SEARCH_0.3.md](SEARCH_0.3.md).
-New prepared-search/cache/diagnostics checks are pending; no new desktop
-acceptance is claimed. The 0.2 candidate remains independently available.
+Prepared-search differential/memo regressions and full local verify/test/vet/GUI
+build pass. Synthetic benchmarks and preparation cost are recorded in the design
+document. Cache/diagnostics checks are pending; no new desktop acceptance is
+claimed. The 0.2 candidate remains independently available.
 

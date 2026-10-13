@@ -5,7 +5,11 @@
 The planned stages are prepared full-catalog search with ranking/benchmark
 evidence, a default-off display-only startup snapshot, and keyboard/read-only
 diagnostics. See [scope, references and compatibility risks](SEARCH_0.3.md).
-These new stages are not yet implemented or accepted.
+Prepared full-catalog search and one UI memo slot are implemented with unchanged
+ranking in differential tests. Full local checks pass; 5,000-entry synthetic
+queries measure 1.457–1.482 ms versus 15.298–15.571 ms previously, with a separate
+13.857–13.980 ms preparation cost. Cache and diagnostics stages remain pending;
+new actual desktop acceptance is not claimed.
 
 The independent review follow-up separates AUMIDs during file scanning, keeps
 property failures distinct from successful empty values, and gives each Tab-focus
