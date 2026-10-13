@@ -64,7 +64,9 @@ func TestDirectedDuplicateMetadata(t *testing.T) {
 		hr, _, _ = createShellItem.Call(uintptr(unsafe.Pointer(wide)), 0, uintptr(unsafe.Pointer(&shellItemIID)), uintptr(unsafe.Pointer(&item)))
 		runtime.KeepAlive(wide)
 		if err := comError("known duplicate identity", hr); err != nil || item == nil {
-			if item!=nil { item.call(2) }
+			if item != nil {
+				item.call(2)
+			}
 			t.Logf("pair=%d unavailable hr=%08x", n, uint32(hr))
 			continue
 		}

@@ -4,6 +4,8 @@ Desktop-EXE/AppsFolder association and application-row right-click menus are
 implemented, preserving launch variants and both-provider persisted preferences.
 Full local checks and 100%/150% headless menus pass; new actual duplicate/menu
 acceptance remains open. See [compatibility/evidence](DESKTOP_ASSOCIATION_CONTEXT_MENU.md).
+Desktop association also passes the native volume/reparse gate; denied proof
+retains the namespace row. Owned-target and injected unknown-target tests pass.
 
 The approved Store/source follow-up now defaults AppsFolder on (explicit false
 preserved), fixes bare-AUMID filtering/activation and Chinese Store search,

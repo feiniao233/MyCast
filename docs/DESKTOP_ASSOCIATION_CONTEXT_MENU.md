@@ -18,6 +18,9 @@ System.AppUserModel.ID, local EXE target and a successful empty argument read.
 Packaged identities, failed properties and non-EXE/remote targets cannot supply
 this association. Shortcut AppUserModelID is read through IPropertyStore;
 Resolve, repair, execution and source writes are not used.
+Before desktop proof, the existing native volume/ancestor gate also rejects
+mapped network/unknown/offline/reparse targets. A failed gate retains the Shell
+row independently; it does not declare an uninstall or open target content.
 
 Names never participate. An explicit shortcut AppID must agree. Without one,
 exactly one qualifying namespace identity may identify the target; ambiguous

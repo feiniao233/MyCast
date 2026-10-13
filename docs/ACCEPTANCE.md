@@ -11,6 +11,9 @@ both-provider preference persistence, native temporary AppID/resource fixtures
 and 100%/150% right-click/keyboard/stale-target regressions pass locally with
 verify/test/vet/GUI build. Actual new duplicate/menu behavior remains not tested.
 See [details](DESKTOP_ASSOCIATION_CONTEXT_MENU.md).
+Desktop proof additionally requires the existing local volume/ancestor gate.
+An owned native EXE fixture passes; injected denied/unknown proof keeps the
+namespace identity and name while preventing association. Full local checks pass.
 
 ## Store/source follow-up
 

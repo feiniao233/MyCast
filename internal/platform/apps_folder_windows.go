@@ -139,11 +139,22 @@ func readShellApplicationMetadata(item *comObject, verifiedFolder bool) (core.Ap
 	app.Launch.Arguments, _ = shellStringProperty(item, &linkArgumentsKey)
 	appID, idOK := shellStringOrEmptyProperty(item, &appUserModelIDKey)
 	arguments, argsOK := shellStringOrEmptyProperty(item, &linkArgumentsKey)
-	if idOK && argsOK && appID == strings.TrimPrefix(identity, core.AppsFolderParsingPrefix) && !strings.Contains(appID, "!") && core.IsLocalDesktopExecutable(app.Launch.Target) && arguments == "" {
-		app.ShellDesktop = true
-		app.Launch.AppUserModelID = appID
-	}
+	markDesktopAssociation(&app, appID, idOK, arguments, argsOK, LocalAppPath)
 	return app, nil
+}
+
+func markDesktopAssociation(app *core.Application, appID string, idOK bool, arguments string, argsOK bool, allow func(string) error) {
+	if !idOK || !argsOK || arguments != "" || appID != strings.TrimPrefix(app.ShellID, core.AppsFolderParsingPrefix) || strings.Contains(appID, "!") || !core.IsLocalDesktopExecutable(app.Launch.Target) || allow == nil {
+		return
+	}
+	// A drive-shaped string can still name a mapped network, offline or reparse
+	// target. Check the existing volume/ancestor gate before proving association;
+	// denied/unknown proof keeps the namespace row intact and independent.
+	if allow(app.Launch.Target) != nil {
+		return
+	}
+	app.ShellDesktop = true
+	app.Launch.AppUserModelID = appID
 }
 
 func shellDisplayName(item *comObject, kind uint32) (string, error) {

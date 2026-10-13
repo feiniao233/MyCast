@@ -5,6 +5,7 @@ package platform
 
 import (
 	"crypto/sha256"
+	"errors"
 	"github.com/feiniao233/MyCast/internal/core"
 	"os"
 	"path/filepath"
@@ -83,6 +84,31 @@ func TestNativeShellPropertiesAndPIDLGuardPreserveSyntheticShortcut(t *testing.T
 	after, _ := os.ReadFile(path)
 	if sha256.Sum256(before) != sha256.Sum256(after) {
 		t.Fatal("read-only metadata changed source shortcut")
+	}
+}
+
+func TestDesktopProofRequiresLocalAncestorGateWithoutRemovingNamespace(t *testing.T) {
+	root := t.TempDir()
+	target := filepath.Join(root, "Fixture.exe")
+	if err := os.WriteFile(target, []byte("inert"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	base := core.Application{Name: "Synthetic Desktop", ShellID: core.AppsFolderParsingPrefix + "org.synthetic.desktop", Launch: core.LaunchIdentity{Target: target}}
+	good := base
+	markDesktopAssociation(&good, "org.synthetic.desktop", true, "", true, LocalAppPath)
+	if !good.ShellDesktop {
+		t.Fatal("owned local target not classified")
+	}
+	denied := base
+	calls := 0
+	markDesktopAssociation(&denied, "org.synthetic.desktop", true, "", true, func(string) error { calls++; return errors.New("synthetic unknown/network/reparse target") })
+	if calls != 1 || denied.ShellDesktop || denied.ItemID() != base.ItemID() || denied.Name != base.Name {
+		t.Fatal("unknown target merged/removed namespace")
+	}
+	failed := base
+	markDesktopAssociation(&failed, "org.synthetic.desktop", true, "", false, func(string) error { t.Fatal("failed arguments still probed target"); return nil })
+	if failed.ShellDesktop {
+		t.Fatal("failed property accepted")
 	}
 }
 
