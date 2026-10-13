@@ -68,6 +68,7 @@ func (s *launcher) saveOrdinarySettings(candidate settings.Settings) (settings.S
 }
 
 func (s *launcher) openSettings() {
+	s.hiddenOpen = false
 	s.statusDetailsOpen, s.statusDetail = false, ""
 	s.utilityOpen, s.linkEditor = false, false
 	s.clipPreview = ""
@@ -86,6 +87,7 @@ func (s *launcher) openSettings() {
 }
 
 func (s *launcher) closeSettings() {
+	s.hiddenOpen = false
 	s.statusDetailsOpen, s.statusDetail = false, ""
 	s.utilityOpen, s.linkEditor = false, false
 	s.calcText, s.linksText = "", ""
@@ -130,6 +132,10 @@ func (s *launcher) saveSettings() {
 }
 
 func (s *launcher) drawSettings(c *ui.Context) {
+	if s.hiddenOpen {
+		s.drawHiddenApplications(c)
+		return
+	}
 	if s.statusDetailsOpen {
 		s.drawStatusDetails(c)
 		return
@@ -167,6 +173,11 @@ func (s *launcher) drawSettings(c *ui.Context) {
 			ui.Select(c.Key("settings-theme"), &s.themeText, []string{"深色", "浅色", "跟随系统"}).Width(210).Height(32).Label("主题设置")
 		})
 		ui.Checkbox(c.Key("settings-appsfolder"), &s.settingsDraft.AppsFolder, "AppsFolder 系统应用（含 UWP）").Label("AppsFolder 来源")
+		restore := ui.ButtonBase(c.Key("settings-hidden")).Height(28).Shrink(0).Padding(4, 10).Radius(8).Background(p.Control).Label("管理隐藏入口")
+		restore.Children(func() { ui.Text(c, fmt.Sprintf("恢复隐藏入口（%d）", len(s.config.Hidden))).FontSize(12) })
+		if restore.Clicked() {
+			s.openHiddenApplications()
+		}
 		ui.Text(c, "应用目录 · 每行一个绝对本地路径；留空使用系统应用目录").FontSize(12).TextColor(p.Secondary)
 		roots := ui.TextAreaBase(c.Key("settings-roots"), &s.rootsText).FillWidth().Height(56).Shrink(0).Padding(6, 10).Radius(8).Background(p.Control).Border(1, p.Border).FontSize(12).Label("应用目录设置")
 		ui.Text(c, "仅索引 .lnk / .exe，不跟随符号链接，不读取文档内容。").FontSize(11).TextColor(p.Secondary)

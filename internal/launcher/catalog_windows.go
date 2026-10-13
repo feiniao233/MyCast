@@ -91,7 +91,7 @@ func (s *launcher) saveAliases() {
 }
 
 func (s *launcher) selectedApplicationID() string {
-	apps := core.SearchApplicationsRanked(s.apps, s.query, 100, s.config.Favorites, s.config.Recents)
+	apps := s.applicationResults()
 	if s.selected >= 0 && s.selected < len(apps) {
 		return apps[s.selected].ItemID()
 	}
@@ -99,7 +99,7 @@ func (s *launcher) selectedApplicationID() string {
 }
 
 func (s *launcher) keepApplicationSelected(id string) {
-	apps := core.SearchApplicationsRanked(s.apps, s.query, 100, s.config.Favorites, s.config.Recents)
+	apps := s.applicationResults()
 	for index, app := range apps {
 		if app.ItemID() == id {
 			s.selected = index

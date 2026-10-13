@@ -10,6 +10,7 @@ import (
 
 	"github.com/egoist/mygo/ui"
 	"github.com/feiniao233/MyCast/internal/core"
+	"github.com/feiniao233/MyCast/internal/settings"
 )
 
 func (s *launcher) statusMessage() string {
@@ -26,7 +27,12 @@ func (s *launcher) statusMessage() string {
 	return progress
 }
 
-func (s *launcher) completeScan(apps []core.Application, icons map[string]*ui.Bitmap, problems []error, workerErr error, missingSets ...map[string]bool) {
+type scanCompletion struct {
+	missing    map[string]bool
+	reconciled bool
+}
+
+func (s *launcher) completeScan(apps []core.Application, icons map[string]*ui.Bitmap, problems []error, workerErr error, completions ...scanCompletion) {
 	// Retain important/newer diagnostics without appending old scan summaries.
 	if s.status != s.scanLastStatus {
 		s.scanDiagnostic = s.status
@@ -42,9 +48,17 @@ func (s *launcher) completeScan(apps []core.Application, icons map[string]*ui.Bi
 	case cancelled:
 		summary = "扫描已取消，保留当前结果。"
 	case len(apps) == 0 && (len(problems) > 0 || budget):
+		if len(completions) > 0 && completions[0].reconciled {
+			s.refreshApplications(core.WithUserAliases(apps, s.config.Aliases), icons)
+			summary = fmt.Sprintf("扫描部分完成；移除 %d 个已确认失效入口，%d 处无法读取；已配置的未知项已保留。", len(completions[0].missing), len(problems))
+			if budget {
+				summary += " 已达到数量或时间预算。"
+			}
+			break
+		}
 		var missing map[string]bool
-		if len(missingSets) > 0 {
-			missing = missingSets[0]
+		if len(completions) > 0 {
+			missing = completions[0].missing
 		}
 		retained := make([]core.Application, 0, len(s.apps))
 		removed := 0
@@ -89,12 +103,15 @@ func (s *launcher) completeScan(apps []core.Application, icons map[string]*ui.Bi
 // Publication snapshots the CURRENT UI state, after any intervening scroll,
 // query edit, navigation or mode switch. Selection and viewport are independent.
 // Only explicit navigation calls reveal; a catalog refresh never does.
-func (s *launcher) refreshApplications(apps []core.Application, icons map[string]*ui.Bitmap) {
+func (s *launcher) refreshApplications(apps []core.Application, icons map[string]*ui.Bitmap, configs ...settings.Settings) {
 	if s.clipboardMode {
+		if len(configs) > 0 {
+			s.config = configs[0].Clone()
+		}
 		s.apps, s.icons = apps, icons
 		return
 	}
-	oldApps := core.SearchApplicationsRanked(s.apps, s.query, 100, s.config.Favorites, s.config.Recents)
+	oldApps := s.applicationResults()
 	oldRows := s.rows(oldApps, nil)
 	selectedID := ""
 	oldSelected := s.selected
@@ -110,7 +127,10 @@ func (s *launcher) refreshApplications(apps []core.Application, icons map[string
 		}
 	}
 	s.apps, s.icons = apps, icons
-	newApps := core.SearchApplicationsRanked(s.apps, s.query, 100, s.config.Favorites, s.config.Recents)
+	if len(configs) > 0 {
+		s.config = configs[0].Clone()
+	}
+	newApps := s.applicationResults()
 	newRows := s.rows(newApps, nil)
 	positions := map[string]int{}
 	for i, row := range newRows {

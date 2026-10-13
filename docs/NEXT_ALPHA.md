@@ -40,8 +40,7 @@ Official API references: [BindToHandler](https://learn.microsoft.com/en-us/windo
 
 ## Planned remaining scope
 
-Result source/location/hide controls and persistent restoration; explicit default-off per-user
-startup registration with tray-only single-instance startup. Signing, auto-update,
+Explicit default-off per-user startup registration with tray-only single-instance startup. Signing, auto-update,
 full-drive search, AI and plugins remain outside this candidate.
 
 ## Stage 2: automatic configured-source refresh
@@ -66,3 +65,32 @@ network and reparse states cannot establish uninstall. A complete AppsFolder
 snapshot can remove its absent identities even when an unrelated local root
 failed. Combined catalogs are capped at 5,000 entries; icon reads remain bounded
 at 256 per provider (512 maximum with both sources enabled).
+
+The 30-second fallback performs a complete bounded rescan of the configured
+sources, including icon/name preparation, even while the palette is hidden; it
+does not merely probe failed roots. This trades background work for recovery and
+package-change coverage. It does not activate the window or restore input focus.
+Native Shell calls may still delay a worker beyond its cooperative deadline.
+
+## Stage 3: source, location and hide management
+
+The result menu shows the selected entry's original source and launch metadata
+in an in-memory details sheet. File location uses a safely parsed PIDL to select
+the original `.lnk`/`.exe` in Explorer. AppsFolder is virtual, so its location
+action is disabled rather than passing a fabricated path to Explorer.
+
+Hidden entry IDs (up to 200) persist in ordinary settings, retaining their
+favorites/aliases/recents. Settings restores each hidden entry, including an
+unavailable identity whose label cannot currently be discovered. Hiding affects
+MyCast only; original files are never modified or deleted. Filtering happens
+before ranking/result limits. Identity-bound menu closures are revalidated before
+effects, and deleting/hiding selection blocks pending old activation until an
+explicit new selection. Partial-source errors and deadlines retain unconfirmed
+items independently for file and Shell providers.
+
+Clearly labeled synthetic headless previews (dedicated fixture data only):
+[menu 100%](previews/entry-menu-100.png), [menu 150%](previews/entry-menu-150.png),
+[source 100%](previews/entry-source-100.png), [source 150%](previews/entry-source-150.png),
+[hidden 100%](previews/entry-hidden-100.png), [hidden 150%](previews/entry-hidden-150.png),
+[settings 100%](previews/sources-settings-100.png), [settings 150%](previews/sources-settings-150.png).
+These are not desktop screenshots or proof of actual native material/IME behavior.

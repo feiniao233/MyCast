@@ -17,6 +17,7 @@ const MaxFileBytes = 128 * 1024
 const DefaultHotkey = "Ctrl+Alt+Space"
 
 type Settings struct {
+	Hidden     []string            `json:"hidden,omitempty"`
 	AppsFolder bool                `json:"apps_folder,omitempty"`
 	Version    int                 `json:"version"`
 	Hotkey     string              `json:"hotkey"`
@@ -32,6 +33,7 @@ func Defaults() Settings {
 	return Settings{Version: SchemaVersion, Hotkey: DefaultHotkey, Theme: "dark"}
 }
 func (s Settings) Clone() Settings {
+	s.Hidden = append([]string(nil), s.Hidden...)
 	s.IndexRoots = append([]string(nil), s.IndexRoots...)
 	s.Favorites = append([]string(nil), s.Favorites...)
 	s.Recents = append([]string(nil), s.Recents...)
@@ -130,6 +132,9 @@ func (s Settings) Validated() (Settings, error) {
 		return Settings{}, err
 	}
 	if s.Recents, err = validateIDs(s.Recents, 50); err != nil {
+		return Settings{}, err
+	}
+	if s.Hidden, err = validateIDs(s.Hidden, 200); err != nil {
 		return Settings{}, err
 	}
 	if len(s.Aliases) > 200 {

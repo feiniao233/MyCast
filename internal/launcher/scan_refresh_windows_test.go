@@ -410,7 +410,7 @@ func TestZeroResultsWithAnotherFailedRootDoesNotReviveConfirmedMissingApp(t *tes
 	}
 	// No absence proof means an unavailable source stays cached.
 	s.apps = first
-	s.completeScan(nil, nil, []error{errors.New("dedicated access denied")}, nil, map[string]bool{})
+	s.completeScan(nil, nil, []error{errors.New("dedicated access denied")}, nil, scanCompletion{missing: map[string]bool{}})
 	if len(s.apps) != 1 {
 		t.Fatal("unconfirmed permission failure erased cached entry")
 	}

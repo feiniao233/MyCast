@@ -33,6 +33,26 @@ CI failed its fixture string-equality assertion because Shell canonicalized the
 runner's temporary directory name. The assertion now requires `os.SameFile`
 against the owned directory, preserving the exact-file requirement across
 Windows spelling/short-name differences rather than skipping the test.
+Stage 2 exact-commit [CI passed](https://github.com/feiniao233/MyCast/actions/runs/38399106551)
+for `1568ea8707afa333bfba94c24f3e9164ab79a68e`.
+
+## 0.2.0-alpha.1 stage 3
+
+Identity-bound result menus show the original source and metadata, select the
+original local file in Explorer, and persist up to 200 hidden identities. Virtual
+items disable file-location actions. Headless 100%/150% tests cover menu geometry,
+source details, hide/restore, search focus, stale menu closures, old Enter after
+hiding selection, virtual path refusal and failed persistence. Settings tests
+cover hidden-list bounds, clone isolation and disk round trips. Native PIDL
+fixtures repeatedly parse/free only an inert temporary source; they do not open
+Explorer or delete/change source links. Actual Explorer navigation and desktop
+menu input remain **not tested**.
+Local Go 1.27.2 module verification, full tests, vet and Windows GUI build passed.
+The independent-provider regressions cover Shell error/deadline with a complete
+file snapshot, subsequent successful empty Shell recovery, and an empty partial
+snapshot after removing a root/disabling Shell. The reconciled worker snapshot
+cannot be overwritten by the UI's older fallback; old icons will be preserved
+in the following scheduling/cache correction stage.
 
 ## Alpha verification boundary
 

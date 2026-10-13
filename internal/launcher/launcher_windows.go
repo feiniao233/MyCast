@@ -18,6 +18,10 @@ import (
 )
 
 type launcher struct {
+	scanTimeout                                    time.Duration
+	hiddenOpen                                     bool
+	hiddenScroll                                   ui.ScrollState
+	showLocation                                   func(string) error
 	autoDirty                                      bool
 	watchEpoch                                     uint64
 	watchCancel                                    context.CancelFunc
@@ -88,6 +92,7 @@ type launcher struct {
 func Run() error {
 	s := &launcher{history: core.NewHistory(50, 64*1024), stop: make(chan struct{}), config: settings.Defaults(), launchApplication: platform.Launch, copyText: platform.WriteClipboardText, openURL: platform.OpenHTTPURL}
 	s.launchShellApplication = platform.LaunchShellApplication
+	s.showLocation = platform.ShowApplicationLocation
 	mygo.App.SetName("MyCast")
 	if !mygo.App.RequestSingleInstanceLock() {
 		return nil
@@ -199,6 +204,7 @@ func (s *launcher) ready() {
 
 // With no tray, keep the fallback window reachable even if the hotkey failed.
 func (s *launcher) hide() {
+	s.hiddenOpen = false
 	s.statusDetailsOpen, s.statusDetail = false, ""
 	s.closeMenu()
 	s.settingsOpen = false
@@ -263,7 +269,11 @@ func (s *launcher) scan() {
 	if s.win != nil {
 		s.win.Invalidate()
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	timeout := s.scanTimeout
+	if timeout <= 0 {
+		timeout = 15 * time.Second
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	s.scanCancel = cancel
 	roots := append([]string(nil), s.config.IndexRoots...)
 	if len(roots) == 0 {
@@ -274,8 +284,8 @@ func (s *launcher) scan() {
 	shellEnabled, shellWork := s.config.AppsFolder, s.scanShellWork
 	go func() {
 		apps, icons, errs := s.scanWork(ctx, roots)
-		filePartial := len(errs) > 0
-		shellPartial := false
+		filePartial := len(errs) > 0 || ctx.Err() != nil
+		shellPartial := shellEnabled && (shellWork == nil || ctx.Err() != nil)
 		if shellEnabled && shellWork != nil && ctx.Err() == nil {
 			virtual, virtualIcons, virtualErrs := shellWork(ctx)
 			shellPartial = len(virtualErrs) > 0
@@ -297,7 +307,7 @@ func (s *launcher) scan() {
 		if filePartial && probeMissing != nil && ctx.Err() == nil {
 			missing = probeMissing(ctx, previousApps)
 		}
-		if (filePartial || shellPartial) && ctx.Err() == nil {
+		if (filePartial || shellPartial) && ctx.Err() != context.Canceled {
 			apps = core.RetainUnconfirmed(apps, previousApps, missing, func(app core.Application) bool {
 				if app.ShellID != "" {
 					return shellEnabled && shellPartial
@@ -321,7 +331,7 @@ func (s *launcher) scan() {
 				return
 			}
 			s.scanProgress = ""
-			s.completeScan(apps, icons, errs, workerErr, missing)
+			s.completeScan(apps, icons, errs, workerErr, scanCompletion{missing: missing, reconciled: true})
 			if s.autoDirty {
 				s.automaticRefresh()
 			}

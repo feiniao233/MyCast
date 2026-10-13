@@ -95,7 +95,7 @@ func (s *launcher) resolveMenuTarget(key string, clipboard bool) ([]core.Applica
 		}
 		return nil, nil, 0, false
 	}
-	apps := core.SearchApplicationsRanked(s.apps, s.query, 100, s.config.Favorites, s.config.Recents)
+	apps := s.applicationResults()
 	for index, app := range apps {
 		if app.ItemID() == key {
 			return apps, nil, index, true
@@ -128,6 +128,19 @@ func (s *launcher) runMenuTarget(key string, clipboard bool, action string) {
 		s.toggleFavorite(apps[index].ItemID())
 	case "alias":
 		s.openAliases(apps[index])
+	case "source":
+		s.openApplicationSource(apps[index])
+	case "location":
+		app := apps[index]
+		if app.ShellID != "" || s.showLocation == nil {
+			s.status = "此入口没有文件位置。"
+			return
+		}
+		if err := s.showLocation(app.Path); err != nil {
+			s.status = "无法打开入口位置：" + err.Error()
+		}
+	case "hide":
+		s.toggleHiddenApplication(apps[index].ItemID())
 	}
 }
 
@@ -222,6 +235,9 @@ func (s *launcher) menuItems(apps []core.Application, clips []string) []paletteM
 				favorite = "取消收藏"
 			}
 			items = append(items, paletteMenuItem{favorite, "★", false, func() { s.runMenuTarget(key, clipboard, "favorite") }}, paletteMenuItem{"编辑搜索别名", "✎", false, func() { s.runMenuTarget(key, clipboard, "alias") }})
+		}
+		if !s.clipboardMode && valid && len(boundApps) > 0 {
+			items = append(items, paletteMenuItem{"查看来源", "?", false, func() { s.runMenuTarget(key, clipboard, "source") }}, paletteMenuItem{"打开所在位置", "?", boundApps[index].ShellID != "", func() { s.runMenuTarget(key, clipboard, "location") }}, paletteMenuItem{"隐藏此入口", "×", false, func() { s.runMenuTarget(key, clipboard, "hide") }})
 		}
 		return items
 	}
@@ -342,7 +358,7 @@ func (s *launcher) view(c *ui.Context) {
 	}
 	ui.Box(c.Key("palette-root")).Fill().Background(background).Radius(palette.PanelRadius).Clip().Children(func() {
 		queryAtRows := s.query
-		apps := core.SearchApplicationsRanked(s.apps, s.query, 100, s.config.Favorites, s.config.Recents)
+		apps := s.applicationResults()
 		clips := s.clipResults()
 		rows := s.rows(apps, clips)
 		selectionLost := false

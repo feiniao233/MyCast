@@ -6,6 +6,7 @@ package launcher
 import (
 	"context"
 	"errors"
+	"fmt"
 	"github.com/egoist/mygo/ui"
 	"github.com/feiniao233/MyCast/internal/core"
 	"github.com/feiniao233/MyCast/internal/settings"
@@ -88,5 +89,77 @@ func TestMixedPartialScanKeepsOfflineEntryButDropsConfirmedAndRemovedRoot(t *tes
 	}
 	if len(s.apps) != 2 || s.apps[1].ItemID() != offline.ItemID() {
 		t.Fatal("mixed partial snapshot discarded unconfirmed or revived missing/unconfigured")
+	}
+}
+
+func TestFileSuccessAndShellFailureOrDeadlineRetainOnlyShellUntilRecovery(t *testing.T) {
+	for _, deadline := range []bool{false, true} {
+		t.Run(fmt.Sprint(deadline), func(t *testing.T) {
+			s := syntheticLauncher()
+			s.config = settings.Defaults()
+			s.config.IndexRoots = []string{`C:\Synthetic`}
+			s.config.AppsFolder = true
+			fresh := core.Application{Name: "Fresh", Path: `C:\Synthetic\Fresh.exe`}
+			oldFile := core.Application{Name: "Old file", Path: `C:\Synthetic\Removed.exe`}
+			oldShell := core.Application{Name: "Old shell", ShellID: core.AppsFolderParsingPrefix + "Synthetic!App"}
+			s.apps = []core.Application{oldFile, oldShell}
+			s.selected = 1
+			done := make(chan func(), 2)
+			s.uiUpdate = func(fn func()) { done <- fn }
+			s.scanWork = func(context.Context, []string) ([]core.Application, map[string]*ui.Bitmap, []error) {
+				return []core.Application{fresh}, nil, nil
+			}
+			s.scanTimeout = 20 * time.Millisecond
+			s.scanShellWork = func(ctx context.Context) ([]core.Application, map[string]*ui.Bitmap, []error) {
+				if deadline {
+					<-ctx.Done()
+					return nil, nil, []error{ctx.Err()}
+				}
+				return nil, nil, []error{errors.New("synthetic Shell provider unavailable")}
+			}
+			s.scan()
+			select {
+			case fn := <-done:
+				fn()
+			case <-time.After(time.Second):
+				t.Fatal("scan timeout")
+			}
+			if len(s.apps) != 2 || s.apps[1].ItemID() != oldShell.ItemID() || s.appNeedsSelection {
+				t.Fatal("Shell failure lost selected identity or retained removed complete file source")
+			}
+			s.scanShellWork = func(context.Context) ([]core.Application, map[string]*ui.Bitmap, []error) { return nil, nil, nil }
+			s.scan()
+			select {
+			case fn := <-done:
+				fn()
+			case <-time.After(time.Second):
+				t.Fatal("recovery timeout")
+			}
+			if len(s.apps) != 1 || s.apps[0].ItemID() != fresh.ItemID() || !s.appNeedsSelection {
+				t.Fatal("successful Shell recovery did not remove absent virtual identity")
+			}
+		})
+	}
+}
+
+func TestEmptyPartialSnapshotCannotReviveRemovedRootsOrDisabledShell(t *testing.T) {
+	s := syntheticLauncher()
+	s.config = settings.Defaults()
+	s.config.IndexRoots = []string{`C:\Synthetic\New`}
+	s.apps = []core.Application{{Name: "Removed root", Path: `C:\Synthetic\Old\Fixture.exe`}, {Name: "Disabled Shell", ShellID: core.AppsFolderParsingPrefix + "Synthetic!App"}}
+	done := make(chan func(), 1)
+	s.uiUpdate = func(fn func()) { done <- fn }
+	s.scanWork = func(context.Context, []string) ([]core.Application, map[string]*ui.Bitmap, []error) {
+		return nil, nil, []error{errors.New("synthetic unavailable configured new root")}
+	}
+	s.scan()
+	select {
+	case fn := <-done:
+		fn()
+	case <-time.After(time.Second):
+		t.Fatal("worker timeout")
+	}
+	if len(s.apps) != 0 {
+		t.Fatal("UI fallback revived removed/disabled provider")
 	}
 }

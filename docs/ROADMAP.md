@@ -7,7 +7,8 @@ Shell names/icons and default-action activation; synthetic and native fixture
 checks cover adapters. See [scope and compatibility](NEXT_ALPHA.md). Automatic
 refresh is implemented with guarded directory notifications, 500-ms coalescing,
 30-second scoped retries and conservative partial snapshot reconciliation.
-Hide/source/location and opt-in startup are the next stages. Native
+Hide/source/location are implemented with identity-bound menus and bounded
+persistent hidden IDs, restored through settings; opt-in startup is next. Native
 packaged/desktop activation remains a new-version acceptance blocker.
 
 The first public alpha should be useful and predictable on Windows 10/11 before
