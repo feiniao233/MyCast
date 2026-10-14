@@ -406,8 +406,11 @@ func TestZeroResultsWithAnotherFailedRootDoesNotReviveConfirmedMissingApp(t *tes
 	}
 	s.scan()
 	awaitScanUI(t, callbacks)
-	if len(s.apps) != 0 || !strings.Contains(s.status, "移除 1 个") || !strings.Contains(s.status, "无法读取") {
+	if len(s.apps) != 0 {
 		t.Fatal("failed secondary root revived confirmed missing application")
+	}
+	if !strings.Contains(s.status, "移除 1 个") || !strings.Contains(s.status, "已记录 1 个扫描问题") {
+		t.Fatalf("mixed-root scan omitted removal/problem summary: %q", s.status)
 	}
 	// No absence proof means an unavailable source stays cached.
 	s.apps = first
