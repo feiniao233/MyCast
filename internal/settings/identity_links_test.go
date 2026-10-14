@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"runtime"
 	"slices"
-	"strings"
 	"testing"
+	"unicode"
 
 	"github.com/feiniao233/MyCast/internal/core"
 )
@@ -323,7 +323,7 @@ func historicalPathID(path string) string {
 func historicalPathKey(path string) string {
 	path = filepath.Clean(path)
 	if runtime.GOOS == "windows" {
-		path = strings.ToLower(path)
+		path = historicalWindowsCaseKey(path)
 	}
 	return path
 }
@@ -334,4 +334,40 @@ func historicalTupleID(app core.Application, includeAppID bool) string {
 		identity += fmt.Sprintf("|app-id:%q", app.Launch.AppUserModelID)
 	}
 	return fmt.Sprintf("app-%x", sha256.Sum256([]byte(identity)))
+}
+
+// Baseline Windows identities chose the smallest Unicode simple-fold rune,
+// not lowercase. Keep this fixture implementation separate from production.
+func historicalWindowsCaseKey(path string) string {
+	units := []rune(path)
+	for i, unit := range units {
+		for next := unicode.SimpleFold(unit); next != unit; next = unicode.SimpleFold(next) {
+			if next < units[i] {
+				units[i] = next
+			}
+		}
+	}
+	return string(units)
+}
+
+func TestHistoricalWindowsCaseAndHashGoldens(t *testing.T) {
+	// Canonical strings and fixed SHA-256 values are independent of both
+	// production pathKey and the expected-ID helper used by migration tests.
+	for _, test := range []struct{ input, canonical, id string }{
+		{`C:\Synthetic\Fixture.lnk`, `C:\SYNTHETIC\FIXTURE.LNK`, "app-4a5bd4767c284e5b8ce35b28f0bc6b829dba583a08536d51ee1f19be70b17d49"},
+		{`C:\Σynthetic\σς.lnk`, `C:\ΣYNTHETIC\ΣΣ.LNK`, "app-c226faf43ecbf066a99ff401cd1ea358d442e032c7acb23eb136b4557ce62d02"},
+		{`C:\Kelvin\kK.lnk`, `C:\KELVIN\KK.LNK`, "app-38b917927b164f8d633f4c5bf0c589d05a6b44d63a955fe55674fe3a28c2ff89"},
+		{`C:\µ\μΜ.lnk`, `C:\µ\µµ.LNK`, "app-0d289e5cc5321a0fef94a3fe5de9971567be825071dd6667060e4f91091a4b12"},
+	} {
+		canonical := historicalWindowsCaseKey(test.input)
+		if canonical != test.canonical {
+			t.Fatalf("historical Windows canonical key=%q, want %q", canonical, test.canonical)
+		}
+		if got := fmt.Sprintf("app-%x", sha256.Sum256([]byte(canonical))); got != test.id {
+			t.Fatalf("historical hash=%s, want %s", got, test.id)
+		}
+		if runtime.GOOS == "windows" && historicalPathID(test.input) != test.id {
+			t.Fatal("Windows historical helper diverged from golden")
+		}
+	}
 }

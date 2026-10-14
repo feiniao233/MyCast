@@ -14,6 +14,7 @@ import (
 	"strings"
 	"syscall"
 	"testing"
+	"unicode"
 	"unsafe"
 )
 
@@ -207,7 +208,11 @@ func TestAppIDPropertyFailuresStayUnknownThroughNativeIndex(t *testing.T) {
 			if len(errs) != 0 || len(mixed) != 2 {
 				t.Fatal("mixed known/failed AppID scan")
 			}
-			legacy := (core.Application{Path: filepath.Join(links, "Alpha.lnk"), Launch: core.LaunchIdentity{Target: target, WorkingDirectory: root, AppUserModelIDKnown: true}}).ItemID()
+			knownLaunch, err := ShortcutIdentity(filepath.Join(links, "Alpha.lnk"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			legacy := historicalNativeTupleID(knownLaunch)
 			for _, app := range mixed {
 				if app.HasPreferenceID(legacy) {
 					t.Fatal("unknown sibling authorized ambiguous legacy migration")
@@ -256,7 +261,7 @@ func TestNativeAppIDScanUsesNamesAndMigratesOnlyUniqueHistoricalTuple(t *testing
 	if err != nil {
 		t.Fatal(err)
 	}
-	legacy := fmt.Sprintf("app-%x", sha256.Sum256([]byte(fmt.Sprintf("%q|%q|%q", strings.ToLower(filepath.Clean(read.Target)), read.Arguments, strings.ToLower(filepath.Clean(read.WorkingDirectory))))))
+	legacy := fmt.Sprintf("app-%x", sha256.Sum256([]byte(fmt.Sprintf("%q|%q|%q", historicalNativePathKey(read.Target), read.Arguments, historicalNativePathKey(read.WorkingDirectory)))))
 	for _, id := range []string{"org.synthetic.alpha", "org.synthetic.beta"} {
 		apps = append(apps, core.Application{Name: "Namespace " + id, ShellID: core.AppsFolderParsingPrefix + id, ShellDesktop: true, Launch: core.LaunchIdentity{Target: target, AppUserModelID: id}})
 	}
@@ -347,4 +352,37 @@ func TestBSTRStringBoundsNullAndCanonicalSuccess(t *testing.T) {
 			runtime.KeepAlive(props)
 		})
 	}
+}
+
+// Windows pathKey in the pre-source-policy catalog used minimum Unicode
+// simple-fold representatives. It did not lowercase the shortcut metadata.
+func historicalNativePathKey(path string) string {
+	units := []rune(filepath.Clean(path))
+	for i, unit := range units {
+		for next := unicode.SimpleFold(unit); next != unit; next = unicode.SimpleFold(next) {
+			if next < units[i] {
+				units[i] = next
+			}
+		}
+	}
+	return string(units)
+}
+
+func TestNativeHistoricalPathHashGoldens(t *testing.T) {
+	for _, test := range []struct{ input, canonical, id string }{
+		{`C:\Synthetic\Fixture.lnk`, `C:\SYNTHETIC\FIXTURE.LNK`, "app-4a5bd4767c284e5b8ce35b28f0bc6b829dba583a08536d51ee1f19be70b17d49"},
+		{`C:\Σynthetic\σς.lnk`, `C:\ΣYNTHETIC\ΣΣ.LNK`, "app-c226faf43ecbf066a99ff401cd1ea358d442e032c7acb23eb136b4557ce62d02"},
+		{`C:\Kelvin\kK.lnk`, `C:\KELVIN\KK.LNK`, "app-38b917927b164f8d633f4c5bf0c589d05a6b44d63a955fe55674fe3a28c2ff89"},
+		{`C:\µ\μΜ.lnk`, `C:\µ\µµ.LNK`, "app-0d289e5cc5321a0fef94a3fe5de9971567be825071dd6667060e4f91091a4b12"},
+	} {
+		canonical := historicalNativePathKey(test.input)
+		if canonical != test.canonical || fmt.Sprintf("app-%x", sha256.Sum256([]byte(canonical))) != test.id {
+			t.Fatal("native historical-ID fixture differs from fixed baseline golden")
+		}
+	}
+}
+
+func historicalNativeTupleID(launch core.LaunchIdentity) string {
+	identity := fmt.Sprintf("%q|%q|%q", historicalNativePathKey(launch.Target), launch.Arguments, historicalNativePathKey(launch.WorkingDirectory))
+	return fmt.Sprintf("app-%x", sha256.Sum256([]byte(identity)))
 }
