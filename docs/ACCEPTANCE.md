@@ -441,3 +441,42 @@ Integration commit `07a7d3a8a0ac15b73713a4faa3ba6026e358411c` passed
 including owned native size/icon/key fixtures and packaging. Final candidate
 verification remains separate; use [0.4 incremental acceptance](INCREMENTAL_ACCEPTANCE_0.4.md).
 
+
+## 0.4 feedback correction (Linux cloud workspace, 2026-10-14)
+
+Scope: [packaged-only supplement, name/target shortcut deduplication and one-row
+compact UI](FEEDBACK_0.4.md), based on `4201598`. The new 56-DIP layout supersedes
+the historical 108-DIP compact evidence above. The expanded presentation is
+unchanged in purpose; this candidate still needs its own Windows execution.
+
+Verification on the final working tree is recorded below. A workspace-local
+official Go 1.27.2 archive was checked against its official SHA-256; no global
+toolchain or configuration was changed.
+
+- Passed: `go mod verify`, Linux `go test ./...` and `go vet ./...`;
+  `go test -race ./internal/core ./internal/settings` also passes.
+- Passed: all Windows packages and test binaries compile with
+  `GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go test -exec /bin/true ./...`;
+  this command intentionally does not execute the Windows binaries.
+- Passed: Windows-targeted `go vet ./...` and CGO-disabled amd64 GUI build
+  with `-trimpath -tags mygo_noinspector -ldflags '-H windowsgui -s -w'`.
+- Passed: generated original icon check and built-PE icon check, with all eight
+  icon sizes (16, 20, 24, 32, 48, 64, 128, 256); native icon appearance untested.
+- Passed: `git diff --check`; changed Go files are gofmt-clean.
+- Windows test execution, owned native geometry/key/icon fixtures and packaging:
+  not run on Linux; required in exact-commit Windows CI.
+- New synthetic compact previews and 100%/150%/200% layout/focus/IME harness tests:
+  added and compiled only; not executed or visually validated in this workspace.
+- Live Windows Store activation, installed-app duplicate removal, native menus,
+  real IME and multi-monitor/work-area transitions: not tested.
+
+Independent review found and closed a partial-refresh provenance defect: a
+failed duplicate source followed by deletion of the selected source now keeps
+the unknown sibling root discoverable. Two-round scan, removed-root, missing
+selected-source, full-budget and input-immutability regressions pass; the full
+local suite above was rerun after this fix.
+
+No real shortcut bytes or installed-app inventory were read or modified. All
+new test data are synthetic. This change does not merge main, publish a Release,
+sign a binary or grant account access. Earlier reported Windows passes do not
+stand in for these unexecuted checks.

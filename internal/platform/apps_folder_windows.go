@@ -29,7 +29,8 @@ var (
 	imageFactoryIID    = comGUID{0xbcc18b79, 0xba16, 0x442f, [8]byte{0x80, 0xc4, 0x8a, 0x59, 0xc3, 0x0c, 0x46, 0x3b}}
 )
 
-// AppsFolderApplications reads the current user's Shell directory in one STA.
+// AppsFolderApplications supplements shortcuts with proven packaged applications
+// from the current user's Shell directory in one STA.
 // Nothing is activated and no WindowsApps paths or other users are scanned.
 // COM calls can block: cancellation is cooperative between calls, with no
 // abandoned apartment or unbounded replacement goroutines.
@@ -57,6 +58,10 @@ func AppsFolderApplications(ctx context.Context, cachedIcons ...map[string]image
 }
 
 func enumerateShellApplications(ctx context.Context, folder *comObject, limit, iconLimit int, cachedIcons ...map[string]image.Image) ([]core.Application, map[string]image.Image, []error) {
+	return enumerateShellApplicationsWithPackageAPI(ctx, folder, limit, iconLimit, nativeShellPackageAPI(), cachedIcons...)
+}
+
+func enumerateShellApplicationsWithPackageAPI(ctx context.Context, folder *comObject, limit, iconLimit int, api shellPackageAPI, cachedIcons ...map[string]image.Image) ([]core.Application, map[string]image.Image, []error) {
 	root, rootErr := shellDisplayName(folder, 0x80028000)
 	verifiedFolder := rootErr == nil && strings.EqualFold(root, strings.TrimSuffix(core.AppsFolderParsingPrefix, `\`))
 	var cache map[string]image.Image
@@ -74,6 +79,10 @@ func enumerateShellApplications(ctx context.Context, folder *comObject, limit, i
 	var apps []core.Application
 	icons := map[string]image.Image{}
 	var problems []error
+	packageProblem := !api.available()
+	if packageProblem {
+		problems = append(problems, errShellPackageProof)
+	}
 	seen := map[string]bool{}
 	for n := 0; n < limit; n++ {
 		if err := ctx.Err(); err != nil {
@@ -98,20 +107,21 @@ func enumerateShellApplications(ctx context.Context, folder *comObject, limit, i
 			}
 			return apps, icons, append(problems, fmt.Errorf("invalid Shell enumeration output"))
 		}
-		app, metadataErr := readShellApplicationMetadata(item, verifiedFolder)
-		identity := app.ShellID
+		app, metadataErr := readShellApplicationMetadataWithPackageAPI(item, verifiedFolder, api)
+		identity := strings.ToLower(app.ShellID)
 		if metadataErr != nil {
-			if len(problems) < 128 {
-				problems = append(problems, fmt.Errorf("Shell application metadata unavailable"))
+			if len(problems) < 128 && (metadataErr != errShellPackageProof || !packageProblem) {
+				problems = append(problems, metadataErr)
 			}
-		} else if !seen[identity] {
+			packageProblem = packageProblem || metadataErr == errShellPackageProof
+		} else if app.ShellPackaged && !seen[identity] {
 			if core.IsUninstallEntry(app) {
 				item.call(2)
 				continue
 			}
 			seen[identity] = true
 			apps = append(apps, app)
-			if n < iconLimit && ctx.Err() == nil {
+			if len(apps) <= iconLimit && ctx.Err() == nil {
 				im, found := cache[app.ItemID()]
 				if !found {
 					im = shellItemIcon(item)
@@ -124,6 +134,17 @@ func enumerateShellApplications(ctx context.Context, folder *comObject, limit, i
 	return apps, icons, append(problems, core.ErrScanBudget)
 }
 
+func readShellApplicationMetadataWithPackageAPI(item *comObject, verifiedFolder bool, api shellPackageAPI) (core.Application, error) {
+	app, err := readShellApplicationMetadata(item, verifiedFolder)
+	if err != nil {
+		return app, err
+	}
+	app.ShellPackaged, err = shellApplicationIsPackaged(app, api)
+	return app, err
+}
+
+// Metadata-only callers (including explicitly requested diagnostics) can still
+// inspect ordinary desktop Shell items without making a package query.
 func readShellApplicationMetadata(item *comObject, verifiedFolder bool) (core.Application, error) {
 	name, nameErr := shellDisplayName(item, 0)
 	parse, parseErr := shellDisplayName(item, 0x80028000)
@@ -137,24 +158,24 @@ func readShellApplicationMetadata(item *comObject, verifiedFolder bool) (core.Ap
 	app := core.Application{Name: name, ShellID: identity, Aliases: core.SystemApplicationAliases(identity)}
 	app.Launch.Target, _ = shellStringProperty(item, &linkTargetKey)
 	app.Launch.Arguments, _ = shellStringProperty(item, &linkArgumentsKey)
-	appID, idOK := shellStringOrEmptyProperty(item, &appUserModelIDKey)
-	arguments, argsOK := shellStringOrEmptyProperty(item, &linkArgumentsKey)
-	markDesktopAssociation(&app, appID, idOK, arguments, argsOK, LocalAppPath)
+	app.Launch.AppUserModelID, app.Launch.AppUserModelIDKnown = shellStringOrEmptyProperty(item, &appUserModelIDKey)
 	return app, nil
 }
 
-func markDesktopAssociation(app *core.Application, appID string, idOK bool, arguments string, argsOK bool, allow func(string) error) {
-	if !idOK || !argsOK || arguments != "" || appID != strings.TrimPrefix(app.ShellID, core.AppsFolderParsingPrefix) || strings.Contains(appID, "!") || !core.IsLocalDesktopExecutable(app.Launch.Target) || allow == nil {
-		return
+// An AppsFolder identity or an AppUserModelID alone is not package proof: both
+// are also used by ordinary desktop applications. Keep their metadata available
+// to diagnostics, but never include them in the packaged-app supplement.
+func shellApplicationIsPackaged(app core.Application, api shellPackageAPI) (bool, error) {
+	identity := strings.TrimPrefix(app.ShellID, core.AppsFolderParsingPrefix)
+	// Packaged AUMIDs have a family!relative-app ID. A desktop ID without
+	// that form is definitively excluded even when optional properties fail.
+	if _, ok := packagedAUMIDFamily(identity); !ok {
+		return false, nil
 	}
-	// A drive-shaped string can still name a mapped network, offline or reparse
-	// target. Check the existing volume/ancestor gate before proving association;
-	// denied/unknown proof keeps the namespace row intact and independent.
-	if allow(app.Launch.Target) != nil {
-		return
+	if !app.Launch.AppUserModelIDKnown || app.Launch.AppUserModelID == "" || !strings.EqualFold(app.Launch.AppUserModelID, identity) {
+		return false, errShellPackageProof
 	}
-	app.ShellDesktop = true
-	app.Launch.AppUserModelID = appID
+	return registeredPackageApplication(app.Launch.AppUserModelID, api)
 }
 
 func shellDisplayName(item *comObject, kind uint32) (string, error) {

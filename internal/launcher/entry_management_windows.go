@@ -41,7 +41,7 @@ func (s *launcher) openApplicationSource(app core.Application) {
 	if app.DisplayOnlyID != "" {
 		detail += "来源：本地启动显示快照\n此身份尚未重新验证；没有可启动目标或文件位置。"
 	} else if app.ShellID != "" {
-		detail += "来源：AppsFolder（系统虚拟应用）\nShell 身份：" + app.ShellID + "\n此入口没有普通文件位置。"
+		detail += "来源：AppsFolder（已验证的 packaged 应用）\nShell 身份：" + app.ShellID + "\n此入口没有普通文件位置。"
 	} else {
 		detail += "来源文件：" + app.Path
 		if app.Launch.Target != "" {

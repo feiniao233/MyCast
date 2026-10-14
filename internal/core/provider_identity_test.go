@@ -10,7 +10,7 @@ func TestProvenVirtualShortcutMergeKeepsLegacyPreferencesAndVariants(t *testing.
 	link := old
 	link.Launch = LaunchIdentity{ShellTarget: id, ShowCommand: 1, AppUserModelIDKnown: true}
 	link.RelatedIDs = []string{oldID}
-	shell := Application{Name: "系统名称", ShellID: id}
+	shell := Application{Name: "系统名称", ShellID: id, ShellPackaged: true}
 	merged := PrepareSearch(MergeProviderApplications([]Application{shell, link}))
 	if len(merged) != 1 || merged[0].Path != link.Path || !merged[0].HasPreferenceID(oldID) || merged[0].ItemID() != shell.ItemID() {
 		t.Fatal("proved source association lost adapter/identity")
@@ -23,7 +23,7 @@ func TestProvenVirtualShortcutMergeKeepsLegacyPreferencesAndVariants(t *testing.
 	if !restored[0].HasPreferenceID(oldID) {
 		t.Fatal("file removal lost preference bridge to surviving Shell identity")
 	}
-	for _, variant := range []LaunchIdentity{{ShellTarget: id, Arguments: "--different"}, {ShellTarget: id, WorkingDirectory: `C:\Synthetic`}, {ShellTarget: id, Independent: true, LinkFlags: 0x2000}, {Target: `C:\Synthetic\Unrelated.exe`}} {
+	for _, variant := range []LaunchIdentity{{Target: `C:\Synthetic\Unrelated.exe`}, {AppUserModelID: "Synthetic.Package!App"}} {
 		separate := old
 		separate.Launch = variant
 		if len(MergeProviderApplications([]Application{shell, separate})) != 2 {

@@ -36,6 +36,9 @@ var searchGlyph = ui.MustParseSVG([]byte(`<svg xmlns="http://www.w3.org/2000/svg
 
 var menuGlyph = ui.MustParseSVG([]byte(`<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20"><path d="M4 5H16M4 10H16M4 15H16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>`))
 var returnGlyph = ui.MustParseSVG([]byte(`<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14"><path d="M11 3V8H3M6 5L3 8L6 11" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></svg>`))
+var expandGlyph = ui.MustParseSVG([]byte(`<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><path d="M4 6L8 10L12 6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`))
+var scanGlyph = ui.MustParseSVG([]byte(`<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><path d="M12.5 5A5 5 0 1 0 13 8M12.5 2V5H9.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`))
+var statusGlyph = ui.MustParseSVG([]byte(`<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="5.5" fill="none" stroke="currentColor" stroke-width="1.25"/><path d="M8 5V8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="8" cy="10.5" r=".8" fill="currentColor"/></svg>`))
 
 func (s *launcher) resetResults() {
 	s.appNeedsSelection = false
@@ -569,10 +572,29 @@ func (s *launcher) view(c *ui.Context) {
 			})
 		}
 		var field ui.Element
-		header := ui.ButtonBase(c.Key("header")).Absolute().Top(0).Left(0).Right(0).Height(palette.Header).Padding(0, 2*palette.Inset).Gap(palette.Gap).Justify(ui.Start).Label("搜索栏").Disabled(s.settingsOpen)
+		headerHeight, headerInset, headerGap := palette.Header, 2*palette.Inset, palette.Gap
+		leadingSize := palette.IconSlot
+		if layoutAtRows.Compact {
+			headerHeight, headerInset, headerGap = palette.CompactHeight, palette.Inset, palette.Inset
+			leadingSize = palette.CompactButton
+		}
+		// Keep this parent and the keyed/bound editor identical in both layouts.
+		// Compact only changes surrounding controls and header geometry.
+		header := ui.ButtonBase(c.Key("header")).Absolute().Top(0).Left(0).Right(0).Height(headerHeight).Padding(0, headerInset).Gap(headerGap).Justify(ui.Start).AlignItems(ui.Center).Label("搜索栏").Disabled(s.settingsOpen)
 		header.Children(func() {
-			ui.Box(c).Size(palette.IconSlot, palette.IconSlot).Shrink(0).Center().Children(func() {
-				if s.clipboardMode {
+			ui.Box(c).Size(leadingSize, leadingSize).Shrink(0).Center().Children(func() {
+				if layoutAtRows.Compact {
+					menu := ui.ButtonBase(c.Key(fmt.Sprintf("compact-menu-%d", s.presentation))).Size(palette.CompactButton, palette.CompactButton).Center().Radius(palette.CompactButton / 2).Label("菜单").Tooltip("菜单").Disabled(s.panelGeometryPending || s.searchWasComposing)
+					if menu.Hovered() {
+						menu.Background(palette.Hover)
+					}
+					menu.Children(func() {
+						ui.Icon(c, menuGlyph).Size(palette.FooterIcon, palette.FooterIcon).TextColor(palette.Secondary).Label("紧凑菜单图标")
+					})
+					if menu.Clicked() {
+						s.openMenu(menuApplication)
+					}
+				} else if s.clipboardMode {
 					back := ui.ButtonBase(c.Key("back")).Size(palette.Icon, palette.Icon).Label("返回应用").Disabled(s.settingsOpen)
 					back.Children(func() { ui.Text(c, "‹").FontSize(palette.SearchSize).TextColor(palette.Secondary) })
 					if back.Clicked() {
@@ -583,6 +605,34 @@ func (s *launcher) view(c *ui.Context) {
 				}
 			})
 			field = ui.TextInputBase(c.Key("search"), &s.query).Grow(1).MinWidth(0).Height(palette.Header).Padding(0).FontSize(palette.SearchSize).Background(ui.Transparent).FocusRing(false).Placeholder("搜索应用或剪贴板…").Label("搜索").Bind(&s.input).AutoFocus().Disabled(s.menu != menuClosed || s.settingsOpen || menuLost)
+			if layoutAtRows.Compact {
+				// Reserve a small status slot so scan updates cannot move the editor.
+				message := s.statusMessage()
+				status := ui.ButtonBase(c.Key(fmt.Sprintf("compact-status-%d", s.presentation))).Size(palette.CompactStatus, palette.CompactStatus).Shrink(0).Center().Radius(palette.CompactStatus / 2).Label("状态详情").Tooltip("查看完整状态详情").Bind(&s.statusControl).Disabled(message == "" || s.panelGeometryPending || s.menu != menuClosed || field.Composing())
+				if status.Hovered() && message != "" {
+					status.Background(palette.Hover)
+				}
+				status.Children(func() {
+					if s.scanning {
+						ui.Icon(c, scanGlyph).Size(palette.CompactGlyph, palette.CompactGlyph).TextColor(palette.Secondary).Label("正在扫描应用")
+					} else if message != "" {
+						ui.Icon(c, statusGlyph).Size(palette.CompactGlyph, palette.CompactGlyph).TextColor(palette.Secondary).Label("有状态消息")
+					}
+				})
+				if status.Clicked() || status.Shortcut(0, ui.KeyEnter) || status.Shortcut(0, ui.KeySpace) {
+					s.openStatusDetails()
+				}
+				expand := ui.ButtonBase(c.Key(fmt.Sprintf("compact-expand-%d", s.presentation))).Size(palette.CompactButton, palette.CompactButton).Shrink(0).Center().Radius(palette.CompactButton / 2).Label("展开结果").Tooltip("展开结果（↓）").Disabled(s.panelGeometryPending || s.menu != menuClosed || s.settingsOpen || field.Composing())
+				if expand.Hovered() {
+					expand.Background(palette.Hover)
+				}
+				expand.Children(func() {
+					ui.Icon(c, expandGlyph).Size(palette.CompactGlyph, palette.CompactGlyph).TextColor(palette.Secondary).Label("展开向下图标")
+				})
+				if expand.Clicked() {
+					s.expandPanelFirst()
+				}
+			}
 		})
 		if header.Clicked() && s.menu == menuClosed && !s.settingsOpen {
 			s.restoreSearch = true
@@ -642,72 +692,61 @@ func (s *launcher) view(c *ui.Context) {
 				}
 			}
 		}
-		footer := ui.ButtonBase(c.Key("footer")).Absolute().Bottom(0).Left(0).Right(0).Height(palette.Footer).Padding(palette.Inset).Gap(palette.Inset).Label("底栏").Disabled(s.settingsOpen)
-		footer.Children(func() {
-			circle := ui.ButtonBase(c.Key(fmt.Sprintf("menu-toggle-%d", s.presentation))).Size(palette.MenuButton, palette.MenuButton).Shrink(0).Radius(palette.MenuButton/2).Background(palette.Control).Border(1, palette.Border).Label("菜单").Tooltip("菜单").Disabled(s.settingsOpen || s.panelGeometryPending)
-			circle.Children(func() {
-				ui.Icon(c, menuGlyph).Size(palette.FooterIcon, palette.FooterIcon).TextColor(palette.Secondary).Label("底栏菜单图标")
-			})
-			if circle.Clicked() {
-				s.openMenu(menuApplication)
-			}
-			mode := "应用"
-			if s.clipboardMode {
-				mode = "剪贴板"
-			}
-			if message := s.statusMessage(); message != "" {
-				mode = message
-			}
-			status := ui.ButtonBase(c.Key(fmt.Sprintf("status-details-trigger-%d", s.presentation))).Width(palette.StatusWidth).MinWidth(0).Shrink(1).Height(palette.MenuButton).Padding(0).Justify(ui.Start).Clip().Label("状态详情").Tooltip("查看完整状态详情").Bind(&s.statusControl).Disabled(s.statusMessage() == "" || s.settingsOpen || s.menu != menuClosed || menuLost || field.Composing())
-			status.Children(func() {
-				ui.Text(c, mode).Grow(1).MinWidth(0).FontSize(palette.CaptionSize).FixedLineHeight(palette.ControlLine).TextColor(palette.Secondary).SingleLine()
-			})
-			if status.Clicked() || status.Shortcut(0, ui.KeyEnter) || status.Shortcut(0, ui.KeySpace) {
-				s.openStatusDetails()
-			}
-			ui.Spacer(c)
-			ui.Row(c).Height(palette.MenuButton).Shrink(0).Padding(palette.ControlInset).Gap(palette.RowGap).Radius(palette.MenuButton/2).Background(palette.Control).Border(1, palette.Border).Children(func() {
-				label, _ := s.primaryLabels()
-				compact := !layoutAtRows.ResultsVisible
-				pending := !s.clipboardMode && s.selected >= 0 && s.selected < len(apps) && apps[s.selected].DisplayOnlyID != ""
-				if pending {
-					label = "等待验证"
-				}
-				if compact {
-					label = "展开结果"
-					pending = false
-				}
-				primary := barAction(c.Key(fmt.Sprintf("primary-action-%d", s.presentation)), label, s.panelGeometryPending || s.menu != menuClosed || s.settingsOpen || (!compact && (pending || count == 0 || selectionLost || s.clipNeedsSelection || (!s.clipboardMode && s.appNeedsSelection))))
-				primary.Children(func() {
-					ui.Text(c, label).FontSize(palette.BodySize).FixedLineHeight(palette.ControlLine).SingleLine().Bold().Label("底栏主操作文字")
-					ui.Box(c).Size(palette.KeyCap, palette.KeyCap).Center().Radius(palette.KeyCapRadius).Background(palette.Control).Label("底栏快捷键胶囊").Children(func() {
-						if compact {
-							ui.Text(c, "↓").FontSize(palette.KeyGlyph).TextColor(palette.Secondary).Label("展开向下图标")
-						} else {
-							ui.Icon(c, returnGlyph).Size(palette.KeyGlyph, palette.KeyGlyph).TextColor(palette.Secondary).Label("底栏回车图标")
-						}
-					})
+		if layoutAtRows.ResultsVisible {
+			footer := ui.ButtonBase(c.Key("footer")).Absolute().Bottom(0).Left(0).Right(0).Height(palette.Footer).Padding(palette.Inset).Gap(palette.Inset).Label("底栏").Disabled(s.settingsOpen)
+			footer.Children(func() {
+				circle := ui.ButtonBase(c.Key(fmt.Sprintf("menu-toggle-%d", s.presentation))).Size(palette.MenuButton, palette.MenuButton).Shrink(0).Radius(palette.MenuButton/2).Background(palette.Control).Border(1, palette.Border).Label("菜单").Tooltip("菜单").Disabled(s.settingsOpen || s.panelGeometryPending)
+				circle.Children(func() {
+					ui.Icon(c, menuGlyph).Size(palette.FooterIcon, palette.FooterIcon).TextColor(palette.Secondary).Label("底栏菜单图标")
 				})
-				if primary.Clicked() {
-					if compact {
-						s.expandPanelFirst()
-					} else {
+				if circle.Clicked() {
+					s.openMenu(menuApplication)
+				}
+				mode := "应用"
+				if s.clipboardMode {
+					mode = "剪贴板"
+				}
+				if message := s.statusMessage(); message != "" {
+					mode = message
+				}
+				status := ui.ButtonBase(c.Key(fmt.Sprintf("status-details-trigger-%d", s.presentation))).Width(palette.StatusWidth).MinWidth(0).Shrink(1).Height(palette.MenuButton).Padding(0).Justify(ui.Start).Clip().Label("状态详情").Tooltip("查看完整状态详情").Bind(&s.statusControl).Disabled(s.statusMessage() == "" || s.settingsOpen || s.menu != menuClosed || menuLost || field.Composing())
+				status.Children(func() {
+					ui.Text(c, mode).Grow(1).MinWidth(0).FontSize(palette.CaptionSize).FixedLineHeight(palette.ControlLine).TextColor(palette.Secondary).SingleLine()
+				})
+				if status.Clicked() || status.Shortcut(0, ui.KeyEnter) || status.Shortcut(0, ui.KeySpace) {
+					s.openStatusDetails()
+				}
+				ui.Spacer(c)
+				ui.Row(c).Height(palette.MenuButton).Shrink(0).Padding(palette.ControlInset).Gap(palette.RowGap).Radius(palette.MenuButton/2).Background(palette.Control).Border(1, palette.Border).Children(func() {
+					label, _ := s.primaryLabels()
+					pending := !s.clipboardMode && s.selected >= 0 && s.selected < len(apps) && apps[s.selected].DisplayOnlyID != ""
+					if pending {
+						label = "等待验证"
+					}
+					primary := barAction(c.Key(fmt.Sprintf("primary-action-%d", s.presentation)), label, s.panelGeometryPending || s.menu != menuClosed || s.settingsOpen || pending || count == 0 || selectionLost || s.clipNeedsSelection || (!s.clipboardMode && s.appNeedsSelection))
+					primary.Children(func() {
+						ui.Text(c, label).FontSize(palette.BodySize).FixedLineHeight(palette.ControlLine).SingleLine().Bold().Label("底栏主操作文字")
+						ui.Box(c).Size(palette.KeyCap, palette.KeyCap).Center().Radius(palette.KeyCapRadius).Background(palette.Control).Label("底栏快捷键胶囊").Children(func() {
+							ui.Icon(c, returnGlyph).Size(palette.KeyGlyph, palette.KeyGlyph).TextColor(palette.Secondary).Label("底栏回车图标")
+						})
+					})
+					if primary.Clicked() {
 						s.activate(apps, clips, false)
 					}
-				}
-				if s.clipboardMode {
-					action := barAction(c.Key(fmt.Sprintf("actions-toggle-%d", s.presentation)), "操作", s.settingsOpen || selectionLost || s.clipNeedsSelection || (!s.clipboardMode && s.appNeedsSelection))
-					action.Children(func() {
-						ui.Text(c, "操作").FontSize(palette.BodySize).FixedLineHeight(palette.ControlLine).SingleLine().TextColor(palette.Secondary).Label("底栏操作文字")
-					})
-					if action.Clicked() {
-						s.openMenu(menuActions)
+					if s.clipboardMode {
+						action := barAction(c.Key(fmt.Sprintf("actions-toggle-%d", s.presentation)), "操作", s.settingsOpen || selectionLost || s.clipNeedsSelection || (!s.clipboardMode && s.appNeedsSelection))
+						action.Children(func() {
+							ui.Text(c, "操作").FontSize(palette.BodySize).FixedLineHeight(palette.ControlLine).SingleLine().TextColor(palette.Secondary).Label("底栏操作文字")
+						})
+						if action.Clicked() {
+							s.openMenu(menuActions)
+						}
 					}
-				}
+				})
 			})
-		})
-		if footer.Clicked() && s.menu == menuClosed && !s.settingsOpen {
-			s.restoreSearch = true
+			if footer.Clicked() && s.menu == menuClosed && !s.settingsOpen {
+				s.restoreSearch = true
+			}
 		}
 		if s.menu != menuClosed && !s.panelGeometryPending {
 			s.drawMenu(c, apps, clips, field.Composing())

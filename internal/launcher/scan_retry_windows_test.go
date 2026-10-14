@@ -92,7 +92,7 @@ func TestFileDeadlineBeforeShellPreservesBothProviders(t *testing.T) {
 	s.config.AppsFolder = true
 	s.scanTimeout = 10 * time.Millisecond
 	file := s.apps[0]
-	shell := core.Application{Name: "Shell", ShellID: core.AppsFolderParsingPrefix + "Synthetic!App"}
+	shell := core.Application{Name: "Shell", ShellPackaged: true, ShellID: core.AppsFolderParsingPrefix + "Synthetic!App"}
 	s.apps = []core.Application{file, shell}
 	defer s.stopSourceRetry()
 	updates := make(chan func(), 1)

@@ -41,7 +41,8 @@ func SourceFingerprint(roots, shallow []string, shell bool) string {
 	data, _ := json.Marshal(struct {
 		Roots, Shallow []string
 		Shell          bool
-	}{roots, shallow, shell})
+		Policy         string
+	}{roots, shallow, shell, "shortcut-name-target-packaged-aumid-v2"})
 	return fmt.Sprintf("%x", sha256.Sum256(data))
 }
 func NewSnapshot(apps []core.Application, fingerprint string, now time.Time) Snapshot {

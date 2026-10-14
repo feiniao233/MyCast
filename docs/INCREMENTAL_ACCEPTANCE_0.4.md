@@ -1,5 +1,9 @@
 # 0.4.0-alpha.1 incremental acceptance
 
+> The table below records the original 108-DIP candidate. The current
+> [feedback correction](FEEDBACK_0.4.md) changes both source policy and compact
+> layout; its tests and native acceptance must be rerun on the new commit.
+
 Development candidate on `feat/0.4-compact`, based on reviewed 0.3 commit
 `f941515aa562d4282435df82f0ca3568c7d99f76`. Published 0.1 and separate 0.2/0.3
 candidates remain preserved. This version adds only compact/expanded presentation.
@@ -24,8 +28,8 @@ Use the delivered MANIFEST/BUILDINFO and ZIP checksum for the exact candidate.
 Suggested checks on the exact candidate with dedicated synthetic text:
 
 1. Leave the preference off and confirm the existing full empty-query panel.
-2. Enable **空查询紧凑呼出**, save, hide and reopen. Search and footer should appear
-   directly; Enter should launch nothing. Press Down and confirm first visible
+2. Enable **空查询紧凑呼出**, save, hide and reopen. The single search row (menu, status and expand controls) should appear
+   directly, with no second footer row; Enter should launch nothing. Press Down and confirm first visible
    selection, then reopen to confirm temporary expansion resets.
 3. Type/edit/clear a query; confirm the editor retains focus and text. Confirm and
    cancel real IME candidates before any launcher action. Check the same behavior

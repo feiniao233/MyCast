@@ -19,7 +19,7 @@ func main() {
 	mygo.App.SetName("MyCast dedicated compact window fixture")
 	mygo.App.WhenReady(func() {
 		query := "Dedicated synthetic fixture"
-		w := mygo.NewWindow(mygo.WindowOptions{Title: "MyCast synthetic compact fixture", Width: 750, Height: 108, Hidden: true, Frameless: true, Content: ui.View(func(c *ui.Context) { ui.TextInputBase(c.Key("synthetic-search"), &query) })})
+		w := mygo.NewWindow(mygo.WindowOptions{Title: "MyCast synthetic compact fixture", Width: 750, Height: 56, Hidden: true, Frameless: true, Content: ui.View(func(c *ui.Context) { ui.TextInputBase(c.Key("synthetic-search"), &query) })})
 		defer func() { w.Close(); mygo.App.Quit() }()
 		user := syscall.NewLazyDLL("user32.dll")
 		kernel := syscall.NewLazyDLL("kernel32.dll")
@@ -28,7 +28,7 @@ func main() {
 		resources := user.NewProc("GetGuiResources")
 		process, _, _ := kernel.NewProc("GetCurrentProcess").Call()
 		var anchor [4]int32
-		if _, err := platform.ResizePalette(w.NativeHandle(), 750, 108, 475, true); err != nil {
+		if _, err := platform.ResizePalette(w.NativeHandle(), 750, 56, 475, true); err != nil {
 			failure = err
 			return
 		}
@@ -36,7 +36,7 @@ func main() {
 		before, _, _ := resources.Call(process, 0)
 		beforeUser, _, _ := resources.Call(process, 1)
 		for i := 0; i < 64; i++ {
-			for _, height := range []int{475, 108} {
+			for _, height := range []int{475, 56} {
 				if _, err := platform.ResizePalette(w.NativeHandle(), 750, height, 475, false); err != nil {
 					failure = err
 					return

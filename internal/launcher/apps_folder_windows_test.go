@@ -16,7 +16,7 @@ import (
 func TestShellApplicationLaunchUsesIdentityAndRetainsPreferences(t *testing.T) {
 	for _, scale := range []float32{1, 1.5} {
 		t.Run(fmt.Sprint(scale), func(t *testing.T) {
-			app := core.Application{Name: "Synthetic Shell App", ShellID: core.AppsFolderParsingPrefix + "Synthetic.Package!App"}
+			app := core.Application{Name: "Synthetic Shell App", ShellPackaged: true, ShellID: core.AppsFolderParsingPrefix + "Synthetic.Package!App"}
 			s := syntheticLauncher()
 			s.config = settings.Defaults()
 			s.config.AppsFolder = false
@@ -71,7 +71,7 @@ func TestShellSourceCapturedBySerializedScan(t *testing.T) {
 		calls := 0
 		s.scanShellWork = func(context.Context) ([]core.Application, map[string]*ui.Bitmap, []error) {
 			calls++
-			return []core.Application{{Name: "Fixture", ShellID: core.AppsFolderParsingPrefix + "Fixture!App"}}, nil, nil
+			return []core.Application{{Name: "Fixture", ShellPackaged: true, ShellID: core.AppsFolderParsingPrefix + "Fixture!App"}}, nil, nil
 		}
 		s.scan()
 		select {

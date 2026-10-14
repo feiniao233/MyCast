@@ -34,7 +34,7 @@ func ShellApplicationActivationName(value string) (string, error) {
 
 // Search supplements are tied to a public package identity, not the label.
 func SystemApplicationAliases(identity string) []string {
-	if identity == AppsFolderParsingPrefix+"Microsoft.WindowsStore_8wekyb3d8bbwe!App" {
+	if strings.EqualFold(identity, AppsFolderParsingPrefix+"Microsoft.WindowsStore_8wekyb3d8bbwe!App") {
 		return []string{"微软商店", "微软应用商店", "Windows Store"}
 	}
 	return nil

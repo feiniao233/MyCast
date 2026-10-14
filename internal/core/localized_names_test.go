@@ -39,7 +39,7 @@ func TestChineseDisplayNamePreservesLaunchIdentityAndSearch(t *testing.T) {
 	}
 }
 
-func TestMergedNameSourcePathsKeepIndependentVariants(t *testing.T) {
+func TestNameSourcePathsKeepDifferentlyNamedShortcuts(t *testing.T) {
 	root := t.TempDir()
 	target := filepath.Join(root, "target.exe")
 	for _, name := range []string{"Original.lnk", "Duplicate.lnk", "Argument.lnk", "Privilege.lnk"} {
@@ -59,7 +59,7 @@ func TestMergedNameSourcePathsKeepIndependentVariants(t *testing.T) {
 		return identity, nil
 	}
 	apps, errs := IndexApplicationsWithOptions(context.Background(), []string{root}, resolver, DefaultScanOptions())
-	if len(errs) != 0 || len(apps) != 3 {
+	if len(errs) != 0 || len(apps) != 4 {
 		t.Fatalf("unexpected variants: %d %v", len(apps), errs)
 	}
 	paths := 0
@@ -68,7 +68,7 @@ func TestMergedNameSourcePathsKeepIndependentVariants(t *testing.T) {
 		paths += len(app.NamePaths)
 		ids[app.ItemID()] = true
 	}
-	if paths != 4 || len(ids) != 3 {
-		t.Fatal("lost duplicate name sources or merged launch variants")
+	if paths != 4 || len(ids) != 4 {
+		t.Fatal("lost name sources or merged differently named shortcuts")
 	}
 }

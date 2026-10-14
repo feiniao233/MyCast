@@ -23,17 +23,17 @@ func TestPaletteResizeOwnedHiddenWindowABI(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer destroyWindow.Call(hwnd)
-	if _, err := ResizePalette(0, 750, 108, 475, true); err == nil {
+	if _, err := ResizePalette(0, 750, 56, 475, true); err == nil {
 		t.Fatal("zero ownership accepted")
 	}
-	if _, err := ResizePalette(hwnd, 750, 108, 475, true); err != nil {
+	if _, err := ResizePalette(hwnd, 750, 56, 475, true); err != nil {
 		t.Fatal(err)
 	}
 	var anchor paletteNativeRect
 	paletteWindowRect.Call(hwnd, uintptr(unsafe.Pointer(&anchor)))
 	visible := user32.NewProc("IsWindowVisible")
 	for i := 0; i < 64; i++ {
-		for _, height := range []int{475, 108} {
+		for _, height := range []int{475, 56} {
 			if _, err := ResizePalette(hwnd, 750, height, 475, false); err != nil {
 				t.Fatal(err)
 			}

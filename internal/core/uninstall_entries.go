@@ -13,7 +13,7 @@ func IsUninstallEntry(app Application) bool {
 	if target == "" && strings.EqualFold(filepath.Ext(app.Path), ".exe") {
 		target = app.Path
 	}
-	base := strings.ToLower(filepath.Base(target))
+	base := strings.ToLower(target[strings.LastIndexAny(target, `/\`)+1:])
 	stem := strings.TrimSuffix(base, filepath.Ext(base))
 	actionName := uninstallActionName(app.Name)
 	for _, alias := range app.Aliases {

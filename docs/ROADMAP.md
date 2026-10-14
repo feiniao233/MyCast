@@ -163,3 +163,12 @@ roots, a single bounded exponential retry timer for unfinished file snapshots,
 and the locked MyGo second-instance callback-shape correction. Healthy sources
 are not periodically traversed. Fault-injection/deadline/epoch/routing regression
 evidence is recorded in the candidate acceptance sections above.
+
+## 0.4 feedback correction
+
+Current development replaces broad desktop AppsFolder duplication with a
+packaged-only supplement and deterministic name/target shortcut deduplication.
+Compact presentation becomes a true single 56-DIP row with a state-aware geometry
+readiness threshold. See [scope, trade-offs and verification boundary](FEEDBACK_0.4.md).
+Historical desktop association and 108-DIP fixture evidence do not validate this
+new candidate. Windows execution and actual desktop acceptance remain separate.

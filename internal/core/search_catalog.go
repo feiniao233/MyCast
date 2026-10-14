@@ -36,11 +36,14 @@ type ApplicationMatch struct {
 
 func cloneSearchApplication(a Application) Application {
 	a.RelatedIDs = slices.Clone(a.RelatedIDs)
+	a.ProvedIDs = slices.Clone(a.ProvedIDs)
+	a.LegacyTargetIDs = slices.Clone(a.LegacyTargetIDs)
 	a.Aliases = slices.Clone(a.Aliases)
 	a.SearchTerms = slices.Clone(a.SearchTerms)
 	a.UserAliases = slices.Clone(a.UserAliases)
 	a.UserAliasKinds = slices.Clone(a.UserAliasKinds)
 	a.NamePaths = slices.Clone(a.NamePaths)
+	a.SourcePaths = slices.Clone(a.SourcePaths)
 	if a.ShellFallback != nil {
 		fallback := *a.ShellFallback
 		fallback.ShellFallback = nil

@@ -33,6 +33,9 @@ func PreferChineseDisplayName(app Application, candidate string) Application {
 	if app.Name != "" && !slices.Contains(aliases, app.Name) {
 		aliases = append(aliases, app.Name)
 	}
+	if app.SourceName == "" {
+		app.SourceName = app.Name
+	}
 	app.Name, app.Aliases = candidate, aliases
 	return app
 }

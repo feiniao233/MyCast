@@ -1,5 +1,9 @@
 # Store discovery, source scope and safe duplicate follow-up
 
+> Historical implementation evidence below describes the previous broad
+> AppsFolder/argument-equivalence policy. The current 0.4 feedback correction
+> supersedes that policy; see [current source and compact changes](FEEDBACK_0.4.md).
+
 This follow-up implements the approved defaults/scope changes after the first
 0.2 candidate. It supersedes the earlier optional-off AppsFolder default in
 [NEXT_ALPHA.md](NEXT_ALPHA.md), without changing startup/clipboard defaults.

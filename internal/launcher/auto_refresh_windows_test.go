@@ -71,7 +71,7 @@ func TestMixedPartialScanKeepsOfflineEntryButDropsConfirmedAndRemovedRoot(t *tes
 	offline := core.Application{Name: "B", Path: `C:\Synthetic\Kept\B.exe`}
 	missing := core.Application{Name: "C", Path: `C:\Synthetic\Kept\C.exe`}
 	removed := core.Application{Name: "D", Path: `C:\Synthetic\Removed\D.exe`}
-	shell := core.Application{Name: "Shell", ShellID: core.AppsFolderParsingPrefix + "Synthetic!App"}
+	shell := core.Application{Name: "Shell", ShellPackaged: true, ShellID: core.AppsFolderParsingPrefix + "Synthetic!App"}
 	s.apps = []core.Application{fresh, offline, missing, removed, shell}
 	done := make(chan func(), 1)
 	s.uiUpdate = func(fn func()) { done <- fn }
@@ -102,7 +102,7 @@ func TestFileSuccessAndShellFailureOrDeadlineRetainOnlyShellUntilRecovery(t *tes
 			s.config.AppsFolder = true
 			fresh := core.Application{Name: "Fresh", Path: `C:\Synthetic\Fresh.exe`}
 			oldFile := core.Application{Name: "Old file", Path: `C:\Synthetic\Removed.exe`}
-			oldShell := core.Application{Name: "Old shell", ShellID: core.AppsFolderParsingPrefix + "Synthetic!App"}
+			oldShell := core.Application{Name: "Old shell", ShellPackaged: true, ShellID: core.AppsFolderParsingPrefix + "Synthetic!App"}
 			s.apps = []core.Application{oldFile, oldShell}
 			s.selected = 1
 			done := make(chan func(), 2)
@@ -148,7 +148,7 @@ func TestEmptyPartialSnapshotCannotReviveRemovedRootsOrDisabledShell(t *testing.
 	s.config = settings.Defaults()
 	s.config.AppsFolder = false
 	s.config.IndexRoots = []string{`C:\Synthetic\New`}
-	s.apps = []core.Application{{Name: "Removed root", Path: `C:\Synthetic\Old\Fixture.exe`}, {Name: "Disabled Shell", ShellID: core.AppsFolderParsingPrefix + "Synthetic!App"}}
+	s.apps = []core.Application{{Name: "Removed root", Path: `C:\Synthetic\Old\Fixture.exe`}, {Name: "Disabled Shell", ShellPackaged: true, ShellID: core.AppsFolderParsingPrefix + "Synthetic!App"}}
 	done := make(chan func(), 1)
 	s.uiUpdate = func(fn func()) { done <- fn }
 	s.scanWork = func(context.Context, []string) ([]core.Application, map[string]*ui.Bitmap, []error) {
@@ -173,7 +173,7 @@ func TestShellOnlyRefreshSkipsFileWorkAndRetainedIconsSurvive(t *testing.T) {
 	s.config.AppsFolder = true
 	file := s.apps[0]
 	icon := s.icons[file.ItemID()]
-	shell := core.Application{Name: "Shell", ShellID: core.AppsFolderParsingPrefix + "Synthetic!App"}
+	shell := core.Application{Name: "Shell", ShellPackaged: true, ShellID: core.AppsFolderParsingPrefix + "Synthetic!App"}
 	s.apps = []core.Application{file, shell}
 	s.icons[shell.ItemID()] = icon
 	calls := 0

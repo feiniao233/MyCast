@@ -72,8 +72,11 @@ Publish only clearly labeled synthetic preview images to `docs/previews`.
   application's own data directory; do not log or commit real app inventories.
 - Index only explicitly configured application roots and supported entries;
   do not follow symbolic links or add document-content scanning implicitly.
-- Keep shortcut target/arguments/directory and special launch semantics safe.
-  Unproven equivalence must retain separate original shortcut identities.
+- Launch the original shortcut without rewriting its target, arguments, directory
+  or special flags. The current product policy intentionally groups .lnk entries
+  by case-insensitive source name plus target (falling back to shortcut path),
+  ignoring arguments/directory; keep deterministic source priority and migrate
+  old preference identities. Supplement files with verified packaged apps only.
 - Preserve verified-target, focus, modifier and clipboard-sequence checks for
   paste. Do not inject global keys or elevate to bypass another app's rights.
 - No silent startup registration, credentials, security/privacy policy changes,

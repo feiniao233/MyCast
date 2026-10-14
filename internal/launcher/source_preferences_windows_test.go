@@ -20,7 +20,7 @@ func TestMergedSourceLegacyPreferenceActionsAndExplicitDisabledHint(t *testing.T
 			old.RelatedIDs = []string{legacy}
 			old.Launch.ShellTarget = core.AppsFolderParsingPrefix + "Fixture!App"
 			old.Launch.AppUserModelIDKnown = true
-			s.apps = core.MergeProviderApplications([]core.Application{old, {Name: "系统名称", ShellID: old.Launch.ShellTarget}})
+			s.apps = core.MergeProviderApplications([]core.Application{old, {Name: "系统名称", ShellPackaged: true, ShellID: old.Launch.ShellTarget}})
 			s.config.Favorites = []string{legacy}
 			s.config.Aliases = map[string][]string{legacy: {"old-alias"}}
 			s.persistPreferences = func(v settings.Settings) (settings.Settings, error) { return v, nil }

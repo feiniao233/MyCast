@@ -2,6 +2,7 @@
 package settings
 
 import (
+	"maps"
 	"slices"
 
 	"github.com/feiniao233/MyCast/internal/core"
@@ -19,37 +20,130 @@ func (s Settings) BindProvedApplicationIdentities(apps []core.Application) (Sett
 	for id := range s.Aliases {
 		referenced[id] = true
 	}
-	value := s.Clone()
-	changed := false
-	for old := range value.IdentityLinks {
-		if !referenced[old] && !referenced[value.IdentityLinks[old]] {
-			delete(value.IdentityLinks, old)
-			changed = true
+	proved, legacyTargets, currentIDs := provedIdentityOwners(apps)
+
+	// The former desktop merge bound an old target tuple to a Shell identity.
+	// A uniquely proved tuple can now move that entire component to its .lnk
+	// identity. A reused source path, or an applied saved preference, cannot.
+	migrations := map[string]string{}
+	conflicting := map[string]bool{}
+	for old, bound := range s.IdentityLinks {
+		current, ok := legacyTargets[old]
+		if !ok || bound == current {
+			continue
+		}
+		if currentIDs[bound] {
+			conflicting[bound] = true
+		}
+		if other, exists := s.IdentityLinks[current]; exists && other != bound {
+			conflicting[bound] = true
+		}
+		if other, exists := migrations[bound]; exists && other != current {
+			conflicting[bound] = true
+		}
+		migrations[bound] = current
+	}
+	for bound := range conflicting {
+		delete(migrations, bound)
+	}
+
+	links := map[string]string{}
+	for old, bound := range s.IdentityLinks {
+		if current, ok := migrations[bound]; ok {
+			bound = current
+		}
+		if old != bound && (referenced[old] || referenced[bound]) {
+			links[old] = bound
 		}
 	}
+	for old, current := range migrations {
+		if referenced[old] {
+			links[old] = current
+		}
+	}
+
+	boundIDs := map[string]bool{}
+	for _, bound := range links {
+		boundIDs[bound] = true
+	}
+	for old, current := range proved {
+		if old == current || (!referenced[old] && !referenced[current]) {
+			continue
+		}
+		// Existing evidence is never silently redirected. Only the explicit
+		// target-tuple migration above may flatten an existing component.
+		if _, exists := s.IdentityLinks[old]; exists {
+			continue
+		}
+		if _, exists := links[old]; exists {
+			continue
+		}
+		if _, nested := links[current]; nested || boundIDs[old] {
+			continue
+		}
+		links[old] = current
+		boundIDs[current] = true
+	}
+
+	// A favorite may have many duplicate source links. Keep saved settings
+	// bounded, preferring directly referenced identities and existing links.
+	keys := slices.Sorted(maps.Keys(links))
+	slices.SortStableFunc(keys, func(a, b string) int {
+		if referenced[a] != referenced[b] {
+			if referenced[a] {
+				return -1
+			}
+			return 1
+		}
+		_, savedA := s.IdentityLinks[a]
+		_, savedB := s.IdentityLinks[b]
+		if savedA != savedB {
+			if savedA {
+				return -1
+			}
+			return 1
+		}
+		return 0
+	})
+	for _, old := range keys[min(len(keys), 650):] {
+		delete(links, old)
+	}
+	value := s.Clone()
+	value.IdentityLinks = links
+	return value, !maps.Equal(s.IdentityLinks, links)
+}
+
+// ProvedIDs contain only scan evidence. RelatedIDs also contain previously
+// applied settings and must never authorize a new persisted association.
+func provedIdentityOwners(apps []core.Application) (proved, legacyTargets map[string]string, currentIDs map[string]bool) {
+	proved, legacyTargets, currentIDs = map[string]string{}, map[string]string{}, map[string]bool{}
+	ambiguous := map[string]bool{}
 	for _, app := range apps {
-		// Persist only provider-proved canonical associations, never relations
-		// added solely to apply an already persisted preference in either direction.
-		if app.ShellID == "" && app.Launch.ShellTarget == "" {
+		if app.DisplayOnlyID != "" {
 			continue
 		}
 		current := app.ItemID()
-		for _, old := range app.RelatedIDs {
-			if (!referenced[old] && !referenced[current]) || old == current {
+		currentIDs[current] = true
+		for _, old := range app.ProvedIDs {
+			if !validID(old) {
 				continue
 			}
-			// Existing evidence is not silently redirected if a path is repurposed.
-			if _, exists := value.IdentityLinks[old]; exists {
-				continue
+			if owner, exists := proved[old]; exists && owner != current {
+				ambiguous[old] = true
 			}
-			if value.IdentityLinks == nil {
-				value.IdentityLinks = map[string]string{}
+			proved[old] = current
+			if slices.Contains(app.LegacyTargetIDs, old) {
+				legacyTargets[old] = current
 			}
-			value.IdentityLinks[old] = current
-			changed = true
 		}
 	}
-	return value, changed
+	for old, owner := range proved {
+		if ambiguous[old] || currentIDs[old] && old != owner {
+			delete(proved, old)
+			delete(legacyTargets, old)
+		}
+	}
+	return
 }
 
 func (s Settings) ApplyIdentityLinks(apps []core.Application) []core.Application {

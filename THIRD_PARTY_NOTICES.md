@@ -20,8 +20,9 @@ the actual icon has no lettering/font dependency.
 - License: MIT; Copyright (c) 2025 lzx8589561
 - The documented desktop.ini/localized-name behavior was read as a reference.
   MyCast independently implements a bounded Go parser and resource-data reader;
-  no ZTools native binary or dependency is bundled/executed, and its name/target
-  deduplication is not adopted. Reference license text: [licenses/ZTools-MIT.txt](licenses/ZTools-MIT.txt).
+  no ZTools native binary or dependency is bundled/executed. The 0.4 feedback
+  correction independently adopts its name/target deduplication and separate
+  packaged-source behavior from pinned commit `6c9dee8c998ed7b4e6d0a80ad4311d3d8d24f72c`. Reference license text: [licenses/ZTools-MIT.txt](licenses/ZTools-MIT.txt).
 
 ## 0.3 behavioral references
 
@@ -88,3 +89,8 @@ SOFTWARE.
 Pinned versions and integrity hashes are recorded in go.mod and go.sum. They retain their original licenses; the MIT/BSD/Apache dependency licenses do not change MyCast's AGPL license.
 
 Full dependency notices are preserved in `licenses/` and included in the Windows artifact.
+
+The native-api source at `8b221e72c4b5462ba2c9b490370cc10df72108cc` was
+read only to confirm that ZTools supplements shortcuts with package registrations,
+not the full desktop AppsFolder catalog. No native-api code is copied, translated
+or bundled; its repository LICENSE path was unavailable at this revision.

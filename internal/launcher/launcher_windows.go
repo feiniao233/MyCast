@@ -374,6 +374,7 @@ func (s *launcher) scanSourcesWithRoots(sources uint8, requestedRoots []string) 
 		roots = platform.DefaultAppRoots()
 		ctx = context.WithValue(ctx, defaultShallowRootsKey{}, platform.DefaultDesktopRoots())
 	}
+	requestedRoots = core.ExpandDuplicateSourceRoots(requestedRoots, roots, s.apps)
 	scanRoots := append([]string(nil), roots...)
 	if len(requestedRoots) > 0 {
 		scanRoots = nil
@@ -495,6 +496,7 @@ func (s *launcher) scanSourcesWithRoots(sources uint8, requestedRoots []string) 
 				}
 			}
 		}
+		apps = core.FilterApplicationSources(apps)
 		if len(apps) > 5000 {
 			apps = core.FairProviderLimit(apps, previousApps, 5000)
 			errs = append(errs, core.ErrScanBudget)
@@ -509,7 +511,7 @@ func (s *launcher) scanSourcesWithRoots(sources uint8, requestedRoots []string) 
 			}, 5000)
 		}
 		workerErr := ctx.Err()
-		apps = core.MergeProviderApplications(core.FilterUninstallEntries(apps))
+		apps = core.MergeProviderApplications(core.PrioritizeApplicationSources(core.FilterUninstallEntries(apps), roots))
 		apps = core.CarryRelatedPreferenceIDs(apps, previousApps)
 		apps = core.PrepareSearchContext(ctx, apps)
 		if icons == nil {

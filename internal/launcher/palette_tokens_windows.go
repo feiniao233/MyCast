@@ -5,9 +5,10 @@ package launcher
 
 import "github.com/egoist/mygo/ui"
 
-// Standard DIPs; the renderer handles DPI. Compact preserves header/footer access.
+// Standard DIPs; the renderer handles DPI. Compact uses a single search row.
 type paletteTokens struct {
 	CompactHeight                                            float32
+	CompactButton, CompactStatus, CompactGlyph               float32
 	ModalSide, ModalTop, ModalPadding, ModalGap, ModalRadius float32
 	ModalBody, ModalClear, ModalBack                         float32
 	ModalScrim                                               ui.Color
@@ -24,8 +25,8 @@ type paletteTokens struct {
 }
 
 var palette = paletteTokens{
-	CompactHeight: 108,
-	ModalSide:     36, ModalTop: 18, ModalPadding: 16, ModalGap: 12, ModalRadius: 18,
+	CompactHeight: 56, CompactButton: 32, CompactStatus: 28, CompactGlyph: 16,
+	ModalSide: 36, ModalTop: 18, ModalPadding: 16, ModalGap: 12, ModalRadius: 18,
 	ModalBody: 13, ModalClear: 30, ModalBack: 32, ModalScrim: ui.RGBA(0, 0, 0, .30),
 
 	FooterIcon: 20, KeyGlyph: 14, ControlLine: 22,

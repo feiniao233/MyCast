@@ -65,7 +65,7 @@ func TestFairLimitDoesNotTruncateAllShellApps(t *testing.T) {
 	for i := 0; i < 5000; i++ {
 		apps = append(apps, Application{Name: fmt.Sprint(i), Path: fmt.Sprintf(`C:\Synthetic\%d.exe`, i)})
 	}
-	shell := Application{Name: "Microsoft Store", ShellID: AppsFolderParsingPrefix + "Microsoft.WindowsStore_8wekyb3d8bbwe!App"}
+	shell := Application{Name: "Microsoft Store", ShellPackaged: true, ShellID: AppsFolderParsingPrefix + "Microsoft.WindowsStore_8wekyb3d8bbwe!App"}
 	apps = append(apps, shell)
 	limited := FairProviderLimit(apps, nil, 5000)
 	if len(limited) != 5000 {

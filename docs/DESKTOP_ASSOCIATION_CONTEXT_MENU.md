@@ -1,5 +1,9 @@
 # Desktop source association and row context menus
 
+> Historical implementation evidence below describes the previous broad
+> AppsFolder/argument-equivalence policy. The current 0.4 feedback correction
+> supersedes that policy; see [current source and compact changes](FEEDBACK_0.4.md).
+
 The parent task viewed the private duplicate screenshot; its bytes, paths and
 application list are not included here. This Windows task queried only the two
 supplied Shell identities. One returned the expected EXE target, matching

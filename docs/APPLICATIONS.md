@@ -1,5 +1,9 @@
 # Finding applications
 
+> Current 0.4 shortcut/source policy supersedes earlier argument-preserving
+> deduplication descriptions below. See [feedback correction](FEEDBACK_0.4.md)
+> for the deterministic name/target key, packaged supplement and migration limits.
+
 Current desktop association and row context menus: see
 [compatibility and verification](DESKTOP_ASSOCIATION_CONTEXT_MENU.md).
 

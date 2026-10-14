@@ -20,7 +20,7 @@ func TestPreferenceMigrationSaveFailureDoesNotClaimPersistence(t *testing.T) {
 	s := syntheticLauncher()
 	s.config = settings.Defaults()
 	old := (core.Application{Path: `C:\Synthetic\Legacy.lnk`}).ItemID()
-	shell := core.Application{Name: "Fixture", ShellID: core.AppsFolderParsingPrefix + "Synthetic!App", RelatedIDs: []string{old}}
+	shell := core.Application{Name: "Fixture", ShellPackaged: true, ShellID: core.AppsFolderParsingPrefix + "Synthetic!App", RelatedIDs: []string{old}, ProvedIDs: []string{old}}
 	s.config.Favorites = []string{old}
 	store := &settings.Store{Path: filepath.Join(t.TempDir(), "settings.json")}
 	if err := store.Save(s.config); err != nil {
@@ -37,13 +37,15 @@ func TestPreferenceMigrationSaveFailureDoesNotClaimPersistence(t *testing.T) {
 	}
 }
 
-func TestFirstDesktopFavoriteSaveImmediatelyPersistsProof(t *testing.T) {
+func TestFirstShortcutFavoriteSaveImmediatelyPersistsProof(t *testing.T) {
 	s := syntheticLauncher()
 	s.config = settings.Defaults()
-	shell := core.Application{Name: "Fixture", ShellID: core.AppsFolderParsingPrefix + "org.synthetic.desktop", ShellDesktop: true, Launch: core.LaunchIdentity{Target: `C:\Synthetic\Fixture.exe`, AppUserModelID: "org.synthetic.desktop"}}
 	file := core.Application{Name: "Fixture Link", Path: `C:\Synthetic\Fixture.lnk`, Launch: core.LaunchIdentity{Target: `C:\Synthetic\Fixture.exe`, WorkingDirectory: `C:\Synthetic`, AppUserModelIDKnown: true}}
-	old := file.ItemID()
-	s.apps = core.MergeProviderApplications([]core.Application{file, shell})
+	s.apps = core.MergeProviderApplications([]core.Application{file})
+	if len(s.apps[0].ProvedIDs) == 0 {
+		t.Fatal("historical shortcut proof missing")
+	}
+	old := s.apps[0].ProvedIDs[0]
 	store := &settings.Store{Path: filepath.Join(t.TempDir(), "settings.json")}
 	s.persistPreferences = func(v settings.Settings) (settings.Settings, error) {
 		if err := store.Save(v); err != nil {
@@ -51,14 +53,14 @@ func TestFirstDesktopFavoriteSaveImmediatelyPersistsProof(t *testing.T) {
 		}
 		return v, nil
 	}
-	s.toggleFavorite(shell.ItemID())
+	s.toggleFavorite(file.ItemID())
 	loaded, err := (&settings.Store{Path: store.Path}).Load()
-	if err != nil || loaded.IdentityLinks[old] != shell.ItemID() {
-		t.Fatal("first save omitted proof until a future scan", err)
+	if err != nil || loaded.IdentityLinks[old] != file.ItemID() {
+		t.Fatal("first save omitted shortcut proof", err)
 	}
 	remaining := loaded.ApplyIdentityLinks([]core.Application{file})
 	if !remaining[0].Preferred(loaded.Favorites) {
-		t.Fatal("immediate restart/file-only provider lost favorite")
+		t.Fatal("immediate restart lost favorite")
 	}
 }
 
@@ -80,7 +82,7 @@ func testMergedFileDisappearance(t *testing.T, partialShell bool) {
 	file.Launch.ShellTarget = id
 	file.Launch.AppUserModelIDKnown = true
 	file.RelatedIDs = []string{legacy}
-	shell := core.Application{Name: "Fixture Shell", ShellID: id}
+	shell := core.Application{Name: "Fixture Shell", ShellPackaged: true, ShellID: id}
 	s.apps = core.MergeProviderApplications([]core.Application{file, shell})
 	s.config.Favorites = []string{legacy}
 	s.config.Hidden = []string{legacy}

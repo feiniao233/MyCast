@@ -9,7 +9,7 @@ import (
 	"testing"
 )
 
-func TestIndexMergesLaunchIdentityAndKeepsVariants(t *testing.T) {
+func TestIndexKeepsDifferentNamesForSameTarget(t *testing.T) {
 	root := t.TempDir()
 	target := filepath.Join(root, "program", "Editor.exe")
 	other := filepath.Join(root, "other", "Editor.exe")
@@ -31,7 +31,7 @@ func TestIndexMergesLaunchIdentityAndKeepsVariants(t *testing.T) {
 	}
 	resolver := func(path string) (LaunchIdentity, error) { return metadata[filepath.Base(path)], nil }
 	first, problems := IndexApplicationsWithResolver([]string{root, root}, resolver)
-	if len(problems) != 0 || len(first) != 5 {
+	if len(problems) != 0 || len(first) != 6 {
 		t.Fatalf("got %d applications, problems=%v", len(first), problems)
 	}
 	second, problems := IndexApplicationsWithResolver([]string{root}, resolver)
@@ -74,7 +74,7 @@ func TestIndexUnresolvedLinksStayDistinct(t *testing.T) {
 	}
 }
 
-func TestIdentityDistinguishesNamesakesAndExactArguments(t *testing.T) {
+func TestIdentityDistinguishesNamesakesButIgnoresArguments(t *testing.T) {
 	root := t.TempDir()
 	a := Application{Name: "Editor", Path: filepath.Join(root, "a.lnk"), Launch: LaunchIdentity{Target: filepath.Join(root, "Editor.exe"), Arguments: "--open  a", AppUserModelIDKnown: true}}
 	b := a
@@ -83,8 +83,8 @@ func TestIdentityDistinguishesNamesakesAndExactArguments(t *testing.T) {
 		t.Fatal("shortcut location changed launch identity")
 	}
 	b.Launch.Arguments = "--open a"
-	if a.ItemID() == b.ItemID() || a.Subtitle() == b.Subtitle() {
-		t.Fatal("different exact arguments are indistinguishable")
+	if a.ItemID() != b.ItemID() || a.Subtitle() == b.Subtitle() {
+		t.Fatal("argument policy changed or diagnostic metadata was erased")
 	}
 	b = a
 	b.Launch.Target = filepath.Join(root, "other", "Editor.exe")
@@ -93,7 +93,7 @@ func TestIdentityDistinguishesNamesakesAndExactArguments(t *testing.T) {
 	}
 }
 
-func TestIndependentShortcutLaunchSemanticsAreNotMerged(t *testing.T) {
+func TestSameNameTargetKeyIncludesSpecialShortcutVariants(t *testing.T) {
 	root := t.TempDir()
 	normal := Application{Name: "Editor", Path: filepath.Join(root, "normal.lnk"), Launch: LaunchIdentity{Target: filepath.Join(root, "Editor.exe"), ShowCommand: 1}}
 	admin := normal
@@ -108,8 +108,8 @@ func TestIndependentShortcutLaunchSemanticsAreNotMerged(t *testing.T) {
 	unknown.Path = filepath.Join(root, "unknown.lnk")
 	unknown.Launch.Independent = true
 	unknown.Launch.LinkFlags = 0x20000
-	if len(SearchApplications([]Application{normal, admin, minimized, unknown}, "Editor", 0)) != 4 {
-		t.Fatal("search merged shortcuts with special launch semantics")
+	if len(SearchApplications([]Application{normal, admin, minimized, unknown}, "Editor", 0)) != 1 {
+		t.Fatal("special flags escaped explicit name-target product policy")
 	}
 	root2 := filepath.Join(root, "links")
 	if err := os.Mkdir(root2, 0700); err != nil {

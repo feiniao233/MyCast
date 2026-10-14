@@ -1,5 +1,10 @@
 # Ordinary settings
 
+Current 0.4 feedback correction keeps the existing `apps_folder` preference but
+limits its supplemental results to verified packaged applications, including
+Microsoft Store/UWP. It does not import ordinary desktop AppsFolder entries.
+See [current policy and migration](FEEDBACK_0.4.md).
+
 Current approved Store/source follow-up: AppsFolder defaults on; missing legacy fields migrate with notice, while explicit false remains off. Default desktop enumeration/watches are shallow and use actual Known Folder paths; custom roots remain recursive. File/Shell budgets are independent on one worker. See [current scope/evidence](STORE_SOURCE_FIX.md). Earlier off-by-default/shared-budget stage notes below are historical and superseded.
 
 

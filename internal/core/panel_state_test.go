@@ -4,7 +4,7 @@ package core
 import "testing"
 
 func TestPanelStateTruthTable(t *testing.T) {
-	metrics := PanelMetrics{Width: 750, ExpandedHeight: 475, CompactHeight: 108}
+	metrics := PanelMetrics{Width: 750, ExpandedHeight: 475, CompactHeight: 56}
 	for mask := 0; mask < 16; mask++ {
 		for _, query := range []string{"", " ", "Synthetic", "合成"} {
 			state := PanelState{CompactEnabled: mask&1 != 0, SessionExpanded: mask&2 != 0, FullPanelRequired: mask&4 != 0, Composing: mask&8 != 0, Query: query}
@@ -12,7 +12,7 @@ func TestPanelStateTruthTable(t *testing.T) {
 			compact := mask == 1 && query == ""
 			wantHeight := 475
 			if compact {
-				wantHeight = 108
+				wantHeight = 56
 			}
 			if got.Compact != compact || got.ResultsVisible == compact || got.Width != 750 || got.Height != wantHeight {
 				t.Fatalf("state=%+v layout=%+v", state, got)
@@ -21,7 +21,7 @@ func TestPanelStateTruthTable(t *testing.T) {
 	}
 }
 func TestPanelExplicitExpansionAndReopen(t *testing.T) {
-	metrics := PanelMetrics{750, 475, 108}
+	metrics := PanelMetrics{750, 475, 56}
 	state := PanelState{CompactEnabled: true}
 	if !DecidePanelLayout(state, metrics).Compact {
 		t.Fatal("empty configured call not compact")

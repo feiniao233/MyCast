@@ -5,7 +5,7 @@ package platform
 
 import (
 	"crypto/sha256"
-	"errors"
+	"fmt"
 	"github.com/feiniao233/MyCast/internal/core"
 	"github.com/feiniao233/MyCast/internal/settings"
 	"os"
@@ -89,28 +89,10 @@ func TestNativeShellPropertiesAndPIDLGuardPreserveSyntheticShortcut(t *testing.T
 	}
 }
 
-func TestDesktopProofRequiresLocalAncestorGateWithoutRemovingNamespace(t *testing.T) {
-	root := t.TempDir()
-	target := filepath.Join(root, "Fixture.exe")
-	if err := os.WriteFile(target, []byte("inert"), 0600); err != nil {
-		t.Fatal(err)
-	}
-	base := core.Application{Name: "Synthetic Desktop", ShellID: core.AppsFolderParsingPrefix + "org.synthetic.desktop", Launch: core.LaunchIdentity{Target: target}}
-	good := base
-	markDesktopAssociation(&good, "org.synthetic.desktop", true, "", true, LocalAppPath)
-	if !good.ShellDesktop {
-		t.Fatal("owned local target not classified")
-	}
-	denied := base
-	calls := 0
-	markDesktopAssociation(&denied, "org.synthetic.desktop", true, "", true, func(string) error { calls++; return errors.New("synthetic unknown/network/reparse target") })
-	if calls != 1 || denied.ShellDesktop || denied.ItemID() != base.ItemID() || denied.Name != base.Name {
-		t.Fatal("unknown target merged/removed namespace")
-	}
-	failed := base
-	markDesktopAssociation(&failed, "org.synthetic.desktop", true, "", false, func(string) error { t.Fatal("failed arguments still probed target"); return nil })
-	if failed.ShellDesktop {
-		t.Fatal("failed property accepted")
+func TestDesktopMetadataDoesNotCreateSupplementalSource(t *testing.T) {
+	app := core.Application{Name: "Synthetic Desktop", ShellID: core.AppsFolderParsingPrefix + "org.synthetic.desktop", Launch: core.LaunchIdentity{Target: `C:\Synthetic\Fixture.exe`, AppUserModelID: "org.synthetic.desktop"}}
+	if len(core.MergeProviderApplications([]core.Application{app})) != 0 {
+		t.Fatal("desktop AppID alone created a supplemental row")
 	}
 }
 
@@ -208,8 +190,8 @@ func TestAppIDPropertyFailuresStayUnknownThroughNativeIndex(t *testing.T) {
 			}
 			shell := core.Application{Name: "Namespace", ShellID: core.AppsFolderParsingPrefix + "org.synthetic.alpha", ShellDesktop: true, Launch: core.LaunchIdentity{Target: target, AppUserModelID: "org.synthetic.alpha"}}
 			merged := core.MergeProviderApplications(append(apps, shell))
-			if len(merged) != 3 {
-				t.Fatal("failed AppID read authorized target-only bridge")
+			if len(merged) != 2 {
+				t.Fatal("ordinary desktop namespace survived source policy")
 			}
 			for _, app := range apps {
 				if app.Launch.AppUserModelIDKnown || !app.Launch.Independent || app.Launch.ShellTarget != "" {
@@ -253,33 +235,12 @@ func TestAppIDPropertyFailuresStayUnknownThroughNativeIndex(t *testing.T) {
 	runtime.KeepAlive(properties)
 }
 
-func TestNativeAppIDScanThenProviderMergePreservesBothShortcuts(t *testing.T) {
+func TestNativeAppIDScanUsesNamesAndMigratesOnlyUniqueHistoricalTuple(t *testing.T) {
 	root := t.TempDir()
 	target := filepath.Join(root, "Host.exe")
 	if err := os.WriteFile(target, []byte("inert fixture"), 0600); err != nil {
 		t.Fatal(err)
 	}
-	// Shell may return runner account/temp ancestors in 8.3 form. Establish
-	// the owned fixture spelling through a real link before creating the inputs;
-	// this tests AppID semantics, not unproved filesystem spelling equivalence.
-	probe := filepath.Join(root, "Probe.lnk")
-	createTestShortcut(t, probe, core.LaunchIdentity{Target: target})
-	read, err := ShortcutIdentity(probe)
-	if err != nil {
-		t.Fatal(err)
-	}
-	a, e1 := os.Stat(target)
-	b, e2 := os.Stat(read.Target)
-	if e1 != nil || e2 != nil || !os.SameFile(a, b) {
-		t.Fatal("native fixture target changed")
-	}
-	directory := filepath.Dir(read.Target)
-	a, e1 = os.Stat(root)
-	b, e2 = os.Stat(directory)
-	if e1 != nil || e2 != nil || !os.SameFile(a, b) {
-		t.Fatal("native fixture directory changed")
-	}
-	root, target = directory, read.Target
 	links := filepath.Join(root, "Links")
 	if err := os.Mkdir(links, 0700); err != nil {
 		t.Fatal(err)
@@ -288,55 +249,49 @@ func TestNativeAppIDScanThenProviderMergePreservesBothShortcuts(t *testing.T) {
 		createTestShortcut(t, filepath.Join(links, name), core.LaunchIdentity{Target: target, WorkingDirectory: root, AppUserModelID: id})
 	}
 	apps, errs := core.IndexApplicationsWithResolver([]string{links}, ShortcutIdentity)
-	if len(errs) != 0 || len(apps) != 2 || apps[0].ItemID() == apps[1].ItemID() {
-		t.Fatal("file scanner merged conflicting AppIDs or lost normal duplicate dedupe", errs, len(apps))
+	if len(errs) != 0 || len(apps) != 3 {
+		t.Fatal("different source names collapsed", errs, len(apps))
 	}
+	read, err := ShortcutIdentity(filepath.Join(links, "Synthetic Alpha.lnk"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	legacy := fmt.Sprintf("app-%x", sha256.Sum256([]byte(fmt.Sprintf("%q|%q|%q", strings.ToLower(filepath.Clean(read.Target)), read.Arguments, strings.ToLower(filepath.Clean(read.WorkingDirectory))))))
 	for _, id := range []string{"org.synthetic.alpha", "org.synthetic.beta"} {
 		apps = append(apps, core.Application{Name: "Namespace " + id, ShellID: core.AppsFolderParsingPrefix + id, ShellDesktop: true, Launch: core.LaunchIdentity{Target: target, AppUserModelID: id}})
 	}
 	merged := core.PrepareSearch(core.MergeProviderApplications(apps))
-	if len(merged) != 2 {
-		t.Fatal("provider merge changed independent AppID count", len(merged))
+	if len(merged) != 3 {
+		t.Fatal("desktop namespace competed with shortcut names", len(merged))
 	}
 	result := core.SearchApplications(merged, "Synthetic Beta", 10)
 	if len(result) != 1 || result[0].Path != filepath.Join(links, "Synthetic Beta.lnk") || result[0].Launch.AppUserModelID != "org.synthetic.beta" {
-		t.Fatal("search for Beta routes Alpha shortcut")
+		t.Fatal("search lost original Beta shortcut")
 	}
-	if result[0].ItemID() != (core.Application{ShellID: core.AppsFolderParsingPrefix + "org.synthetic.beta"}).ItemID() {
-		t.Fatal("wrong canonical namespace identity")
-	}
-	legacy := (core.Application{Path: filepath.Join(links, "Synthetic Alpha.lnk"), Launch: core.LaunchIdentity{Target: target, WorkingDirectory: root, AppUserModelIDKnown: true}}).ItemID()
 	for _, app := range merged {
 		if app.HasPreferenceID(legacy) {
-			t.Fatal("ambiguous old target hash guessed onto an AppID")
+			t.Fatal("ambiguous old target hash guessed onto a name")
 		}
 	}
 	value := settings.Defaults()
-	value.Favorites = []string{legacy}
-	value.Recents = []string{legacy}
-	value.Hidden = []string{legacy}
+	value.Favorites, value.Recents, value.Hidden = []string{legacy}, []string{legacy}, []string{legacy}
 	value.Aliases = map[string][]string{legacy: {"legacy-fixture"}}
 	unchanged, changed := value.BindProvedApplicationIdentities(merged)
 	if changed || len(unchanged.Favorites) != 1 || len(unchanged.Aliases[legacy]) != 1 {
 		t.Fatal("ambiguous old preferences redirected or deleted")
 	}
-	// When one identity remains, the same real scanner/proof/save/restart chain
-	// can conservatively migrate the old tuple without losing ordinary metadata.
-	if err := os.Remove(filepath.Join(links, "Synthetic Beta.lnk")); err != nil {
-		t.Fatal(err)
+	for _, name := range []string{"Synthetic Beta.lnk", "Synthetic Alpha Copy.lnk"} {
+		if err := os.Remove(filepath.Join(links, name)); err != nil {
+			t.Fatal(err)
+		}
 	}
-	files, errs := core.IndexApplicationsWithResolver([]string{links}, ShortcutIdentity)
-	if len(errs) != 0 || len(files) != 1 {
-		t.Fatal("normal same-AppID duplicates stopped merging")
-	}
-	shell := core.Application{Name: "Namespace Alpha", ShellID: core.AppsFolderParsingPrefix + "org.synthetic.alpha", ShellDesktop: true, Launch: core.LaunchIdentity{Target: target, AppUserModelID: "org.synthetic.alpha"}}
-	unique := core.MergeProviderApplications(append(files, shell))
-	if len(unique) != 1 || !unique[0].HasPreferenceID(legacy) {
-		t.Fatal("unambiguous old tuple was not retained")
+	unique, errs := core.IndexApplicationsWithResolver([]string{links}, ShortcutIdentity)
+	if len(errs) != 0 || len(unique) != 1 || !unique[0].HasPreferenceID(legacy) {
+		t.Fatal("unique historical tuple was not retained", errs)
 	}
 	bound, changed := value.BindProvedApplicationIdentities(unique)
-	if !changed || bound.IdentityLinks[legacy] != shell.ItemID() {
-		t.Fatal("unambiguous old preferences were not bound")
+	if !changed || bound.IdentityLinks[legacy] != unique[0].ItemID() {
+		t.Fatal("unique old preferences were not bound")
 	}
 	store := &settings.Store{Path: filepath.Join(root, "settings.json")}
 	if err := store.Save(bound); err != nil {
@@ -346,9 +301,10 @@ func TestNativeAppIDScanThenProviderMergePreservesBothShortcuts(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	restarted := core.WithUserAliases(loaded.ApplyIdentityLinks([]core.Application{shell}), loaded.Aliases)
+	fresh, _ := core.IndexApplicationsWithResolver([]string{links}, ShortcutIdentity)
+	restarted := core.WithUserAliases(loaded.ApplyIdentityLinks(fresh), loaded.Aliases)
 	if !restarted[0].Preferred(loaded.Favorites) || !restarted[0].Preferred(loaded.Recents) || !restarted[0].Preferred(loaded.Hidden) || len(core.SearchApplications(restarted, "legacy-fixture", 10)) != 1 {
-		t.Fatal("full-chain migration lost preferences after restart")
+		t.Fatal("migration lost preferences after restart")
 	}
 }
 

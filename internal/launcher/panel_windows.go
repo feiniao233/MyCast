@@ -79,10 +79,12 @@ func (s *launcher) observePanelSize(width, height float32) {
 		s.panelGeometryPending = false
 		return
 	}
-	if s.panelApplied == s.panelLayout() && width > 0 && height >= palette.Header+palette.Footer && math.Abs(float64(width-s.panelActual.Width)) < 1 && math.Abs(float64(height-s.panelActual.Height)) < 1 {
-		if s.panelLayout().ResultsVisible && height < palette.Header+palette.Footer+palette.SectionHeight+2*palette.Inset+palette.DetailRowHeight {
-			return
-		}
+	layout := s.panelLayout()
+	minimumHeight := palette.CompactHeight
+	if layout.ResultsVisible {
+		minimumHeight = palette.Header + palette.Footer + palette.SectionHeight + 2*palette.Inset + palette.DetailRowHeight
+	}
+	if s.panelApplied == layout && width > 0 && height >= minimumHeight && math.Abs(float64(width-s.panelActual.Width)) < 1 && math.Abs(float64(height-s.panelActual.Height)) < 1 {
 		s.panelGeometryPending = false
 	}
 }

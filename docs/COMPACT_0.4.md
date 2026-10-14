@@ -23,8 +23,9 @@ rewriting input. Composition also keeps the full panel. Clearing typed text may
 return to compact unless Down/the visible expand control explicitly expanded
 this call. Temporary expansion resets on the next call.
 
-Compact keeps search and existing footer access, at 108 DIP versus 475 DIP full
-height; metrics/colors remain in `palette_tokens_windows.go`. It mounts no result
+Compact uses one 56-DIP row: menu, the persistently mounted search field,
+small status indicator and expand button. The second-row footer is absent until
+expanded (475 DIP full height); metrics/colors remain in `palette_tokens_windows.go`. It mounts no result
 rows and cannot activate an invisible selection. Search Enter is consumed without
 launching. Down explicitly expands, resets the viewport and selects the first
 visible result. Up and result-action shortcuts cannot manipulate hidden rows.

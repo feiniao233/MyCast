@@ -138,12 +138,12 @@ func TestShortcutReaderRoundTripIsReadOnly(t *testing.T) {
 	second := filepath.Join(root, "Duplicate.lnk")
 	createTestShortcut(t, second, launch)
 	apps, problems := core.IndexApplicationsWithResolver([]string{root}, ShortcutIdentity)
-	if len(problems) != 0 || len(apps) != 1 {
-		t.Fatalf("real shortcut merge: count=%d, problems=%v", len(apps), problems)
+	if len(problems) != 0 || len(apps) != 2 {
+		t.Fatalf("differently named real shortcuts: count=%d, problems=%v", len(apps), problems)
 	}
 }
 
-func TestShortcutSpecialLaunchModesRemainIndependent(t *testing.T) {
+func TestShortcutSpecialLaunchMetadataAndDifferentNamesRemainIntact(t *testing.T) {
 	root := t.TempDir()
 	ordinary := core.LaunchIdentity{Target: filepath.Join(root, "Synthetic.exe"), ShowCommand: 1}
 	admin := ordinary
@@ -165,8 +165,8 @@ func TestShortcutSpecialLaunchModesRemainIndependent(t *testing.T) {
 		}
 	}
 	apps, problems := core.IndexApplicationsWithResolver([]string{root}, ShortcutIdentity)
-	if len(problems) != 0 || len(apps) != 4 {
-		t.Fatalf("ordinary duplicate must merge, permission/show/shim variants must not: count=%d, problems=%v", len(apps), problems)
+	if len(problems) != 0 || len(apps) != 5 {
+		t.Fatalf("different source names must remain separate: count=%d, problems=%v", len(apps), problems)
 	}
 }
 

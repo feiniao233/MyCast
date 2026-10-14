@@ -18,6 +18,18 @@ jobs:
         run: go mod verify
       - name: Test
         run: go test ./...
+      - name: Render synthetic compact previews
+        timeout-minutes: 5
+        env:
+          MYCAST_PREVIEW_DIR: ${{ github.workspace }}/dist/compact-previews
+        run: go test ./internal/launcher -run '^TestCompact(SingleRowStatusAndPointerAccessDPI|DirectShowTypingDownAndHiddenEnterDPI)$' -count=1
+      - name: Upload synthetic compact previews
+        uses: actions/upload-artifact@v4
+        with:
+          name: MyCast-compact-synthetic-previews
+          path: dist/compact-previews/*.png
+          if-no-files-found: error
+          retention-days: 14
       - name: Vet
         run: go vet ./...
       - name: Verify generated original icon

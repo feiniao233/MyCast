@@ -215,7 +215,7 @@ func (s *launcher) drawSettings(c *ui.Context) {
 					ui.Text(c, "外观").FontSize(12).TextColor(p.Secondary)
 					ui.Select(c.Key("settings-theme"), &s.themeText, []string{"深色", "浅色", "跟随系统"}).Width(210).Height(32).Label("主题设置")
 				})
-				ui.Checkbox(c.Key("settings-appsfolder"), &s.settingsDraft.AppsFolder, "AppsFolder 系统应用（含 UWP）").Label("AppsFolder 来源")
+				ui.Checkbox(c.Key("settings-appsfolder"), &s.settingsDraft.AppsFolder, "Packaged 应用（含 Microsoft Store / UWP）").Label("AppsFolder 来源")
 				ui.Checkbox(c.Key("settings-startup"), &s.settingsDraft.Startup, "登录 Windows 后启动到托盘（默认关闭）").Label("开机启动")
 				ui.Checkbox(c.Key("settings-compact"), &s.settingsDraft.CompactOnShow, "空查询紧凑呼出（下次呼出生效；默认关闭）").Label("紧凑呼出")
 				ui.Row(c.Key("settings-extra")).Height(28).Shrink(0).Gap(8).Children(func() {

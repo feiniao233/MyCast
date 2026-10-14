@@ -22,9 +22,22 @@ type Application struct {
 	// DisplayOnlyID identifies an untrusted startup-cache row. It grants no
 	// launch, source-path or provider association authority.
 	DisplayOnlyID string
-	// Read-only AppsFolder properties prove a non-packaged local EXE default
-	// entry, including a successful arguments read (VT_EMPTY is an empty value).
+	// ShellPackaged is read-only evidence of a registered packaged AUMID.
+	// Desktop namespace rows never qualify as supplemental applications.
+	ShellPackaged bool
+	// Retained only to recognize old in-memory desktop snapshots during migration.
 	ShellDesktop bool
+	// SourceName freezes the indexed name before display localization.
+	SourceName string
+	// SourcePriority is configured-root order, never asynchronous arrival order.
+	SourcePriority int
+	// SourcePaths retains bounded configured duplicate paths in memory so a
+	// partial refresh can rediscover a surviving source after one is removed.
+	SourcePaths []string
+	// ProvedIDs are current scan evidence; persisted links are never added here.
+	ProvedIDs []string
+	// LegacyTargetIDs are the unambiguous metadata-based subset of ProvedIDs.
+	LegacyTargetIDs []string
 	// Successful namespace counterpart, memory-only and without nested fallback.
 	ShellFallback *Application
 	// ShellID is populated only by the configured AppsFolder provider. Path is
@@ -49,18 +62,19 @@ type Application struct {
 type LaunchIdentity struct {
 	AppUserModelID string
 	// True only after a successful string/VT_EMPTY property read. Unknown is
-	// not an empty AppID and cannot authorize target-only association.
+	// not an empty AppID and cannot authorize historical identity migration.
 	AppUserModelIDKnown bool
-	// Set only after the desktop compatibility check against a Shell snapshot.
+	// Legacy desktop-association evidence, used only while migrating old rows.
 	DesktopBridge bool
-	// Only a proved immediate AppsFolder PIDL child with unchanged default
-	// shortcut semantics can populate this cross-provider identity bridge.
+	// An immediate AppsFolder PIDL child read from a shortcut. It joins a
+	// packaged AUMID only when the package provider also proves registration.
 	ShellTarget      string
 	Target           string
 	Arguments        string
 	WorkingDirectory string
-	// Independent preserves the original link's identity when launch flags
-	// or a non-default show mode have additional semantics we do not merge.
+	// Independent marks special/unknown metadata for safe target validation and
+	// historical migration. The explicit name-target dedup policy still applies;
+	// no flags or show modes on the selected original shortcut are rewritten.
 	Independent bool
 	LinkFlags   uint32
 	ShowCommand int32
@@ -71,10 +85,23 @@ func (a Application) Identity() string {
 		return "display-only:" + a.DisplayOnlyID
 	}
 	if a.ShellID != "" {
-		return "appsfolder:" + a.ShellID
+		return "appsfolder:" + strings.ToLower(a.ShellID)
 	}
-	if a.Launch.ShellTarget != "" && !a.Launch.Independent && a.Launch.AppUserModelIDKnown && (a.Launch.AppUserModelID == "" || a.Launch.AppUserModelID == strings.TrimPrefix(a.Launch.ShellTarget, AppsFolderParsingPrefix)) && a.Launch.Arguments == "" && (a.Launch.WorkingDirectory == "" || a.Launch.DesktopBridge && defaultDesktopDirectory(a.Launch.Target, a.Launch.WorkingDirectory)) {
-		return "appsfolder:" + a.Launch.ShellTarget
+	if a.ShellPackaged && a.Launch.ShellTarget != "" {
+		return "appsfolder:" + strings.ToLower(a.Launch.ShellTarget)
+	}
+	if strings.EqualFold(filepath.Ext(a.Path), ".lnk") || strings.EqualFold(filepath.Ext(a.Path), ".exe") && a.Launch.Target != "" {
+		name := a.SourceName
+		if name == "" {
+			name = a.Name
+		}
+		target := a.Launch.Target
+		if target == "" {
+			target = a.Path
+		}
+		// Product policy deliberately ignores arguments, working directory and
+		// special flags. The chosen original .lnk is still launched unchanged.
+		return "file-app:" + strings.ToLower(name) + "|" + strings.ToLower(target)
 	}
 	if a.Launch.Target == "" || a.Launch.Independent || strings.EqualFold(filepath.Ext(a.Path), ".lnk") && !a.Launch.AppUserModelIDKnown {
 		return pathKey(a.Path)
@@ -131,9 +158,10 @@ func IndexApplications(roots []string) (applications []Application, problems []e
 	return IndexApplicationsWithResolver(roots, nil)
 }
 
-// IndexApplicationsWithResolver additionally merges readable shortcuts that
-// have the same target, arguments and working directory. Unresolved links stay
-// distinct. The resolver must only read metadata, never resolve, repair or run.
+// IndexApplicationsWithResolver deduplicates shortcuts by case-insensitive
+// source name and target (or source path when unresolved). Arguments and working
+// directory do not participate; the original preferred link is never rewritten.
+// The resolver must only read metadata, never resolve, repair or run.
 func IndexApplicationsWithResolver(roots []string, resolve func(string) (LaunchIdentity, error)) (applications []Application, problems []error) {
 	return IndexApplicationsWithOptions(context.Background(), roots, resolve, DefaultScanOptions())
 }
@@ -196,7 +224,7 @@ func IndexApplicationsWithOptions(ctx context.Context, roots []string, resolve f
 					return ErrScanBudget
 				}
 				seen[key] = true
-				applications = append(applications, Application{Name: name, Path: path, NamePaths: []string{path}})
+				applications = append(applications, Application{Name: name, SourceName: name, SourcePriority: rootIndex, Path: path, NamePaths: []string{path}, SourcePaths: []string{path}})
 			}
 			return nil
 		})
@@ -209,8 +237,7 @@ func IndexApplicationsWithOptions(ctx context.Context, roots []string, resolve f
 	}
 	sort.Slice(applications, func(i, j int) bool { return applicationLess(applications[i], applications[j]) })
 	if resolve != nil {
-		merged := make([]Application, 0, len(applications))
-		identities := make(map[string]int)
+		resolved := make([]Application, 0, len(applications))
 		for _, app := range applications {
 			if err := ctx.Err(); err != nil {
 				addProblem(err)
@@ -235,7 +262,7 @@ func IndexApplicationsWithOptions(ctx context.Context, roots []string, resolve f
 				if _, err := ValidateShellApplication(launch.ShellTarget); err != nil {
 					virtual = false
 				}
-				if err == nil && (virtual || filepath.IsAbs(launch.Target) && (launch.WorkingDirectory == "" || filepath.IsAbs(launch.WorkingDirectory))) {
+				if err == nil && (virtual || filepath.IsAbs(launch.Target)) {
 					if virtual {
 						app.RelatedIDs = []string{app.ItemID()}
 					}
@@ -256,25 +283,9 @@ func IndexApplicationsWithOptions(ctx context.Context, roots []string, resolve f
 				app.Launch.ShowCommand = 1            // ShellExecute uses SW_SHOWNORMAL.
 				app.Launch.AppUserModelIDKnown = true // Bare EXE has no shortcut AppID.
 			}
-			key := app.Identity()
-			if index, found := identities[key]; found {
-				merged[index].RelatedIDs = append(merged[index].RelatedIDs, app.RelatedIDs...)
-				sources := append(append([]string(nil), merged[index].NamePaths...), app.NamePaths...)
-				merged[index].Aliases = append(merged[index].Aliases, app.Name)
-				// Prefer a shortcut to a bare executable, retaining shell launch semantics.
-				if strings.EqualFold(filepath.Ext(app.Path), ".lnk") && !strings.EqualFold(filepath.Ext(merged[index].Path), ".lnk") {
-					app.Aliases = append(merged[index].Aliases, merged[index].Name)
-					app.NamePaths = sources
-					merged[index] = app
-				} else {
-					merged[index].NamePaths = sources
-				}
-				continue
-			}
-			identities[key] = len(merged)
-			merged = append(merged, app)
+			resolved = append(resolved, app)
 		}
-		applications = attachLegacyTargetPreferenceIDs(merged)
+		applications = MergeProviderApplications(FilterUninstallEntries(resolved))
 		sort.Slice(applications, func(i, j int) bool { return applicationLess(applications[i], applications[j]) })
 	}
 	return applications, problems
