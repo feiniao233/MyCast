@@ -50,7 +50,7 @@ func (s *launcher) completeScan(apps []core.Application, icons map[string]*ui.Bi
 	case len(apps) == 0 && (len(problems) > 0 || budget):
 		if len(completions) > 0 && completions[0].reconciled {
 			s.refreshApplications(core.WithUserAliases(apps, s.config.Aliases), icons)
-			summary = fmt.Sprintf("扫描部分完成；移除 %d 个已确认失效入口，%d 处无法读取；已配置的未知项已保留。", len(completions[0].missing), len(problems))
+			summary = fmt.Sprintf("扫描部分完成；移除 %d 个已确认失效入口，已记录 %d 个扫描问题；已配置的未知项已保留。", len(completions[0].missing), len(problems))
 			if budget {
 				summary += " 已达到数量或时间预算。"
 			}
@@ -71,19 +71,19 @@ func (s *launcher) completeScan(apps []core.Application, icons map[string]*ui.Bi
 		}
 		if removed > 0 {
 			s.refreshApplications(retained, s.icons)
-			summary = fmt.Sprintf("扫描部分完成：移除 %d 个已确认失效入口；%d 个位置无法读取，保留未确认项。", removed, len(problems))
+			summary = fmt.Sprintf("扫描部分完成：移除 %d 个已确认失效入口；已记录 %d 个扫描问题，保留未确认项。", removed, len(problems))
 		} else if budget {
 			summary = "扫描达到数量或时限预算，保留当前结果。"
 		} else {
-			summary = fmt.Sprintf("扫描失败：%d 个位置无法读取，保留当前结果。", len(problems))
+			summary = fmt.Sprintf("扫描失败：已记录 %d 个扫描问题，保留当前结果。", len(problems))
 		}
 	default:
 		s.refreshApplications(core.WithUserAliases(apps, s.config.Aliases), icons)
 		summary = fmt.Sprintf("扫描完成：索引 %d 个应用。", len(apps))
 		if budget {
-			summary = fmt.Sprintf("扫描达到数量或时限预算：%d 个应用；可缩小索引目录。", len(apps))
+			summary = fmt.Sprintf("扫描达到数量或时限预算：已索引 %d 个应用；可缩小索引目录。", len(apps))
 		} else if len(problems) > 0 {
-			summary = fmt.Sprintf("扫描部分完成：%d 个应用，%d 个位置无法读取。", len(apps), len(problems))
+			summary = fmt.Sprintf("扫描部分完成：已索引 %d 个应用，已记录 %d 个扫描问题。", len(apps), len(problems))
 		}
 		if !s.clipboardMode && s.appNeedsSelection {
 			summary += " 原应用已移除，请重新选择。"

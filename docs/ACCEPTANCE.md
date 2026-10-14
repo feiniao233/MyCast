@@ -480,3 +480,34 @@ No real shortcut bytes or installed-app inventory were read or modified. All
 new test data are synthetic. This change does not merge main, publish a Release,
 sign a binary or grant account access. Earlier reported Windows passes do not
 stand in for these unexecuted checks.
+
+## Hover and result-count feedback follow-up
+
+Baseline `0699b6e20c2789ba7c50a7f3e6172bdfb6706eae` passed Windows CI
+[38505598827](https://github.com/feiniao233/MyCast/actions/runs/38505598827).
+The follow-up repairs clipped compact tooltips, distinguishes the preserved
+100-row presentation cap from searchable/matching counts, and avoids optional
+name warnings for already excluded desktop Shell entries. The user's screenshot
+was viewed; its 128 recorded problems do not identify 128 unreadable directories
+or prove which scanner produced them.
+
+Local verification for this follow-up:
+
+- Passed: official Go 1.27.2 dependency verification, Linux full tests and vet,
+  core/settings race tests, and formatting/diff checks.
+- Passed: Windows-targeted all-package test compilation (using `/bin/true`, not
+  execution), vet, trimmed CGO-disabled GUI build and generated/PE icon checks.
+- Passed: the production tooltip helper rendered through public MyGo test APIs
+  on Linux at 100%/150%, light/dark; labels remain inside the 56-DIP client area,
+  and delayed hover, pointer exit, click dismissal and stable search focus are
+  checked. These isolated synthetic renders are not desktop acceptance.
+- Added Windows integration regressions for compact/expanded hover, scan updates,
+  expansion and IME transitions; exact counts for 235 synthetic apps, capped and
+  hidden/query results; and excluded desktop metadata versus retained unknown
+  and packaged warnings. Windows execution awaits this commit's CI.
+- The bounded CI preview step now includes hover and result-count previews;
+  ordinary full tests still run first and must pass before packaging.
+
+Actual user-desktop hover, real IME, installed applications and source-specific
+scan failures remain unverified. No credentials, real shortcut data, user
+screenshots or application inventories are included in the repository/artifact.

@@ -339,9 +339,13 @@ func TestAppsFolderSupplementSkipsDesktopRowsWithoutMetadataErrors(t *testing.T)
 	if *enumerationReleases != 1 || *closed != 3 {
 		t.Fatal("enumerator or package references leaked")
 	}
-	for _, released := range releases {
-		if *released != 4 { // Three property queries plus enumerator's item reference.
-			t.Fatalf("Shell reference releases: %d, want 4", *released)
+	for i, released := range releases {
+		want := 4 // Three property queries plus enumerator's item reference.
+		if i < 3 {
+			want = 1
+		} // Known desktop rows skip all optional properties.
+		if *released != want {
+			t.Fatalf("Shell reference releases: %d, want %d", *released, want)
 		}
 	}
 	// The same nonpackage row remains available to narrowly scoped diagnostics.
@@ -456,4 +460,90 @@ func TestFilteredDesktopRowsDoNotConsumePackagedIconBudget(t *testing.T) {
 	runtime.KeepAlive(folder)
 	runtime.KeepAlive(desktop)
 	runtime.KeepAlive(packaged)
+}
+
+func TestPackagedSupplementClassifiesIdentityBeforeOptionalName(t *testing.T) {
+	for _, test := range []struct {
+		name, parsing, display                     string
+		parseFails, nameFails, verified, wantError bool
+	}{
+		{"desktop-empty-name", "org.synthetic.desktop", "", false, false, true, false},
+		{"desktop-name-query-fails", "org.synthetic.desktop", "Desktop", false, true, true, false},
+		{"package-empty-name", syntheticPackageAUMID, "", false, false, true, true},
+		{"package-name-query-fails", syntheticPackageAUMID, "Package", false, true, true, true},
+		{"desktop-parsing-query-fails", "org.synthetic.desktop", "Desktop", true, false, true, true},
+		{"package-parsing-query-fails", syntheticPackageAUMID, "Package", true, false, true, true},
+		{"invalid-parsing-identity", `C:\Synthetic\Desktop.exe`, "Desktop", false, false, true, true},
+		{"unverified-bare-identity", "org.synthetic.desktop", "Desktop", false, false, false, true},
+		{"malformed-package-identity", syntheticPackageFamily + "!", "Package", false, false, true, true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			api, _ := syntheticPackageAPI(t, syntheticPackageAUMID)
+			item, _ := syntheticPackagedShellItem(t, test.display, test.parsing, test.parsing, true)
+			nameReads := 0
+			item.methods[5] = syscall.NewCallback(func(_ *comObject, kind uint32, out **uint16) uintptr {
+				if kind == 0 {
+					nameReads++
+					if test.nameFails {
+						return 0x80004005
+					}
+					return duplicateSyntheticShellString(test.display, out)
+				}
+				if test.parseFails {
+					return 0x80004005
+				}
+				return duplicateSyntheticShellString(test.parsing, out)
+			})
+			app, err := readShellApplicationMetadataWithPackageAPI(item, test.verified, api)
+			if (err != nil) != test.wantError || app.ShellPackaged {
+				t.Fatalf("classification app=%+v error=%v, wantError=%t", app, err, test.wantError)
+			}
+			if !test.wantError && nameReads != 0 {
+				t.Fatal("excluded desktop row still queried optional name")
+			}
+			if !test.wantError {
+				if _, err := readShellApplicationMetadata(item, true); err == nil {
+					t.Fatal("diagnostic reader silently hid requested missing display metadata")
+				}
+			}
+			runtime.KeepAlive(item)
+		})
+	}
+}
+
+func TestExcludedDesktopNameFailuresDoNotFillMetadataWarningCap(t *testing.T) {
+	const storeID = "Microsoft.WindowsStore_8wekyb3d8bbwe!App"
+	api, _ := syntheticPackageAPI(t, storeID)
+	var items []*comObject
+	// Reuse the inert fixture to exercise 140 enumeration results without
+	// consuming a native callback slot for every logically identical row.
+	desktop, _ := syntheticPackagedShellItem(t, "", "org.synthetic.desktop", "org.synthetic.desktop", true)
+	for i := 0; i < 140; i++ {
+		items = append(items, desktop)
+	}
+	store, _ := syntheticPackagedShellItem(t, "Microsoft Store", storeID, storeID, true)
+	items = append(items, store)
+	folder, _ := syntheticPackageFolder(t, items)
+	apps, _, problems := enumerateShellApplicationsWithPackageAPI(context.Background(), folder, 200, 0, api)
+	if len(problems) != 0 || len(apps) != 1 || apps[0].ShellID != core.AppsFolderParsingPrefix+storeID {
+		t.Fatalf("excluded display errors polluted scan: apps=%d, problems=%d", len(apps), len(problems))
+	}
+	runtime.KeepAlive(folder)
+	runtime.KeepAlive(items)
+}
+
+func TestPackagedSupplementRetainsAggregatedProofFailureWarning(t *testing.T) {
+	api, _ := syntheticPackageAPI(t, syntheticPackageAUMID)
+	var items []*comObject
+	for i := 0; i < 3; i++ {
+		item, _ := syntheticPackagedShellItem(t, "Package", syntheticPackageAUMID, "", false)
+		items = append(items, item)
+	}
+	folder, _ := syntheticPackageFolder(t, items)
+	apps, _, problems := enumerateShellApplicationsWithPackageAPI(context.Background(), folder, 10, 0, api)
+	if len(apps) != 0 || len(problems) != 1 || problems[0] != errShellPackageProof {
+		t.Fatal("true package proof failure was hidden or multiplied", problems)
+	}
+	runtime.KeepAlive(folder)
+	runtime.KeepAlive(items)
 }

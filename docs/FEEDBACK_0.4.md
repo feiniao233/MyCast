@@ -68,3 +68,29 @@ these are offscreen synthetic renders, not desktop screenshots. Live Windows UI,
 Store activation, installed-app duplicates and 100%/150% rendered visuals remain
 unverified by this Linux workspace. Compile-only success is not a passing Windows
 test run. No merge, Release, signing or real account access is part of this change.
+
+## Hover and count follow-up
+
+User feedback after candidate `0699b6e` identified two separate presentation
+issues. The result section used the capped returned slice (100), while the scan
+status used the complete indexed catalog. Searching already examines the full
+catalog; the cap is not a 100-application indexing limit. The follow-up keeps the
+cap and bounded result rows, and distinguishes displayed rows from searchable or
+matching totals.
+
+MyGo 0.4.6's tooltip is an in-window overlay. Its default vertical placement
+cannot fit around a 32-DIP button inside a 56-DIP palette; the overlay can exist
+but be clipped out of view. Compact tooltip placement therefore needs an
+in-window horizontal anchor, preserving the existing hover delay, dismissal,
+pass-through behavior and search editor rather than changing window height.
+
+Scan problems are bounded recorded errors from multiple sources, not a count of
+unreadable directories. Both file scanning and Shell metadata collection have
+128-entry bounds; package-proof failures are coalesced. The reported number alone
+does not identify the user's failing source. Clearly excluded nonpackaged Shell
+entries should be skipped before requiring display metadata, while unknown or
+packaged failures remain partial-scan warnings.
+
+The final simplified UI is planned separately: counts and scan detail belong in
+diagnostics, with only brief scanning/attention indications on the main palette.
+The present candidate retains accurate detail to help testing.

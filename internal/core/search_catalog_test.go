@@ -91,6 +91,66 @@ func TestPreparedSearchAliasRemovalAndExplanation(t *testing.T) {
 	}
 }
 
+func TestPreparedSearchCountsBeyondLimit(t *testing.T) {
+	apps := make([]Application, 235)
+	for i := range apps {
+		alias := "groupalpha"
+		if i >= 150 {
+			alias = "groupbeta"
+		}
+		apps[i] = Application{Name: fmt.Sprintf("Synthetic App %03d", i), Path: fmt.Sprintf("synthetic-%03d.exe", i), Aliases: []string{alias}}
+	}
+	// A duplicate must not inflate either total or the capped result list.
+	catalog := NewSearchCatalog(append(append([]Application(nil), apps...), apps[0]))
+	for _, tc := range []struct {
+		name, query  string
+		limit        int
+		hidden       []string
+		shown, total int
+	}{
+		{"empty capped", "", 100, nil, 100, 235},
+		{"whitespace", "  ", 100, nil, 100, 235},
+		{"matching capped", "groupalpha", 100, nil, 100, 150},
+		{"matching uncapped", "groupalpha", 0, nil, 150, 150},
+		{"below cap", "groupbeta", 100, nil, 85, 85},
+		{"beyond first page", "Synthetic App 234", 100, nil, 1, 1},
+		{"no matches", "absentneedle", 100, nil, 0, 0},
+		{"hidden duplicate", "", 100, []string{apps[0].ItemID()}, 100, 234},
+		{"hidden match", "groupalpha", 100, []string{apps[0].ItemID()}, 100, 149},
+		{"hidden beyond page", "Synthetic App 234", 100, []string{apps[234].ItemID()}, 0, 0},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			matches, total := catalog.SearchWithCount(tc.query, tc.limit, nil, nil, tc.hidden)
+			if len(matches) != tc.shown || total != tc.total {
+				t.Fatalf("shown/total = %d/%d, want %d/%d", len(matches), total, tc.shown, tc.total)
+			}
+			unlimited := catalog.Search(tc.query, 0, nil, nil, tc.hidden)
+			if total != len(unlimited) || !reflect.DeepEqual(matches, unlimited[:tc.shown]) {
+				t.Fatal("count or ranking differs from the full matching catalog")
+			}
+		})
+	}
+	for _, prefs := range []struct{ favorites, recents []string }{
+		{favorites: []string{apps[234].ItemID()}},
+		{recents: []string{apps[234].ItemID()}},
+	} {
+		matches, total := catalog.SearchWithCount("", 100, prefs.favorites, prefs.recents, nil)
+		if len(matches) != 100 || total != 235 || matches[0].Application.ItemID() != apps[234].ItemID() {
+			t.Fatal("preferences changed the total instead of only ranking")
+		}
+	}
+	var missing *SearchCatalog
+	if matches, total := missing.SearchWithCount("", 100, nil, nil, nil); matches != nil || total != 0 {
+		t.Fatal("nil catalog must have no results or total")
+	}
+	for _, size := range []int{0, 1, 99, 100, 101} {
+		matches, total := NewSearchCatalog(apps[:size]).SearchWithCount("", 100, nil, nil, nil)
+		if total != size || len(matches) != min(size, 100) {
+			t.Fatalf("limit boundary %d: shown/total = %d/%d", size, len(matches), total)
+		}
+	}
+}
+
 var benchmarkMatches []ApplicationMatch
 var benchmarkApps []Application
 var benchmarkCatalog *SearchCatalog

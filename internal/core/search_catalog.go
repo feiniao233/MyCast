@@ -82,8 +82,16 @@ func NewSearchCatalog(apps []Application) *SearchCatalog {
 // deterministic order. Hidden identities are checked before matching/boosting.
 // Returned applications are independent copies; callers cannot mutate catalog.
 func (c *SearchCatalog) Search(query string, limit int, favorites, recents, hidden []string) []ApplicationMatch {
+	results, _ := c.SearchWithCount(query, limit, favorites, recents, hidden)
+	return results
+}
+
+// SearchWithCount also reports all unique matching, non-hidden applications
+// before the result limit. It counts in the same ranked pass without cloning
+// application metadata for results beyond the limit.
+func (c *SearchCatalog) SearchWithCount(query string, limit int, favorites, recents, hidden []string) ([]ApplicationMatch, int) {
 	if c == nil {
-		return nil
+		return nil, 0
 	}
 	q := foldedRunes(strings.TrimSpace(query))
 	favorite := map[string]bool{}
@@ -162,7 +170,12 @@ func (c *SearchCatalog) Search(query string, limit int, favorites, recents, hidd
 		return x.identity < y.identity
 	})
 	seen := map[string]bool{}
-	results := make([]ApplicationMatch, 0, len(matches))
+	capacity := len(matches)
+	if limit > 0 {
+		capacity = min(capacity, limit)
+	}
+	results := make([]ApplicationMatch, 0, capacity)
+	total := 0
 	for _, m := range matches {
 		e := c.entries[m.entry]
 		if e.app.Path != "" || e.app.ShellID != "" {
@@ -171,10 +184,10 @@ func (c *SearchCatalog) Search(query string, limit int, favorites, recents, hidd
 			}
 			seen[e.identity] = true
 		}
-		results = append(results, ApplicationMatch{cloneSearchApplication(e.app), m.evidence})
-		if limit > 0 && len(results) >= limit {
-			break
+		total++
+		if limit <= 0 || len(results) < limit {
+			results = append(results, ApplicationMatch{cloneSearchApplication(e.app), m.evidence})
 		}
 	}
-	return results
+	return results, total
 }

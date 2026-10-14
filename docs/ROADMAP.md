@@ -172,3 +172,11 @@ Compact presentation becomes a true single 56-DIP row with a state-aware geometr
 readiness threshold. See [scope, trade-offs and verification boundary](FEEDBACK_0.4.md).
 Historical desktop association and 108-DIP fixture evidence do not validate this
 new candidate. Windows execution and actual desktop acceptance remain separate.
+
+## Follow-up interface simplification
+
+The current feedback candidate keeps accurate result/index counts and scan
+problem summaries visible to support diagnosis. The requested polished interface
+should move application counts, scan details and error statistics into diagnostics,
+leaving only brief scanning/attention indicators in the main palette. This is a
+planned presentation task, not a new diagnostics subsystem in the current fix.

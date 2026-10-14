@@ -476,14 +476,7 @@ func (s *launcher) view(c *ui.Context) {
 			ui.Scroll(c.Key("results")).Fill().Margin(palette.Header, 0, palette.Footer).Clip().TrackScroll(&s.scroll).Children(func() {
 				ui.Column(c).FillWidth().Shrink(0).Padding(palette.Inset).Gap(palette.RowGap).Children(func() {
 					ui.Row(c).Height(palette.SectionHeight-palette.RowGap).Shrink(0).Padding(0, palette.RowInset).Children(func() {
-						label := "应用"
-						if s.query != "" {
-							label = "搜索结果"
-						}
-						if s.clipboardMode {
-							label = "文本历史"
-						}
-						ui.Textf(c, "%s  %d", label, count).FontSize(palette.CaptionSize).TextColor(palette.Secondary)
+						ui.Text(c, s.resultCountLabel(count)).FontSize(palette.CaptionSize).TextColor(palette.Secondary)
 					})
 					if count == 0 {
 						label := "没有匹配的应用"
@@ -584,7 +577,8 @@ func (s *launcher) view(c *ui.Context) {
 		header.Children(func() {
 			ui.Box(c).Size(leadingSize, leadingSize).Shrink(0).Center().Children(func() {
 				if layoutAtRows.Compact {
-					menu := ui.ButtonBase(c.Key(fmt.Sprintf("compact-menu-%d", s.presentation))).Size(palette.CompactButton, palette.CompactButton).Center().Radius(palette.CompactButton / 2).Label("菜单").Tooltip("菜单").Disabled(s.panelGeometryPending || s.searchWasComposing)
+					menu := ui.ButtonBase(c.Key(fmt.Sprintf("compact-menu-%d", s.presentation))).Size(palette.CompactButton, palette.CompactButton).Center().Radius(palette.CompactButton / 2).Label("菜单").Disabled(s.panelGeometryPending || s.searchWasComposing)
+					compactButtonTooltip(c, menu, "菜单", palette)
 					if menu.Hovered() {
 						menu.Background(palette.Hover)
 					}
@@ -608,7 +602,8 @@ func (s *launcher) view(c *ui.Context) {
 			if layoutAtRows.Compact {
 				// Reserve a small status slot so scan updates cannot move the editor.
 				message := s.statusMessage()
-				status := ui.ButtonBase(c.Key(fmt.Sprintf("compact-status-%d", s.presentation))).Size(palette.CompactStatus, palette.CompactStatus).Shrink(0).Center().Radius(palette.CompactStatus / 2).Label("状态详情").Tooltip("查看完整状态详情").Bind(&s.statusControl).Disabled(message == "" || s.panelGeometryPending || s.menu != menuClosed || field.Composing())
+				status := ui.ButtonBase(c.Key(fmt.Sprintf("compact-status-%d", s.presentation))).Size(palette.CompactStatus, palette.CompactStatus).Shrink(0).Center().Radius(palette.CompactStatus / 2).Label("状态详情").Bind(&s.statusControl).Disabled(message == "" || s.panelGeometryPending || s.menu != menuClosed || field.Composing())
+				compactButtonTooltip(c, status, "查看完整状态详情", palette)
 				if status.Hovered() && message != "" {
 					status.Background(palette.Hover)
 				}
@@ -622,7 +617,8 @@ func (s *launcher) view(c *ui.Context) {
 				if status.Clicked() || status.Shortcut(0, ui.KeyEnter) || status.Shortcut(0, ui.KeySpace) {
 					s.openStatusDetails()
 				}
-				expand := ui.ButtonBase(c.Key(fmt.Sprintf("compact-expand-%d", s.presentation))).Size(palette.CompactButton, palette.CompactButton).Shrink(0).Center().Radius(palette.CompactButton / 2).Label("展开结果").Tooltip("展开结果（↓）").Disabled(s.panelGeometryPending || s.menu != menuClosed || s.settingsOpen || field.Composing())
+				expand := ui.ButtonBase(c.Key(fmt.Sprintf("compact-expand-%d", s.presentation))).Size(palette.CompactButton, palette.CompactButton).Shrink(0).Center().Radius(palette.CompactButton / 2).Label("展开结果").Disabled(s.panelGeometryPending || s.menu != menuClosed || s.settingsOpen || field.Composing())
+				compactButtonTooltip(c, expand, "展开结果（↓）", palette)
 				if expand.Hovered() {
 					expand.Background(palette.Hover)
 				}

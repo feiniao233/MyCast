@@ -135,7 +135,22 @@ func enumerateShellApplicationsWithPackageAPI(ctx context.Context, folder *comOb
 }
 
 func readShellApplicationMetadataWithPackageAPI(item *comObject, verifiedFolder bool, api shellPackageAPI) (core.Application, error) {
-	app, err := readShellApplicationMetadata(item, verifiedFolder)
+	identity, err := readShellApplicationIdentity(item, verifiedFolder)
+	if err != nil {
+		return core.Application{}, err
+	}
+	// The supplement needs packaged AUMIDs only. Once a valid Shell identity
+	// is definitely a desktop ID, its optional display metadata is irrelevant:
+	// do not turn an excluded row's missing/broken name into a scan warning.
+	// Failed or invalid parsing identities remain unknown and are reported above.
+	leaf := strings.TrimPrefix(identity, core.AppsFolderParsingPrefix)
+	if !strings.Contains(leaf, "!") {
+		return core.Application{ShellID: identity}, nil
+	}
+	if _, valid := packagedAUMIDFamily(leaf); !valid {
+		return core.Application{}, errShellPackageProof
+	}
+	app, err := readShellApplicationDetails(item, identity)
 	if err != nil {
 		return app, err
 	}
@@ -143,16 +158,31 @@ func readShellApplicationMetadataWithPackageAPI(item *comObject, verifiedFolder 
 	return app, err
 }
 
-// Metadata-only callers (including explicitly requested diagnostics) can still
-// inspect ordinary desktop Shell items without making a package query.
-func readShellApplicationMetadata(item *comObject, verifiedFolder bool) (core.Application, error) {
-	name, nameErr := shellDisplayName(item, 0)
+func readShellApplicationIdentity(item *comObject, verifiedFolder bool) (string, error) {
 	parse, parseErr := shellDisplayName(item, 0x80028000)
 	identity, idErr := core.ValidateShellApplication(parse)
 	if verifiedFolder && parseErr == nil {
 		identity, idErr = core.AppsFolderChildIdentity(parse)
 	}
-	if nameErr != nil || parseErr != nil || idErr != nil || name == "" {
+	if parseErr != nil || idErr != nil {
+		return "", fmt.Errorf("Shell application metadata unavailable")
+	}
+	return identity, nil
+}
+
+// Metadata-only callers (including explicitly requested diagnostics) can still
+// inspect ordinary desktop Shell items without making a package query.
+func readShellApplicationMetadata(item *comObject, verifiedFolder bool) (core.Application, error) {
+	identity, err := readShellApplicationIdentity(item, verifiedFolder)
+	if err != nil {
+		return core.Application{}, err
+	}
+	return readShellApplicationDetails(item, identity)
+}
+
+func readShellApplicationDetails(item *comObject, identity string) (core.Application, error) {
+	name, nameErr := shellDisplayName(item, 0)
+	if nameErr != nil || name == "" {
 		return core.Application{}, fmt.Errorf("Shell application metadata unavailable")
 	}
 	app := core.Application{Name: name, ShellID: identity, Aliases: core.SystemApplicationAliases(identity)}
